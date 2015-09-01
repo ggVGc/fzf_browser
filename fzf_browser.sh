@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 
 fuzzydir(){
-  #declare -a arr
+#declare -a arr
   #local query sel
   #readarray -t arr < <(cat <(echo "..") <(find -L -maxdepth 1 -type d -not -path '*/\.*' | tail -n +2) | fzf --print-query "$@")
   local sel
@@ -21,21 +21,15 @@ fuzzydir(){
 
 
 fuzzyfile() {
-  local exclude fzf_opts
-  exclude="$1"
-  fzf_opts="$2"
-  if [[ "$fzf_opts" == "" ]]; then
-    echo $(find -L -maxdepth 1 -type f -not -path '*/\.*' | grep -v -i "$exclude"| fzf)
-  else
-    echo $(find -L -maxdepth 1 -type f -not -path '*/\.*' | grep -v -i "$exclude"| fzf "$fzf_opts")
-  fi
+  # Hack - Adding an extra empty line.
+  # If there are no entries, fzf listens for input forever, and kill -9 doesn't work
+  cat <(find -L -maxdepth 1 -type f -not -path '*/\.*' | grep -v -i "$1") <(echo "") | fzf ${2:+"$2"} 
 }
 
 
 fuzzyedit(){
-  local sel fzf_opts
-  fzf_opts="$@"
-  sel=$(fuzzyfile "\(.\(docx\|xz\|webm\|msi\|crdownload\|exe\|aria2\|iso\|torrent\|torrent\.added\|part\|jpg\|png\|jpeg\|zip\|flv\|m4a\|mpg\|mpeg\|avi\|pdf\|tiff\|mp3\|m4a\|mp4\|mkv\|apk\|torrent\|tgz\|bz2\|odt\|gz\|7z\|bz\|tar\)$\)" "$fzf_opts")
+  local fzf_opts="$@"
+  local sel=$(fuzzyfile "\(.\(docx\|xz\|webm\|msi\|crdownload\|exe\|aria2\|iso\|torrent\|torrent\.added\|part\|jpg\|png\|jpeg\|zip\|flv\|m4a\|mpg\|mpeg\|avi\|pdf\|tiff\|mp3\|m4a\|mp4\|mkv\|apk\|torrent\|tgz\|bz2\|odt\|gz\|7z\|bz\|tar\)$\)" "$fzf_opts")
   if [[ -n "$sel" ]]; then
     $EDITOR "$sel"
   fi
