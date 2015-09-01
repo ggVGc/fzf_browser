@@ -1,12 +1,12 @@
 
 Fuzzy directory and file browser for the shell, built around fzf.
 
-=== Usage:
+== Usage:
 * Source `fzf_browser.sh` and execute `fuzzybrowse`, or map it to an alias of your choosing.
 * Use <Tab> to switch between directory mode and file mode.
 
 
-=== Limitations:
+== Limitations:
 * Currently file mode only lists editable files, and opens them with $EDITOR, and the list for ignored files is very ad-hoc.
-* fuzzydir automatically `cd`s between each step, breaking `cd -` for going to previous dir.
+* fuzzydir automatically calls `cd` between each step, breaking `cd -` for going to previous dir.
 
