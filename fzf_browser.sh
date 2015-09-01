@@ -1,5 +1,22 @@
 #!/usr/bin/env sh
 
+
+# Use --expect with fzf, instead of hack with kill -9
+# Print selections instead of using $EDITOR and cd automatically
+# Finish type extension retrieval, with negation
+# Add filtering selection to ui 
+# Add option to start in edit mode instead
+
+
+
+
+#Potential user mappings:
+#Tab - Switch mode
+#Return -  If in Text, call $EDITOR, otherwise call xdg-open
+#Alt-E - Force $EDITOR
+#Alt-Return - Force xdg-open
+
+
 fuzzydir(){
 #declare -a arr
   #local query sel
@@ -18,8 +35,6 @@ fuzzydir(){
 }
 
 
-
-
 fuzzyfile() {
   # Hack - Adding an extra empty line.
   # If there are no entries, fzf listens for input forever, and kill -9 doesn't work
@@ -27,9 +42,44 @@ fuzzyfile() {
 }
 
 
+
+declare -A __type_ext_map=( \
+  ["audio"]="au mid midi mka mpc ra axa oga spx xspf flac ogg mp3 m4a aac wav" \
+  ["video"]="avi mov m2v ogm mp4v vob qt nuv asd rm rmvb flc fli gl m2ts divx axv anx ogv ogx mkv webm flv mp4 m4v mpg mpeg" \
+  ["image"]="gif bmp pbm pgm ppm tga xbm xpm tif tiff svg svgz mng pcx dl xcf xwd yuv cgm emf eps cr2 ico jpg jpeg png" \
+  ["binary"]="msi exe fla" \
+  ["archives"]="iso xz zip tar 7z gz bz bz2 apk tgz lzma arj taz lzh tlz txz z dz lz tbz tbz2 tz deb rpm jar ace rar zoo cpio rz gem" \
+  ["document"]="docx pdf odt" \
+  ["text"]="nfo markdown asciidoc cfg conf" \
+  ["markup"]="xml html tex haml css" \
+  ["code"]="ada cs d nim c cpp hs rb lua moon fs go py sh js sql tex" \
+  ["dbase"]="sqlite" \
+  ["junk"]="log bak aux lof lol lot toc bbl blg tmp temp swp incomplete o class cache pyc aria2 torrent torrent.added part crdownload" \
+  ["CodeMarkup"]="|code markup|" \
+  ["Text"]="|text CodeMarkup|" \
+)
+
+declare -A __type_name_map=( \
+  ["code"]="Makefile Rakefile" \
+)
+
+function __join { local IFS="$1"; shift; echo "$*"; }
+
+typext(){
+  local ret=()
+  for k in "$@"; do
+    ret+=($(__join \| "${__type_ext_map["$k"]}"))
+  done
+  local ret2=$(__join \| "${ret[@]}")
+  printf "%q$" "($ret2)"
+}
+
+#extype(){
+#}
+
 fuzzyedit(){
   local fzf_opts="$@"
-  local sel=$(fuzzyfile "\(.\(docx\|xz\|webm\|msi\|crdownload\|exe\|aria2\|iso\|torrent\|torrent\.added\|part\|jpg\|png\|jpeg\|zip\|flv\|m4a\|mpg\|mpeg\|avi\|pdf\|tiff\|mp3\|m4a\|mp4\|mkv\|apk\|torrent\|tgz\|bz2\|odt\|gz\|7z\|bz\|tar\)$\)" "$fzf_opts")
+  local sel=$(fuzzyfile "$(typext image video audio document archives dbase junk binary)" "$fzf_opts")
   if [[ -n "$sel" ]]; then
     $EDITOR "$sel"
   fi
