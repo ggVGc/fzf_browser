@@ -22,7 +22,7 @@ fuzzydir(){
   #local query sel
   #readarray -t arr < <(cat <(echo "..") <(find -L -maxdepth 1 -type d -not -path '*/\.*' | tail -n +2) | fzf --print-query "$@")
   local sel
-  sel=$(cat <(echo "..") <(find -L -maxdepth 1 -type d -not -path '*/\.*' | tail -n +2) | fzf "$@")
+  sel=$(cat <(echo "..") <(find -L  . -maxdepth 1 -type d -not -path '*/\.*' | tail -n +2) | fzf "$@")
   if [[ "$sel" == ".." ]]; then
     cd .. && fuzzydir "$@"
   else
@@ -38,7 +38,7 @@ fuzzydir(){
 fuzzyfile() {
   # Hack - Adding an extra empty line.
   # If there are no entries, fzf listens for input forever, and kill -9 doesn't work
-  cat <(find -L -maxdepth 1 -type f -not -path '*/\.*' | grep -v -i "$1") <(echo "") | fzf ${2:+"$2"} 
+  cat <(find -L . -maxdepth 1 -type f -not -path '*/\.*' | grep -v -i "$1") <(echo "") | fzf ${2:+"$2"} 
 }
 
 
