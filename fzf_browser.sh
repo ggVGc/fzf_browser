@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 
 
 # Use --expect with fzf, instead of hack with kill -9
@@ -16,30 +16,49 @@
 #Alt-E - Force $EDITOR
 #Alt-Return - Force xdg-open
 
+__fuzzydir_inner(){
+  cat <(find -L  . -maxdepth 1 -type d -not -path '*/\.*' | tail -n +2) <(echo "  ..") | cut -c3- | fzf --expect=, "$@"
+}
 
-fuzzydir(){
-#declare -a arr
-  #local query sel
-  #readarray -t arr < <(cat <(echo "..") <(find -L -maxdepth 1 -type d -not -path '*/\.*' | tail -n +2) | fzf --print-query "$@")
-  local sel
-  sel=$(cat <(echo "..") <(find -L  . -maxdepth 1 -type d -not -path '*/\.*' | tail -n +2) | fzf "$@")
-  if [[ "$sel" == ".." ]]; then
-    cd .. && fuzzydir "$@"
-  else
-    if [[ -z "$sel" ]]; then
-      return
+__fuzzydir(){
+  local res key sel stored_res
+  local init_q
+  init_q="$1"
+  local cwd=$(pwd)
+  while true ; do
+    lastres="$res"
+    res=$(__fuzzydir_inner -q "$init_q"  --print-query $(printf "%q " "${@:2}"))
+    init_q=""
+    key=$(echo "$res" | tail -2 | head -1)
+    sel=$(echo "$res" | tail -1)
+    if [[ -z "$key" ]]; then
+      if [[ "$sel" == ".." ]]; then
+        cd ..
+        stored_res="$res"
+      elif [[ -n "$sel" ]]; then
+        cd "$sel" 
+        stored_res="$res"
+      else
+        break
+      fi
     else
-      cd "$sel" && fuzzydir "$@"
+      stored_res="$res"
+      break
     fi
+  done
+
+  local ret
+  if [[ "$(echo "$res"|wc -l)" == "2" ]]; then
+    ret=$(cat <(echo "$stored_res") <(pwd))
+  else
+    ret=$(cat <(echo "$stored_res" | head -n -1) <(pwd))
   fi
+  cd "$cwd"
+  echo "$ret"
 }
 
 
-fuzzyfile() {
-  # Hack - Adding an extra empty line.
-  # If there are no entries, fzf listens for input forever, and kill -9 doesn't work
-  cat <(find -L . -maxdepth 1 -type f -not -path '*/\.*' | grep -v -i "$1") <(echo "") | fzf ${2:+"$2"} 
-}
+
 
 
 
@@ -66,43 +85,67 @@ fuzzyfile() {
 function __join { local IFS="$1"; shift; echo "$*"; }
 
 typext(){
-  local ret=()
+  #local ret=()
   #for k in "$@"; do
     #ret+=($(__join \| "${__type_ext_map["$k"]}"))
   #done
-  ret+=(=$(__join \| "au mid midi mka mpc ra axa oga spx xspf flac ogg mp3 m4a aac wav avi mov m2v ogm mp4v vob qt nuv asd rm rmvb flc fli gl m2ts divx axv anx ogv ogx mkv webm flv mp4 m4v mpg mpeg gif bmp pbm pgm ppm tga xbm xpm tif tiff svg svgz mng pcx dl xcf xwd yuv cgm emf eps cr2 ico jpg jpeg png msi exe fla iso xz zip tar 7z gz bz bz2 apk tgz lzma arj taz lzh tlz txz z dz lz tbz tbz2 tz deb rpm jar ace rar zoo cpio rz gem docx pdf odt sqlite log bak aux lof lol lot toc bbl blg tmp temp swp incomplete o class cache pyc aria2 torrent torrent.added part crdownload"))
-  local ret2=$(__join \| "${ret[@]}")
-  printf "%q$" "($ret2)"
+  #ret+=($(__join \| "au mid midi mka mpc ra axa oga spx xspf flac ogg mp3 m4a aac wav avi mov m2v ogm mp4v vob qt nuv asd rm rmvb flc fli gl m2ts divx axv anx ogv ogx mkv webm flv mp4 m4v mpg mpeg gif bmp pbm pgm ppm tga xbm xpm tif tiff svg svgz mng pcx dl xcf xwd yuv cgm emf eps cr2 ico jpg jpeg png msi exe fla iso xz zip tar 7z gz bz bz2 apk tgz lzma arj taz lzh tlz txz z dz lz tbz tbz2 tz deb rpm jar ace rar zoo cpio rz gem docx pdf odt sqlite log bak aux lof lol lot toc bbl blg tmp temp swp incomplete o class cache pyc aria2 torrent torrent.added part crdownload"))
+  #local ret2=$(__join \| "${ret[@]}")
+  #printf "%q$" "($ret2)"
+  printf "\(%q$\)"  "au|mid|midi|mka|mpc|ra|axa|oga|spx|xspf|flac|ogg|mp3|m4a|aac|wav|avi|mov|m2v|ogm|mp4v|vob|qt|nuv|asd|rm|rmvb|flc|fli|gl|m2ts|divx|axv|anx|ogv|ogx|mkv|webm|flv|mp4|m4v|mpg|mpeg|gif|bmp|pbm|pgm|ppm|tga|xbm|xpm|tif|tiff|svg|svgz|mng|pcx|dl|xcf|xwd|yuv|cgm|emf|eps|cr2|ico|jpg|jpeg|png|msi|exe|fla|iso|xz|zip|tar|7z|gz|bz|bz2|apk|tgz|lzma|arj|taz|lzh|tlz|txz|z|dz|lz|tbz|tbz2|tz|deb|rpm|jar|ace|rar|zoo|cpio|rz|gem|docx|pdf|odt|sqlite|log|bak|aux|lof|lol|lot|toc|bbl|blg|tmp|temp|swp|incomplete|o|class|cache|pyc|aria2|torrent|torrent.added|part|crdownload"
 }
 
 #extype(){
 #}
 
+fuzzyfile() {
+  find -L . -maxdepth 1 -type f -not -path '*/\.*' | grep -v -i "$1"| fzf "${@:2}"
+}
+
 fuzzyedit(){
-  local fzf_opts="$@"
-  local sel=$(fuzzyfile "$(typext image video audio document archives dbase junk binary)" "$fzf_opts")
-  if [[ -n "$sel" ]]; then
-    $EDITOR "$sel"
-  fi
+  fuzzyfile "$(typext image video audio document archives dbase junk binary)" "$@"
 }
 
 
 # Opens fuzzy dir browser. Tab to switch between file mode and directory mode. Esc to quit.
 fuzzybrowse(){
-  local mode
-  echo "dir" > /tmp/fuzzybrow_switch_to
-  while [[ -e /tmp/fuzzybrow_switch_to ]]; do
-    mode=$(cat /tmp/fuzzybrow_switch_to)
-    rm /tmp/fuzzybrow_switch_to
-    if [[ "$mode" == "file" ]]; then
-      bash -i -c 'fuzzyedit --bind=tab:execute@"echo "dir" > /tmp/fuzzybrow_switch_to && kill -9 $$"@'
-    else
-      bash -i -c 'fuzzydir --bind=tab:execute@"pwd > /tmp/fuzzybrow_new_dir && echo "file" > /tmp/fuzzybrow_switch_to && kill -9 $$"@ && pwd >/tmp/fuzzybrow_new_dir'
-    fi
-    if [[ -e /tmp/fuzzybrow_new_dir ]]; then
-      cd "$(cat /tmp/fuzzybrow_new_dir)"
-      rm /tmp/fuzzybrow_new_dir
-    fi
-    #bash -i -c 'fuzzydir --bind=tab:execute@"pwd > /tmp/fuzzybrow_new_dir && kill -9 $$"@ && pwd >/tmp/fuzzybrow_new_dir'
+  local res key sel dir_q file_q
+  file_q=""
+  local mode=0
+  local cwd=$(pwd)
+  local last_dir
+  while true ; do
+    case $mode in
+      0)
+        last_dir="$(pwd)"
+        res=$(__fuzzydir "$dir_q" --expect=tab --print-query)
+        dir_q=$(echo "$res" | head -1)
+        new_dir=$(echo "$res"|tail -1)
+        if [[ "$last_dir" != "$new_dir" ]]; then
+          file_q=""
+        fi
+        cd "$new_dir"
+      ;;
+      1)
+        res=$(fuzzyedit --expect=tab --print-query -q "$file_q")
+        file_q=$(echo "$res" | head -1)
+      ;;
+    esac
+    key=$(echo "$res" | head -2 | tail -1)
+    case "$key" in
+      tab)
+        mode=$((mode==0))
+      ;;
+      *)
+        break
+      ;;
+    esac
   done
+  cd "$cwd"
+  echo "$res" | tail -1
+}
+
+
+fuzzydir(){
+  __fuzzydir "$@" | tail -1
 }
