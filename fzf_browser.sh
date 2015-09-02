@@ -4,6 +4,8 @@
 # Finish type extension retrieval, with negation
 # Add filtering selection to ui 
 # Add option to start in edit mode instead
+# support --multi
+# toggle options, like multi, while browsing
 
 
 
@@ -14,8 +16,22 @@
 #Alt-E - Force $EDITOR
 #Alt-Return - Force xdg-open
 
+
+__fuzzybrow_file_ignore="au|mid|midi|mka|mpc|ra|axa|oga|spx|xspf|flac|ogg|mp3|m4a|aac|wav|avi|mov|m2v|ogm|mp4v|vob|qt|nuv|asd|rm|rmvb|flc|fli|gl|m2ts|divx|axv|anx|ogv|ogx|mkv|webm|flv|mp4|m4v|mpg|mpeg|gif|bmp|pbm|pgm|ppm|tga|xbm|xpm|tif|tiff|svg|svgz|mng|pcx|dl|xcf|xwd|yuv|cgm|emf|eps|cr2|ico|jpg|jpeg|png|msi|exe|fla|iso|xz|zip|tar|7z|gz|bz|bz2|apk|tgz|lzma|arj|taz|lzh|tlz|txz|z|dz|lz|tbz|tbz2|tz|deb|rpm|jar|ace|rar|zoo|cpio|rz|gem|docx|pdf|odt|sqlite|log|bak|aux|lof|lol|lot|toc|bbl|blg|tmp|temp|swp|incomplete|o|class|cache|pyc|aria2|torrent|torrent.added|part|crdownload"
+
+__fuzzybrow_populate_dir_list(){
+  local line
+  local ignore_pat
+  ignore_pat=$(typext)
+  
+  while read line ; do
+    echo "\e[36m$line\t\e[0m$(cd "$line" && find -L . -maxdepth 1 -type f | grep -v -i "$ignore_pat" |cut -c3- | tr "\\n" " " | sed 's/,/, /g')"
+  done
+}
+
+
 __fuzzydir_inner(){
-  cat <(find -L  . -maxdepth 1 -type d -not -path '*/\.*' | tail -n +2) <(echo "  ..") | cut -c3- | fzf --expect=, "$@"
+  cat <(find -L  . -maxdepth 1 -type d -not -path '*/\.*' | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list ) <(echo "..") |  fzf --ansi -d'\t' -n 1 --expect=, "$@" | cut -f1 -d$'\t'
 }
 
 __fuzzydir(){
@@ -46,11 +62,7 @@ __fuzzydir(){
   done
 
   local ret
-  if [[ "$(echo "$res"|wc -l)" == "2" ]]; then
-    ret=$(cat <(echo "$stored_res") <(pwd))
-  else
-    ret=$(cat <(echo "$stored_res" | head -n -1) <(pwd))
-  fi
+  ret=$(cat <(echo "$stored_res") <(pwd))
   cd "$cwd"
   echo "$ret"
 }
@@ -90,7 +102,7 @@ typext(){
   #ret+=($(__join \| "au mid midi mka mpc ra axa oga spx xspf flac ogg mp3 m4a aac wav avi mov m2v ogm mp4v vob qt nuv asd rm rmvb flc fli gl m2ts divx axv anx ogv ogx mkv webm flv mp4 m4v mpg mpeg gif bmp pbm pgm ppm tga xbm xpm tif tiff svg svgz mng pcx dl xcf xwd yuv cgm emf eps cr2 ico jpg jpeg png msi exe fla iso xz zip tar 7z gz bz bz2 apk tgz lzma arj taz lzh tlz txz z dz lz tbz tbz2 tz deb rpm jar ace rar zoo cpio rz gem docx pdf odt sqlite log bak aux lof lol lot toc bbl blg tmp temp swp incomplete o class cache pyc aria2 torrent torrent.added part crdownload"))
   #local ret2=$(__join \| "${ret[@]}")
   #printf "%q$" "($ret2)"
-  printf "\(%q$\)"  "au|mid|midi|mka|mpc|ra|axa|oga|spx|xspf|flac|ogg|mp3|m4a|aac|wav|avi|mov|m2v|ogm|mp4v|vob|qt|nuv|asd|rm|rmvb|flc|fli|gl|m2ts|divx|axv|anx|ogv|ogx|mkv|webm|flv|mp4|m4v|mpg|mpeg|gif|bmp|pbm|pgm|ppm|tga|xbm|xpm|tif|tiff|svg|svgz|mng|pcx|dl|xcf|xwd|yuv|cgm|emf|eps|cr2|ico|jpg|jpeg|png|msi|exe|fla|iso|xz|zip|tar|7z|gz|bz|bz2|apk|tgz|lzma|arj|taz|lzh|tlz|txz|z|dz|lz|tbz|tbz2|tz|deb|rpm|jar|ace|rar|zoo|cpio|rz|gem|docx|pdf|odt|sqlite|log|bak|aux|lof|lol|lot|toc|bbl|blg|tmp|temp|swp|incomplete|o|class|cache|pyc|aria2|torrent|torrent.added|part|crdownload"
+  printf "\(%q\)$"  "$__fuzzybrow_file_ignore"
 }
 
 #extype(){
@@ -136,6 +148,13 @@ fuzzybrowse(){
     case "$key" in
       tab)
         mode=$((mode==0))
+        if [[ "$mode" == 1 ]]; then
+          if [[ -n "$res" ]]; then
+            cd "$(echo "$res" | tail -2 | head -1)"
+          fi
+        else
+           cd -
+        fi
       ;;
       *)
         break
@@ -148,5 +167,5 @@ fuzzybrowse(){
 
 
 fuzzydir(){
-  __fuzzydir "$@" | tail -1
+  __fuzzydir "" "$@" | head -n 2
 }
