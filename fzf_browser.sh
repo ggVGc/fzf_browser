@@ -104,10 +104,13 @@ fuzzyedit(){
   fuzzyfile "$(typext image video audio document archives dbase junk binary)" "$@"
 }
 
+full_path(){
+  echo "$(cd "$(dirname "$1")"; pwd)/$(basename "$1")"
+}
 
 # Opens fuzzy dir browser. Tab to switch between file mode and directory mode. Esc to quit.
 fuzzybrowse(){
-  local res key sel dir_q file_q
+  local res key sel dir_q file_q new_dir
   file_q=""
   local mode=0
   local cwd=$(pwd)
@@ -139,8 +142,8 @@ fuzzybrowse(){
       ;;
     esac
   done
+  full_path "$(echo "$res" | tail -1)"
   cd "$cwd"
-  echo "$res" | tail -1
 }
 
 
