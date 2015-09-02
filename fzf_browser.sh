@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 
 
-# Use --expect with fzf, instead of hack with kill -9
-# Print selections instead of using $EDITOR and cd automatically
 # Finish type extension retrieval, with negation
 # Add filtering selection to ui 
 # Add option to start in edit mode instead
