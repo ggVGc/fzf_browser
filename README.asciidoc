@@ -1,6 +1,8 @@
 
 Fuzzy directory and file browser for the shell, built around fzf.
 
+image:fzfbrowcast1.gif[]
+
 == Usage:
 * Source `fzf_browser.sh` and execute `fuzzybrowse`, or map it to an alias of your choosing.
 * Use <Tab> to switch between directory mode and file mode.

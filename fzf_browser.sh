@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
 
+# Command for opening shell in current dir. Useful for jumping to new root etc. Optionally open with current selection appended.
+# Command for listing files in current dir. Right now, tab jumps into selection and lists files
 # Rewrite with ShellMonad
 # Toggle for selecting visible files from dir mode. (Only first 10 in dir is listed)
 # Add option to start in edit mode instead
