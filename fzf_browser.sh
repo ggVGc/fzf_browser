@@ -120,7 +120,7 @@ typext(){
 #}
 
 fuzzyfile() {
-  find -L . -maxdepth 1 -type f -not -path '*/\.*' ! -iregex "$1" |fzf "${@:2}"
+  find -L . -maxdepth 1 -type f -not -path '*/\.*' ! -iregex "$1" |fzf --prompt "$(pwd): " "${@:2}"
 }
 
 fuzzyedit(){
