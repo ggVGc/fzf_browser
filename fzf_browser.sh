@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
 
+# Ctrl-o for going back to previous dir with same query string
+# Ctrl-c for aborting, i.e don't print anything
 # Command for opening shell in current dir. Useful for jumping to new root etc. Optionally open with current selection appended.
 # Command for listing files in current dir. Right now, tab jumps into selection and lists files
 # Rewrite with ShellMonad
@@ -10,8 +12,6 @@
 # Mode for removing or jumping to location of all selected files
 # toggle options, like multi, while browsing
 # Recursive mode for dir listing, toggled
-# Ctrl-o for going back to previous dir with same query string
-# Ctrl-c for aborting, i.e don't print anything
 # Finish type extension retrieval, with negation
 # Add filtering selection to ui 
 
@@ -34,14 +34,14 @@ __fuzzybrow_populate_dir_list(){
   ignore_pat=$(typext)
   
   while read line ; do
-    echo "\e[36m$line\t\e[0m$(cd "$line" && find -L . -maxdepth 1 -type f |head -1 | grep -v -i "$ignore_pat" |cut -c3- | tr "\\n" " ")"
+    echo "\e[36m$line\t\e[0m$(cd "$line" && find -L . -maxdepth 1 -type f |head -9 | grep -v -i "$ignore_pat" |cut -c3- | tr "\\n" "|" | sed 's/|/\\\e[36m | \\\e[0m/g')"
     #echo "\e[36m$line\t\e[0m$(cd "$line" && find -L . -maxdepth 1 -type f |head -9 | cut -c3- | tr "\\n" " ")"
   done
 }
 
 
 __fuzzydir_inner(){
-  cat <(find -L  . -maxdepth 1 -type d -not -path '*/\.*' | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list ) <(echo "..") |  fzf --ansi -d'\t' -n 1 --expect=, "$@" | cut -f1 -d$'\t'
+  cat <(find -L  . -maxdepth 1 -type d -not -path '*/\.*' | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list ) <(echo "..") |  fzf --extended --ansi -d'\t' -n 1 --expect=, "$@" | cut -f1 -d$'\t'
 }
 
 __fuzzydir(){
@@ -120,7 +120,7 @@ typext(){
 #}
 
 fuzzyfile() {
-  find -L . -maxdepth 1 -type f -not -path '*/\.*' ! -iregex "$1" |fzf --prompt "$(pwd): " "${@:2}"
+  find -L . -maxdepth 1 -type f -not -path '*/\.*' ! -iregex "$1" | cut -c3- |fzf --extended --prompt "$(pwd): " "${@:2}"
 }
 
 fuzzyedit(){
