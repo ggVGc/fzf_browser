@@ -1,11 +1,17 @@
 #!/usr/bin/env bash
 
 
+# Rewrite with ShellMonad
+# Toggle for selecting visible files from dir mode. (Only first 10 in dir is listed)
+# Add option to start in edit mode instead
+# support --multi. Maintain selection of files during all session
+# Mode for removing or jumping to location of all selected files
+# toggle options, like multi, while browsing
+# Recursive mode for dir listing, toggled
+# Ctrl-o for going back to previous dir with same query string
+# Ctrl-c for aborting, i.e don't print anything
 # Finish type extension retrieval, with negation
 # Add filtering selection to ui 
-# Add option to start in edit mode instead
-# support --multi
-# toggle options, like multi, while browsing
 
 
 
@@ -17,7 +23,8 @@
 #Alt-Return - Force xdg-open
 
 
-__fuzzybrow_file_ignore="wma|au|mid|midi|mka|mpc|ra|axa|oga|spx|xspf|flac|ogg|mp3|m4a|aac|wav|avi|mov|m2v|ogm|mp4v|vob|qt|nuv|asd|rm|rmvb|flc|fli|gl|m2ts|divx|axv|anx|ogv|ogx|mkv|webm|flv|mp4|m4v|mpg|mpeg|gif|bmp|pbm|pgm|ppm|tga|xbm|xpm|tif|tiff|svg|svgz|mng|pcx|dl|xcf|xwd|yuv|cgm|emf|eps|cr2|ico|jpg|jpeg|png|msi|exe|fla|iso|xz|zip|tar|7z|gz|bz|bz2|apk|tgz|lzma|arj|taz|lzh|tlz|txz|z|dz|lz|tbz|tbz2|tz|deb|rpm|jar|ace|rar|zoo|cpio|rz|gem|docx|pdf|odt|sqlite|log|bak|aux|lof|lol|lot|toc|bbl|blg|tmp|temp|swp|incomplete|o|class|cache|pyc|aria2|torrent|torrent.added|part|crdownload|ttf"
+#__fuzzybrow_file_ignore="wma|au|mid|midi|mka|mpc|ra|axa|oga|spx|xspf|flac|ogg|mp3|m4a|aac|wav|avi|mov|m2v|ogm|mp4v|vob|qt|nuv|asd|rm|rmvb|flc|fli|gl|m2ts|divx|axv|anx|ogv|ogx|mkv|webm|flv|mp4|m4v|mpg|mpeg|gif|bmp|pbm|pgm|ppm|tga|xbm|xpm|tif|tiff|svg|svgz|mng|pcx|dl|xcf|xwd|yuv|cgm|emf|eps|cr2|ico|jpg|jpeg|png|msi|exe|fla|iso|xz|zip|tar|7z|gz|bz|bz2|apk|tgz|lzma|arj|taz|lzh|tlz|txz|z|dz|lz|tbz|tbz2|tz|deb|rpm|jar|ace|rar|zoo|cpio|rz|gem|docx|pdf|odt|sqlite|log|bak|aux|lof|lol|lot|toc|bbl|blg|tmp|temp|swp|incomplete|o|class|cache|pyc|aria2|torrent|torrent.added|part|crdownload|ttf"
+__fuzzybrow_file_ignore="log bak aux lof lol lot toc bbl blg tmp temp swp incomplete o class cache pyc aria2 torrent torrent.added part crdownload"
 
 __fuzzybrow_populate_dir_list(){
   local line
@@ -25,8 +32,8 @@ __fuzzybrow_populate_dir_list(){
   ignore_pat=$(typext)
   
   while read line ; do
-    #echo "\e[36m$line\t\e[0m$(cd "$line" && find -L . -maxdepth 1 -type f |head -1 | grep -v -i "$ignore_pat" |cut -c3- | tr "\\n" " ")"
-    echo "\e[36m$line\t\e[0m$(cd "$line" && find -L . -maxdepth 1 -type f |head -9 | cut -c3- | tr "\\n" " ")"
+    echo "\e[36m$line\t\e[0m$(cd "$line" && find -L . -maxdepth 1 -type f |head -1 | grep -v -i "$ignore_pat" |cut -c3- | tr "\\n" " ")"
+    #echo "\e[36m$line\t\e[0m$(cd "$line" && find -L . -maxdepth 1 -type f |head -9 | cut -c3- | tr "\\n" " ")"
   done
 }
 
@@ -42,7 +49,7 @@ __fuzzydir(){
   local cwd=$(pwd)
   while true ; do
     lastres="$res"
-    res=$(__fuzzydir_inner -q "$init_q"  --print-query $(printf "%q " "${@:2}"))
+    res=$(__fuzzydir_inner -q "$init_q"  --prompt="$(pwd): " --print-query $(printf "%q " "${@:2}"))
     init_q=""
     key=$(echo "$res" | tail -2 | head -1)
     sel=$(echo "$res" | tail -1)
@@ -124,11 +131,9 @@ full_path(){
 
 # Opens fuzzy dir browser. Tab to switch between file mode and directory mode. Esc to quit.
 fuzzybrowse(){
-  local res key sel dir_q file_q new_dir
-  file_q=""
+  local res key sel dir_q file_q new_dir last_dir
   local mode=0
   local cwd=$(pwd)
-  local last_dir
   while true ; do
     case $mode in
       0)
@@ -169,5 +174,5 @@ fuzzybrowse(){
 
 
 fuzzydir(){
-  __fuzzydir "" "$@" | head -n 2
+  __fuzzydir "" "$@" | tail -1
 }
