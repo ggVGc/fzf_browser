@@ -30,8 +30,7 @@ __fuzzybrow_file_ignore="log bak aux lof lol lot toc bbl blg tmp temp swp incomp
 
 __fuzzybrow_populate_dir_list(){
   local line
-  local ignore_pat
-  ignore_pat=$(typext)
+  local ignore_pat="$(typext)"
   
   while read line ; do
     echo "\e[36m$line\t\e[0m$(cd "$line" && find -L . -maxdepth 1 -type f |head -9 | grep -v -i "$ignore_pat" |cut -c3- | tr "\\n" "|" | sed 's/|/\\\e[36m | \\\e[0m/g')"
@@ -135,6 +134,10 @@ fuzzybrowse(){
   local res key sel dir_q file_q new_dir last_dir
   local mode=0
   local cwd=$(pwd)
+  local start_dir="$1"
+  if [[ -n "$start_dir" ]]; then
+    cd "$start_dir" 
+  fi
   while true ; do
     case $mode in
       0)
@@ -175,5 +178,5 @@ fuzzybrowse(){
 
 
 fuzzydir(){
-  __fuzzydir "" "$@" | tail -1
+  __fuzzydir "" "" | tail -1
 }
