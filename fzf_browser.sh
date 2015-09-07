@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 
 
-# Ctrl-o for going back to previous dir with same query string
-# Ctrl-c for aborting, i.e don't print anything
+#TODO:
+# toggle max-depth. Turn off file listing for dirs when maxdepth is disabled.
+# Combined mode, file+dir
+# Ctrl-o for going back to previous dir with same query string(implemented, but not with query string)
 # Command for opening shell in current dir. Useful for jumping to new root etc. Optionally open with current selection appended.
-# Command for listing files in current dir. Right now, tab jumps into selection and lists files
 # Rewrite with ShellMonad
-# Toggle for selecting visible files from dir mode. (Only first 10 in dir is listed)
-# Add option to start in edit mode instead
+# Toggle for selecting visible files from dir mode. (Only first 10 in dir are listed)
 # support --multi. Maintain selection of files during all session
 # Mode for removing or jumping to location of all selected files
 # toggle options, like multi, while browsing
@@ -16,6 +16,10 @@
 # Add filtering selection to ui 
 
 
+#Done
+# Add option to start in edit mode instead
+# Ctrl-c for aborting, i.e don't print anything
+# Command for listing files in current dir. Right now, tab jumps into selection and lists files
 
 
 #Potential user mappings:
@@ -39,7 +43,10 @@ __fuzzybrow_populate_dir_list(){
 
 
 __fuzzydir_inner(){
-  cat <(find -L  . -maxdepth 1 -type d -not -path '*/\.*' | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list ) <(echo "..") |  fzf --extended --ansi -d'\t' -n 1 --expect=, "$@" | cut -f1 -d$'\t'
+  find -L  . -maxdepth 1 -type d -not -path '*/\.*' | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list  | \
+  #fzf --extended --ansi -d'\t' -n 1 --expect=, "$@" \
+  fzf --extended --ansi --expect=, "$@" \
+  | cut -f1 -d$'\t'
 }
 
 __fuzzydir(){
@@ -49,34 +56,40 @@ __fuzzydir(){
   init_q="$1"
   local cwd=$(pwd)
   while true ; do
-    init_q=""
-    res=$(__fuzzydir_inner -q "$init_q"  --prompt="$(pwd): " --print-query $(printf "%q " --expect="-,ctrl-o,ctrl-p,${@:2}"))
+    res=$(__fuzzydir_inner -q "$init_q"  --prompt="[dir] $(pwd): " --print-query --expect=return,\,,.,ctrl-o,ctrl-p,"${@:2}")
     { read -r query; read -r key; read -r sel; } <<< "$res"
     if [[ -z "$key" ]] ; then
-      if [[ "$sel" == ".." ]]  ; then
-        pushd .. > /dev/null 2>&1
-        stored_res="$res"
-      elif [[ -n "$sel" ]]; then
-        pushd "$sel" > /dev/null 2>&1
-        stored_res="$res"
-      else
-        break
-      fi
+      dirs -c
+      return
     else
       stored_res="$res"
-      if [[ "$key" == "-" ]]; then
-        pushd .. > /dev/null 2>&1
-      elif [[ "$key" == "ctrl-o" ]]; then
-        last_dir="$(pwd)"
-        popd > /dev/null 2>&1
-      elif [[ "$key" == "ctrl-p" ]]; then
-        if [[ -n "$last_dir" ]]; then
-          pushd "$last_dir" > /dev/null 2>&1
-          last_dir=""
-        fi
-      else
-        break
-      fi
+      case "$key" in
+        ",")
+          init_q=""
+          pushd .. > /dev/null 2>&1
+        ;;
+        ".")
+          init_q=""
+          pushd "$sel" > /dev/null 2>&1
+        ;;
+        "ctrl-o")
+          last_dir="$(pwd)"
+          popd > /dev/null 2>&1
+        ;;
+        "ctrl-p")
+          if [[ -n "$last_dir" ]]; then
+            pushd "$last_dir" > /dev/null 2>&1
+            last_dir=""
+          fi
+        ;;
+        return)
+          cd "$sel"
+          break
+        ;;
+        *)
+          break
+        ;;
+      esac
     fi
   done
 
@@ -129,7 +142,9 @@ typext(){
 #}
 
 fuzzyfile() {
-  find -L . -maxdepth 1 -type f -not -path '*/\.*' ! -iregex "$1" | cut -c3- |fzf --extended --prompt "$(pwd): " "${@:2}"
+#  -not -path '*/\.*' \
+  find -L . -maxdepth 1 -type f ! -iregex "$1" \
+  | cut -c3- |fzf --extended --prompt "[file] $(pwd): " "${@:2}"
 }
 
 fuzzyedit(){
@@ -144,7 +159,7 @@ full_path(){
 fuzzybrowse(){
   local res key sel dir_q file_q new_dir last_dir
   local mode=0
-  local cwd=$(pwd)
+  local start_dir=$(pwd)
   local start_dir="$1"
   if [[ "$2" == "f" ]]; then
     mode=1
@@ -156,7 +171,11 @@ fuzzybrowse(){
     case $mode in
       0)
         last_dir="$(pwd)"
-        res=$(__fuzzydir "$dir_q" "tab,ctrl-c")
+        res=$(__fuzzydir "$dir_q" "tab,ctrl-c,\`")
+        if [[ -z "$res" ]]; then
+          cd "$start_dir"
+          return
+        fi
         dir_q=$(echo "$res" | head -1)
         new_dir=$(echo "$res"|tail -1)
         if [[ "$last_dir" != "$new_dir" ]]; then
@@ -165,25 +184,32 @@ fuzzybrowse(){
         cd "$new_dir"
       ;;
       1)
-        res=$(fuzzyedit --expect=tab --print-query -q "$file_q")
+        res=$(fuzzyedit --expect=tab,ctrl-c,\` --print-query -q "$file_q")
         file_q=$(echo "$res" | head -1)
       ;;
     esac
     key=$(echo "$res" | head -2 | tail -1)
     case "$key" in
       ctrl-c)
-        cd "$cwd"
+        cd "$start_dir"
         return
       ;;
       tab)
         mode=$((mode==0))
-        #if [[ "$mode" == 1 ]]; then
-          #if [[ -n "$res" ]]; then
-            #cd "$(echo "$res" | tail -2 | head -1)"
-          #fi
-        #else
-           #cd - > /dev/null
-        #fi
+      ;;
+      \`)
+        mode=$((mode==0))
+        dir_q=""
+        file_q=""
+        if [[ "$key" == "\`" ]]; then
+          if [[ "$mode" == 1 ]]; then
+            if [[ -n "$res" ]]; then
+              cd "$(echo "$res" | tail -2 | head -1)"
+            fi
+          else
+            cd - > /dev/null
+           fi
+         fi
       ;;
       *)
         break
@@ -191,7 +217,7 @@ fuzzybrowse(){
     esac
   done
   full_path "$(echo "$res" | tail -1)"
-  cd "$cwd"
+  cd "$start_dir"
 }
 
 
