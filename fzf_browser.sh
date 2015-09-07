@@ -33,7 +33,7 @@ __fuzzybrow_populate_dir_list(){
   local ignore_pat="$(typext)"
   
   while read line ; do
-    echo "\e[36m$line\t\e[0m$(cd "$line" && find -L . -maxdepth 1 -type f |head -9 | grep -v -i "$ignore_pat" |cut -c3- | tr "\\n" "|" | sed 's/|/\\\e[36m | \\\e[0m/g')"
+    echo -e "\e[36m$line\t\e[0m$(cd "$line" && find -L . -maxdepth 1 -type f |head -9 | grep -v -i "$ignore_pat" |cut -c3- | tr "\\n" "|" | sed 's/|/\\\e[36m | \\\e[0m/g')"
   done
 }
 
@@ -45,33 +45,44 @@ __fuzzydir_inner(){
 __fuzzydir(){
   local res key sel stored_res
   local init_q
+  local query
   init_q="$1"
   local cwd=$(pwd)
   while true ; do
-    lastres="$res"
-    res=$(__fuzzydir_inner -q "$init_q"  --prompt="$(pwd): " --print-query $(printf "%q " "${@:2}"))
     init_q=""
-    key=$(echo "$res" | tail -2 | head -1)
-    sel=$(echo "$res" | tail -1)
-    if [[ -z "$key" ]]; then
-      if [[ "$sel" == ".." ]]; then
-        cd ..
+    res=$(__fuzzydir_inner -q "$init_q"  --prompt="$(pwd): " --print-query $(printf "%q " --expect="-,ctrl-o,ctrl-p,${@:2}"))
+    { read -r query; read -r key; read -r sel; } <<< "$res"
+    if [[ -z "$key" ]] ; then
+      if [[ "$sel" == ".." ]]  ; then
+        pushd .. > /dev/null 2>&1
         stored_res="$res"
       elif [[ -n "$sel" ]]; then
-        cd "$sel" 
+        pushd "$sel" > /dev/null 2>&1
         stored_res="$res"
       else
         break
       fi
     else
       stored_res="$res"
-      break
+      if [[ "$key" == "-" ]]; then
+        pushd .. > /dev/null 2>&1
+      elif [[ "$key" == "ctrl-o" ]]; then
+        last_dir="$(pwd)"
+        popd > /dev/null 2>&1
+      elif [[ "$key" == "ctrl-p" ]]; then
+        if [[ -n "$last_dir" ]]; then
+          pushd "$last_dir" > /dev/null 2>&1
+          last_dir=""
+        fi
+      else
+        break
+      fi
     fi
   done
 
   local ret
   ret=$(cat <(echo "$stored_res") <(pwd))
-  cd "$cwd"
+  dirs -c
   echo "$ret"
 }
 
@@ -135,6 +146,9 @@ fuzzybrowse(){
   local mode=0
   local cwd=$(pwd)
   local start_dir="$1"
+  if [[ "$2" == "f" ]]; then
+    mode=1
+  fi
   if [[ -n "$start_dir" ]]; then
     cd "$start_dir" 
   fi
@@ -142,7 +156,7 @@ fuzzybrowse(){
     case $mode in
       0)
         last_dir="$(pwd)"
-        res=$(__fuzzydir "$dir_q" --expect=tab --print-query)
+        res=$(__fuzzydir "$dir_q" "tab,ctrl-c")
         dir_q=$(echo "$res" | head -1)
         new_dir=$(echo "$res"|tail -1)
         if [[ "$last_dir" != "$new_dir" ]]; then
@@ -157,15 +171,19 @@ fuzzybrowse(){
     esac
     key=$(echo "$res" | head -2 | tail -1)
     case "$key" in
+      ctrl-c)
+        cd "$cwd"
+        return
+      ;;
       tab)
         mode=$((mode==0))
-        if [[ "$mode" == 1 ]]; then
-          if [[ -n "$res" ]]; then
-            cd "$(echo "$res" | tail -2 | head -1)"
-          fi
-        else
-           cd - > /dev/null
-        fi
+        #if [[ "$mode" == 1 ]]; then
+          #if [[ -n "$res" ]]; then
+            #cd "$(echo "$res" | tail -2 | head -1)"
+          #fi
+        #else
+           #cd - > /dev/null
+        #fi
       ;;
       *)
         break
