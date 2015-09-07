@@ -35,7 +35,6 @@ __fuzzybrow_populate_dir_list(){
   
   while read line ; do
     echo "\e[36m$line\t\e[0m$(cd "$line" && find -L . -maxdepth 1 -type f |head -9 | grep -v -i "$ignore_pat" |cut -c3- | tr "\\n" "|" | sed 's/|/\\\e[36m | \\\e[0m/g')"
-    #echo "\e[36m$line\t\e[0m$(cd "$line" && find -L . -maxdepth 1 -type f |head -9 | cut -c3- | tr "\\n" " ")"
   done
 }
 
