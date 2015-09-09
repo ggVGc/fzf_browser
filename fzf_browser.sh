@@ -2,6 +2,8 @@
 
 
 #TODO:
+# Toggle for showing hidden files
+# Hash of query strings mapped to paths
 # toggle max-depth. Turn off file listing for dirs when maxdepth is disabled.
 # Combined mode, file+dir
 # Ctrl-o for going back to previous dir with same query string(implemented, but not with query string)
@@ -43,7 +45,8 @@ __fuzzybrow_populate_dir_list(){
 
 
 __fuzzydir_inner(){
-  find -L  . -maxdepth 1 -type d -not -path '*/\.*' | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list  | \
+  #-not -path '*/\.*' 
+  find -L  . -maxdepth 1 -type d | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list  | \
   #fzf --extended --ansi -d'\t' -n 1 --expect=, "$@" \
   fzf --extended --ansi --expect=, "$@" \
   | cut -f1 -d$'\t'
@@ -56,7 +59,7 @@ __fuzzydir(){
   init_q="$1"
   local cwd=$(pwd)
   while true ; do
-    res=$(__fuzzydir_inner -q "$init_q"  --prompt="[dir] $(pwd): " --print-query --expect=return,\,,.,ctrl-o,ctrl-p,"${@:2}")
+    res=$(__fuzzydir_inner -q "$init_q"  --prompt="[dir] $(pwd): " --print-query --expect=return,\;,:,\,,ctrl-o,ctrl-p,"${@:2}")
     { read -r query; read -r key; read -r sel; } <<< "$res"
     if [[ -z "$key" ]] ; then
       dirs -c
@@ -68,7 +71,7 @@ __fuzzydir(){
           init_q=""
           pushd .. > /dev/null 2>&1
         ;;
-        ".")
+        "return")
           init_q=""
           pushd "$sel" > /dev/null 2>&1
         ;;
@@ -82,8 +85,11 @@ __fuzzydir(){
             last_dir=""
           fi
         ;;
-        return)
+        ";")
           cd "$sel"
+          break
+        ;;
+        ":")
           break
         ;;
         *)
@@ -172,10 +178,6 @@ fuzzybrowse(){
       0)
         last_dir="$(pwd)"
         res=$(__fuzzydir "$dir_q" "tab,ctrl-c,\`")
-        if [[ -z "$res" ]]; then
-          cd "$start_dir"
-          return
-        fi
         dir_q=$(echo "$res" | head -1)
         new_dir=$(echo "$res"|tail -1)
         if [[ "$last_dir" != "$new_dir" ]]; then
@@ -188,6 +190,10 @@ fuzzybrowse(){
         file_q=$(echo "$res" | head -1)
       ;;
     esac
+    if [[ -z "$res" ]]; then
+      cd "$start_dir"
+      return
+    fi
     key=$(echo "$res" | head -2 | tail -1)
     case "$key" in
       ctrl-c)
