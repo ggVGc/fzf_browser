@@ -5,10 +5,15 @@ image:fzfbrowcast1.gif[]
 
 == Usage:
 Source `fzf_browser.sh` and execute `fuzzybrowse`, or map it to an alias of your choosing.
+The fuzzybrowse command prints whatever was selected to stdout, so the result can be used in any way, such as
+`cd $(fuzzybrowse)` for a directory jumper, or `vim $(fuzzybrowse)` for editing.
 
 == Key mappings:
 * `Tab` - Toggle between file and dir mode.
 * `Ctrl-o` - Go back in directory stack.
+* `Enter` - Enter directory under cursor, or select file and exit, depending on active mode.
+* `;` - Select dir under cursor, and exit.
+* `:` - Select current dir, and exit.
 * `,` - Go to parent directory
 * ``` - Go into selected dir and switch to file list. Press ``` again to go back.
 * `Ctrl-x` / `Ctrl-s` - Open bash, with $f set to current selection
