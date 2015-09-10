@@ -161,8 +161,33 @@ full_path(){
   echo "$(cd "$(dirname "$1")"; pwd)/$(basename "$1")"
 }
 
+
+__fuzzybrowse_file_source(){
+  find -L . -maxdepth 1 -type f ! -iregex "$1" | cut -c3-
+}
+
+__fuzzybrowse_file_handler(){
+  echo "sdsa"
+}
+
+__fuzzybrowse_dir_handler(){
+  echo "sdsa"
+}
+__fuzzybrowse_dir_source(){
+  echo "sdsa"
+}
+
+
+__fuzzybrowse_source_from_mode(){
+  case $1 in
+    0)"__fuzzybrowse_dir_source" ;;
+    1)"__fuzzybrowse_file_source" ;;
+  esac
+}
+
 # Opens fuzzy dir browser. Tab to switch between file mode and directory mode. Esc to quit.
 fuzzybrowse(){
+  local fzf_cmd='fzf --extended --print-query --expect=tab,ctrl-c,\`,ctrl-x,ctrl-s'
   local res key sel dir_q file_q new_dir last_dir
   local mode=0
   local start_dir=$(pwd)
@@ -186,7 +211,7 @@ fuzzybrowse(){
         cd "$new_dir"
       ;;
       1)
-        res=$(fuzzyedit --expect=tab,ctrl-c,\` --print-query -q "$file_q")
+        res=$(__fuzzybrowse_source_from_mode "$mode" | eval "$fzf_cmd" -q "\"$file_q\"")
         file_q=$(echo "$res" | head -1)
       ;;
     esac
@@ -199,6 +224,12 @@ fuzzybrowse(){
       ctrl-c)
         cd "$start_dir"
         return
+      ;;
+      ctrl-s|ctrl-x)
+        export f=$(full_path "$(echo "$res" | tail -1)")
+        clear
+        echo "\$f = $f"
+        bash
       ;;
       tab)
         mode=$((mode==0))
