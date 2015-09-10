@@ -15,7 +15,7 @@ The fuzzybrowse command prints whatever was selected to stdout, so the result ca
 * `;` - Select dir under cursor, and exit.
 * `:` - Select current dir, and exit.
 * `,` - Go to parent directory
-* ```` - Go into selected dir and switch to file list. Press ```` again to go back.
+* ``' - Go into selected dir and switch to file list. Press ```` again to go back.
 * `Ctrl-x` / `Ctrl-s` - Open bash, with $f set to current selection
 * `Ctrl-c` - Abort
 
