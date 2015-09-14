@@ -157,9 +157,9 @@ fuzzyedit(){
   fuzzyfile "$(typext image video audio document archives dbase junk binary)" "$@"
 }
 
-full_path(){
-  echo "$(cd "$(dirname "$1")"; pwd)/$(basename "$1")"
-}
+#full_path(){
+  #printf "%q" "$(cd "$(dirname "$1")"; pwd)/$(basename "$1")"
+#}
 
 
 __fuzzybrowse_file_source(){
@@ -190,13 +190,15 @@ fuzzybrowse(){
   local fzf_cmd='fzf --extended --print-query --expect=tab,ctrl-c,\`,ctrl-x,ctrl-s'
   local res key sel dir_q file_q new_dir last_dir
   local mode=0
-  local start_dir=$(pwd)
+  local initial_dir="$(pwd)"
   local start_dir="$1"
   if [[ "$2" == "f" ]]; then
     mode=1
   fi
   if [[ -n "$start_dir" ]]; then
     cd "$start_dir" 
+  else
+    start_dir="$initial_dir"
   fi
   while true ; do
     case $mode in
@@ -216,13 +218,13 @@ fuzzybrowse(){
       ;;
     esac
     if [[ -z "$res" ]]; then
-      cd "$start_dir"
+      cd "$initial_dir"
       return
     fi
     key=$(echo "$res" | head -2 | tail -1)
     case "$key" in
       ctrl-c)
-        cd "$start_dir"
+        cd "$initial_dir"
         return
       ;;
       ctrl-s|ctrl-x)
@@ -253,8 +255,9 @@ fuzzybrowse(){
       ;;
     esac
   done
-  full_path "$(echo "$res" | tail -1)"
-  cd "$start_dir"
+  local ret="$(echo "$res" | tail -1)"
+  printf "%q" "$(realpath --relative-base="$initial_dir" "$ret")"
+  cd "$initial_dir"
 }
 
 
