@@ -2,7 +2,8 @@
 
 
 #TODO:
-# Toggle for showing hidden files
+# Store last cwd and query string so fzf, with shortcut to jump to it, or maybe as an array of most recent cwd's at the time of selecting something
+# Tree view, X levels deep.
 # Hash of query strings mapped to paths
 # toggle max-depth. Turn off file listing for dirs when maxdepth is disabled.
 # Combined mode, file+dir
@@ -19,6 +20,7 @@
 
 
 #Done
+# Toggle for showing hidden files
 # Add option to start in edit mode instead
 # Ctrl-c for aborting, i.e don't print anything
 # Command for listing files in current dir. Right now, tab jumps into selection and lists files
@@ -32,6 +34,7 @@
 
 
 __fuzzybrowse_show_hidden=0
+__fuzzybrowse_recursive=0
 
 #__fuzzybrow_file_ignore="wma|au|mid|midi|mka|mpc|ra|axa|oga|spx|xspf|flac|ogg|mp3|m4a|aac|wav|avi|mov|m2v|ogm|mp4v|vob|qt|nuv|asd|rm|rmvb|flc|fli|gl|m2ts|divx|axv|anx|ogv|ogx|mkv|webm|flv|mp4|m4v|mpg|mpeg|gif|bmp|pbm|pgm|ppm|tga|xbm|xpm|tif|tiff|svg|svgz|mng|pcx|dl|xcf|xwd|yuv|cgm|emf|eps|cr2|ico|jpg|jpeg|png|msi|exe|fla|iso|xz|zip|tar|7z|gz|bz|bz2|apk|tgz|lzma|arj|taz|lzh|tlz|txz|z|dz|lz|tbz|tbz2|tz|deb|rpm|jar|ace|rar|zoo|cpio|rz|gem|docx|pdf|odt|sqlite|log|bak|aux|lof|lol|lot|toc|bbl|blg|tmp|temp|swp|incomplete|o|class|cache|pyc|aria2|torrent|torrent.added|part|crdownload|ttf"
 __fuzzybrow_file_ignore="log|bak|aux|lof|lol|lot|toc|bbl|blg|tmp|temp|swp|incomplete|o|class|cache|pyc|aria2|torrent|torrent.added|part|crdownload"
@@ -39,73 +42,77 @@ __fuzzybrow_file_ignore_pat="$(printf ".*\(%q\)"  "$__fuzzybrow_file_ignore")"
 
 __fuzzybrow_populate_dir_list(){
   local line
-  local ignore_pat="$(typext)"
+  local ignore_pat
+  ignore_pat="$(typext)"
   
   while read line ; do
-    echo -e "\e[36m$line\t\e[0m$(cd "$line" && find -L . -maxdepth 1 -type f |head -9 | grep -v -i "$ignore_pat" |cut -c3- | tr "\\n" "|" | sed 's/|/\\\e[36m | \\\e[0m/g')"
-  done
-}
-
-
-__fuzzydir_inner(){
-  #-not -path '*/\.*' 
-  find -L  . -maxdepth 1 -type d | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list  | \
-  #fzf --extended --ansi -d'\t' -n 1 --expect=, "$@" \
-  fzf --extended --ansi --expect=, "$@" \
-  | cut -f1 -d$'\t'
-}
-
-__fuzzydir(){
-  local res key sel stored_res
-  local init_q
-  local query
-  init_q="$1"
-  while true ; do
-    res=$(__fuzzydir_inner -q "$init_q"  --prompt="[dir] $(pwd): " --print-query --expect=return,\;,:,\,,ctrl-o,ctrl-p,"${@:2}")
-    { read -r query; read -r key; read -r sel; } <<< "$res"
-    if [[ -z "$key" ]] ; then
-      dirs -c
-      return
-    else
-      stored_res="$res"
-      case "$key" in
-        ",")
-          init_q=""
-          pushd .. > /dev/null 2>&1
-        ;;
-        "return")
-          init_q=""
-          pushd "$sel" > /dev/null 2>&1
-        ;;
-        "ctrl-o")
-          last_dir="$(pwd)"
-          popd > /dev/null 2>&1
-        ;;
-        "ctrl-p")
-          if [[ -n "$last_dir" ]]; then
-            pushd "$last_dir" > /dev/null 2>&1
-            last_dir=""
-          fi
-        ;;
-        ";")
-          cd "$sel"
-          break
-        ;;
-        ":")
-          break
-        ;;
-        *)
-          break
-        ;;
-      esac
+    if [[ -d "$line" ]]; then
+      echo -e "\e[36m$line\t\e[0m$(cd "$line" && find . -maxdepth 1 -type f |head -9 | grep -v -i "$ignore_pat" |cut -c3- | tr "\\n" "|" | sed 's/|/\\\e[36m | \\\e[0m/g')"
     fi
   done
-
-  local ret
-  ret=$(cat <(echo "$stored_res") <(pwd))
-  dirs -c
-  echo "$ret"
 }
+
+
+#__fuzzydir_inner(){
+  ##-not -path '*/\.*' 
+  #find -L  . -maxdepth 1 -type d | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list  | \
+  ##fzf --extended --ansi -d'\t' -n 1 --expect=, "$@" \
+  #fzf --extended --ansi --expect=, "$@" \
+  #| cut -f1 -d$'\t'
+#}
+
+#__fuzzydir(){
+  #local res key sel stored_res
+  #local init_q
+  ##local query
+  #init_q="$1"
+  #while true ; do
+    #res=$(__fuzzydir_inner -q "$init_q"  --prompt="[dir] $(pwd): " --print-query --expect=return,\;,:,\,,ctrl-o,ctrl-p,"${*:2}")
+    ##{ read -r query; read -r key; read -r sel; } <<< "$res"
+    #{ read -r ; read -r key; read -r sel; } <<< "$res"
+    #if [[ -z "$key" ]] ; then
+      #dirs -c
+      #return
+    #else
+      #stored_res="$res"
+      #case "$key" in
+        #",")
+          #init_q=""
+          #pushd .. > /dev/null 2>&1
+        #;;
+        #"return")
+          #init_q=""
+          #pushd "$sel" > /dev/null 2>&1
+        #;;
+        #"ctrl-o")
+          #last_dir="$(pwd)"
+          #popd > /dev/null 2>&1
+        #;;
+        #"ctrl-p")
+          #if [[ -n "$last_dir" ]]; then
+            #pushd "$last_dir" > /dev/null 2>&1
+            #last_dir=""
+          #fi
+        #;;
+        #";")
+          #cd "$sel"
+          #break
+        #;;
+        #":")
+          #break
+        #;;
+        #*)
+          #break
+        #;;
+      #esac
+    #fi
+  #done
+
+  #local ret
+  #ret=$(cat <(echo "$stored_res") <(pwd))
+  #dirs -c
+  #echo "$ret"
+#}
 
 
 
@@ -149,15 +156,15 @@ typext(){
 #extype(){
 #}
 
-fuzzyfile() {
-#  -not -path '*/\.*' \
-  find -L . -maxdepth 1 -type f ! -iregex "$1" \
-  | cut -c3- |fzf --extended --prompt "[file] $(pwd): " "${@:2}"
-}
+#fuzzyfile() {
+##  -not -path '*/\.*' \
+  #find -L . -maxdepth 1 -type f ! -iregex "$1" \
+  #| cut -c3- |fzf --extended --prompt "[file] $(pwd): " "${@:2}"
+#}
 
-fuzzyedit(){
-  fuzzyfile "$(typext image video audio document archives dbase junk binary)" "$@"
-}
+#fuzzyedit(){
+  #fuzzyfile "$(typext image video audio document archives dbase junk binary)" "$@"
+#}
 
 full_path(){
   printf "%q" "$(cd "$(dirname "$1")"; pwd)/$(basename "$1")"
@@ -166,14 +173,15 @@ full_path(){
 
 __fuzzybrowse_file_source(){
   if [[ "$__fuzzybrowse_show_hidden" == 1 ]]; then
-    find -L . -maxdepth 1 -type f ! -iregex "$__fuzzybrow_file_ignore_pat" | cut -c3-
+    find  . "$@" -xtype f ! -iregex "$__fuzzybrow_file_ignore_pat" | cut -c3-
   else
-    find -L . -maxdepth 1 -not -path '*/\.*' -type f ! -iregex "$__fuzzybrow_file_ignore_pat" | cut -c3-
+    find . "$@" -xtype f -not -path '*/\.*' ! -iregex "$__fuzzybrow_file_ignore_pat" | cut -c3-
   fi
 }
 
+
 __fuzzybrowse_combined_source(){
-  cat <(__fuzzybrowse_dir_source) <(__fuzzybrowse_file_source) 
+  cat <(__fuzzybrowse_dir_source|sort) <(__fuzzybrowse_file_source -maxdepth 1 |sort) 
 }
 
 __fuzzybrowse_file_handler(){
@@ -185,9 +193,9 @@ __fuzzybrowse_dir_handler(){
 }
 __fuzzybrowse_dir_source(){
   if [[ "$__fuzzybrowse_show_hidden" == 1 ]]; then
-    find -L  . -maxdepth 1 -type d | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list
+    find  . -maxdepth 1 -type d -o -type l | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list
   else
-    find -L  . -maxdepth 1 -not -path '*/\.*' -type d | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list
+    find   . -maxdepth 1 -type d -o -type l -not -path '*/\.*' | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list
   fi
 }
 
@@ -275,14 +283,18 @@ __fuzzybrowse_source_from_mode(){
 #}
 
 __fuzzybrowse_fzf_cmd(){
-  fzf --ansi --extended --print-query --expect=tab,ctrl-c,ctrl-x,ctrl-s,\,,return,ctrl-o,ctrl-u,\;,:,\`,ctrl-q,ctrl-h
+  local prePrompt=""
+  if [[ "$__fuzzybrowse_recursive" == 1 ]]; then
+    prePrompt="{REC}"
+  fi
+  fzf --multi --prompt="$prePrompt""$(pwd): " --ansi --extended --print-query --expect=ctrl-c,ctrl-x,ctrl-s,\#,return,ctrl-o,ctrl-u,\;,:,\`,ctrl-q,ctrl-h,ctrl-z,ctrl-f
 }
 
 
 
 # Opens fuzzy dir browser. Tab to switch between file mode and directory mode. Esc to quit.
 fuzzybrowse() {
-  local res key sel new_dir prev_dir
+  local res key sel prev_dir
   local initial_dir
   initial_dir="$(pwd)"
   local start_dir="$1"
@@ -292,16 +304,20 @@ fuzzybrowse() {
     start_dir="$initial_dir"
   fi
   while true ; do
-    res="$(__fuzzybrowse_combined_source | __fuzzybrowse_fzf_cmd)"
+    if [[ "$__fuzzybrowse_recursive" == 1 ]]; then
+      res="$(__fuzzybrowse_file_source ""| sort | __fuzzybrowse_fzf_cmd)"
+    else
+      res="$(__fuzzybrowse_combined_source | __fuzzybrowse_fzf_cmd)"
+    fi
     if [[ -z "$res" ]]; then
       dirs -c
       cd "$initial_dir"
       return
     fi
-    sel=$(echo "$res"|tail -1| cut -f1 -d$'\t')
+    sel=$(echo "$res"|tail -n +3 | cut -f1 -d$'\t')
     key=$(echo "$res" | head -2 | tail -1)
     case "$key" in
-      ,)
+      \#)
         pushd ".." > /dev/null 2>&1
       ;;
       "ctrl-o")
@@ -339,6 +355,12 @@ fuzzybrowse() {
       ctrl-h)
         pushd "$HOME" > /dev/null 2>&1
       ;;
+      ctrl-z)
+        local d; d="$(fasd -ld 2>&1 | sed -n 's/^[ 0-9.,]*//p' | fzf --tac +s)"
+        if [[ -n "$d" ]]; then
+          pushd "$d" > /dev/null 2>&1
+        fi
+      ;;
       ctrl-s|ctrl-x)
         export e
         e="$(full_path "$sel")"
@@ -346,15 +368,22 @@ fuzzybrowse() {
         echo "\$e = $e"
         $SHELL
       ;;
+    ctrl-f)
+        __fuzzybrowse_recursive=$((__fuzzybrowse_recursive==0))
+    ;;
     esac
   done
-  printf "%q" "$(realpath --relative-base="$initial_dir" "$sel")"
+  local x
+  echo "$sel" | while read x; do
+    printf "%q\n" "$(realpath --relative-base="$initial_dir" "$x")" 
+  done
+
   dirs -c
   cd "$initial_dir"
 }
 
 
 
-fuzzydir(){
-  __fuzzydir "" "" | tail -1
-}
+#fuzzydir(){
+  #__fuzzydir "" "" | tail -1
+#}
