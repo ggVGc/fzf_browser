@@ -26,13 +26,6 @@
 # Command for listing files in current dir. Right now, tab jumps into selection and lists files
 
 
-#Potential user mappings:
-#Tab - Switch mode
-#Return -  If in Text, call $EDITOR, otherwise call xdg-open
-#Alt-E - Force $EDITOR
-#Alt-Return - Force xdg-open
-
-
 __fuzzybrowse_show_hidden=0
 __fuzzybrowse_recursive=0
 
@@ -173,9 +166,9 @@ full_path(){
 
 __fuzzybrowse_file_source(){
   if [[ "$__fuzzybrowse_show_hidden" == 1 ]]; then
-    find  . "$@" -xtype f ! -iregex "$__fuzzybrow_file_ignore_pat" | cut -c3-
+    find  . "$@" -type f -o -xtype f ! -iregex "$__fuzzybrow_file_ignore_pat" | cut -c3-
   else
-    find . "$@" -xtype f -not -path '*/\.*' ! -iregex "$__fuzzybrow_file_ignore_pat" | cut -c3-
+    find . "$@" \( -type f -o -xtype f \) -not -path '*/\.*' ! -iregex "$__fuzzybrow_file_ignore_pat" | cut -c3-
   fi
 }
 
@@ -193,9 +186,9 @@ __fuzzybrowse_dir_handler(){
 }
 __fuzzybrowse_dir_source(){
   if [[ "$__fuzzybrowse_show_hidden" == 1 ]]; then
-    find  . -maxdepth 1 -type d -o -type l | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list
+    cat <(echo ".") <(find . -maxdepth 1 -type d -o -type l | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list)
   else
-    find   . -maxdepth 1 -type d -o -type l -not -path '*/\.*' | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list
+    cat <(echo ".") <(find . -maxdepth 1 \( -type d -o -type l \) -not -path '*/\.*' | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list)
   fi
 }
 
@@ -287,38 +280,71 @@ __fuzzybrowse_fzf_cmd(){
   if [[ "$__fuzzybrowse_recursive" == 1 ]]; then
     prePrompt="{REC}"
   fi
-  fzf --multi --prompt="$prePrompt""$(pwd): " --ansi --extended --print-query --expect=ctrl-c,ctrl-x,ctrl-s,\#,return,ctrl-o,ctrl-u,\;,:,\`,ctrl-q,ctrl-h,ctrl-z,ctrl-f
+  fzf --reverse --multi --prompt="$prePrompt""$(pwd): " --ansi --extended --print-query "$@"  --expect=ctrl-c,ctrl-x,ctrl-s,\#,return,ctrl-o,ctrl-u,\`,ctrl-q,ctrl-h,ctrl-z,ctrl-f,ctrl-e,ctrl-l,/,=
 }
 
 
 
 # Opens fuzzy dir browser. Tab to switch between file mode and directory mode. Esc to quit.
 fuzzybrowse() {
-  local res key sel prev_dir
+  local res key sel prev_dir query stored_query tmp_prompt
   local initial_dir
   initial_dir="$(pwd)"
   local start_dir="$1"
+  local start_query="$2"
+  local out_file="$3"
+  local custom_prompt="$4"
+  local tmp_dir
+
+  stored_query="$start_query"
+
+  if [[ -n "$out_file" ]]; then
+    echo -n "" > "$out_file"
+  fi
+
   if [[ -n "$start_dir" ]]; then
     cd "$start_dir" 
   else
     start_dir="$initial_dir"
   fi
+  local early_exit
+  if [[ -n "$start_query" ]]; then
+    early_exit="-1"
+  else
+    early_exit="--ansi" # just dummy
+  fi
   while true ; do
-    if [[ "$__fuzzybrowse_recursive" == 1 ]]; then
-      res="$(__fuzzybrowse_file_source ""| sort | __fuzzybrowse_fzf_cmd)"
+    if [[ -n "$custom_prompt" ]]; then
+      tmp_prompt="--prompt=$custom_prompt""$(pwd)/"
     else
-      res="$(__fuzzybrowse_combined_source | __fuzzybrowse_fzf_cmd)"
+      tmp_prompt="--ansi"
     fi
+    if [[ "$__fuzzybrowse_recursive" == 1 ]]; then
+      res="$(__fuzzybrowse_file_source "" 2>/dev/null | sort | __fuzzybrowse_fzf_cmd "$tmp_prompt" "$early_exit" "-q" "$stored_query" )"
+    else
+      res="$(__fuzzybrowse_combined_source 2>/dev/null | __fuzzybrowse_fzf_cmd "$tmp_prompt" "$early_exit" "-q" "$stored_query")" 
+    fi
+    stored_query=""
     if [[ -z "$res" ]]; then
       dirs -c
       cd "$initial_dir"
       return
     fi
+    query=$(echo "$res" | head -1)
     sel=$(echo "$res"|tail -n +3 | cut -f1 -d$'\t')
     key=$(echo "$res" | head -2 | tail -1)
+    if [[ -n "$start_query" && -z "$key" ]]; then
+      break
+    fi
+    start_query=""
     case "$key" in
-      \#)
+      \#|\`)
         pushd ".." > /dev/null 2>&1
+      ;;
+      /|=)
+        if [[ -d "$sel" ]]; then
+          pushd "$sel" > /dev/null 2>&1
+        fi
       ;;
       "ctrl-o")
         prev_dir="$(pwd)"
@@ -330,19 +356,21 @@ fuzzybrowse() {
           prev_dir=""
         fi
       ;;
-      ";")
-        break
-      ;;
-      ":")
-        sel="$(pwd)"
-        break
-      ;;
+      #";")
+        #break
+      #;;
+      #":")
+        #break
+      #;;
       return)
-        if [[ -d "$sel" ]]; then
-          pushd "$sel" > /dev/null 2>&1
-        else
+        if [[ "$sel" == "." ]]; then
           break
         fi
+        #if [[ -d "$sel" ]]; then
+          #pushd "$sel" > /dev/null 2>&1
+        #else
+          break
+        #fi
       ;;
       ctrl-c)
         dirs -c
@@ -350,15 +378,16 @@ fuzzybrowse() {
         return
       ;;
       ctrl-q)
+        stored_query="$query"
         __fuzzybrowse_show_hidden=$((__fuzzybrowse_show_hidden==0))
       ;;
       ctrl-h)
         pushd "$HOME" > /dev/null 2>&1
       ;;
       ctrl-z)
-        local d; d="$(fasd -ld 2>&1 | sed -n 's/^[ 0-9.,]*//p' | fzf --tac +s)"
-        if [[ -n "$d" ]]; then
-          pushd "$d" > /dev/null 2>&1
+        tmp_dir="$(fasd -ld 2>&1 | sed -n 's/^[ 0-9.,]*//p' | fzf --tac +s)"
+        if [[ -n "$tmp_dir" ]]; then
+          pushd "$tmp_dir" > /dev/null 2>&1
         fi
       ;;
       ctrl-s|ctrl-x)
@@ -368,17 +397,31 @@ fuzzybrowse() {
         echo "\$e = $e"
         $SHELL
       ;;
+    ctrl-l)
+      stored_query="$query"
+      urxvt -e less "$sel"
+      ;;
+    ctrl-e)
+      stored_query="$query"
+      "$EDITOR" "$sel"
+      ;;
     ctrl-f)
-        __fuzzybrowse_recursive=$((__fuzzybrowse_recursive==0))
+      stored_query="$query"
+      __fuzzybrowse_recursive=$((__fuzzybrowse_recursive==0))
     ;;
     esac
   done
-  local x
-  echo "$sel" | while read x; do
-    printf "%q\n" "$(realpath --relative-base="$initial_dir" "$x")" 
-  done
-
   dirs -c
+  local x rel_path
+  echo "$sel" | while read x; do
+    rel_path="$(printf "%q\n" "$(realpath --relative-base="$initial_dir" "$x")")"
+    fasd -A "$rel_path" > /dev/null 2>&1
+    if [[ -n "$out_file" ]]; then
+      echo "$rel_path" >> "$out_file"
+    else
+      echo "$rel_path"
+    fi
+  done
   cd "$initial_dir"
 }
 
