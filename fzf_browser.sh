@@ -62,7 +62,7 @@ fuzzybrowse() {
       return
     fi
     query=$(echo "$res" | head -1)
-    sel=$(echo "$res"|tail -n +3 | cut -f1 -d$'\t')
+    sel=$(echo "$res"|tail -n +3 | cut -f1 -d$'/')
     key=$(echo "$res" | head -2 | tail -1)
     if [[ -n "$start_query" && -z "$key" ]]; then
       break
@@ -167,7 +167,7 @@ __fuzzybrow_populate_dir_list(){
   
   while read line ; do
     if [[ -d "$line" ]]; then
-      echo -e "\e[36m$line\t\e[0m$(cd "$line" && find . -maxdepth 1 -type f |head -9 | grep -v -i "$__fuzzybrow_file_ignore_pat" |cut -c3- | tr "\\n" "|" | sed 's/|/\\\e[36m | \\\e[0m/g')"
+      echo -e "\e[36m$line\e[0m/ $(cd "$line" && find . -maxdepth 1 -type f |head -9 | grep -v -i "$__fuzzybrow_file_ignore_pat" |cut -c3- | tr "\\n" "|" | sed 's/|/\\\e[36m | \\\e[0m/g')"
     fi
   done
 }
