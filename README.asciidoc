@@ -9,9 +9,8 @@ The fuzzybrowse command prints whatever was selected to stdout, so the result ca
 `cd $(fuzzybrowse)` for a directory jumper, or `vim $(fuzzybrowse)` for editing.
 
 == ZSH Integration example
-Enable widgets by sourcing `zsh_widgets.zsh` from this repo.
-
-Example, insert output from `fuzzybrowse` in current command line with ctrl-b:
+Enable widgets by sourcing `zsh_widgets.zsh` from this repo. +
+Example, insert output from `fuzzybrowse` in current command line with ctrl-b: +
 `bindkey "^b" _fuzzybrowse_zsh_insert_output`
 
 == Configuration
