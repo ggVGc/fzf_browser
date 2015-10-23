@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# CONFIGURATION
+##### CONFIGURATION #####
 
 __fuzzybrowse_openTerminal(){
   urxvt "$@"
@@ -13,7 +13,8 @@ __fuzzybrowse_previewFile(){
 # List of extensions to ignore, separated by |
 __fuzzybrow_file_ignore="log|bak|aux|lof|lol|lot|toc|bbl|blg|tmp|temp|swp|incomplete|o|class|cache|pyc|aria2|torrent|torrent.added|part|crdownload"
 
-# END CONFIGURATION
+##### END CONFIGURATION ##### 
+
 
 # Opens fuzzy dir browser. Tab to switch between file mode and directory mode. Esc to quit.
 fuzzybrowse() {
@@ -154,9 +155,6 @@ fuzzybrowse() {
   done
   cd "$initial_dir"
 }
-
-
-
 
 
 __fuzzybrowse_show_hidden=0
