@@ -49,8 +49,7 @@ If a directory is selected, `cd` to it. If one of more files are selected, opens
 
 | Command                                | Description                                                      |
 | -------------------------------------- | ---------------------------------------------------------------- |
-| `:FuzzyBrowse` `<start_dir>`           | Opens fuzzybrowse in `<start_dir>`,  
-                                           or current working dir, if no argument is given. |
+| `:FuzzyBrowse` `<start_dir>`           | Opens fuzzybrowse in `<start_dir>`, <br> or current working dir, if no argument is given. |
 | `:FuzzyBrowseHere`                     | Same as `FuzzyBrowse`, but starts in the directory of the current buffer(regardless of current working dir) |
 
 
