@@ -2,12 +2,12 @@
 
 ##### CONFIGURATION #####
 
-__fuzzybrowse_openTerminal(){
-  urxvt "$@"
+__fuzzybrowse_runInTerminal(){
+  urxvt -e "$@"
 }
 
 __fuzzybrowse_previewFile(){
-  __fuzzybrowse_openTerminal -e less "$@"
+  __fuzzybrowse_runInTerminal less "$@"
 }
 
 # List of extensions to ignore, separated by |
