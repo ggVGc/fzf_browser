@@ -10,6 +10,10 @@ __fuzzybrowse_previewFile(){
   __fuzzybrowse_runInTerminal less "$@"
 }
 
+__fuzzybrowse_runFile(){
+  xdg-open "$@"
+}
+
 # List of extensions to ignore, separated by |
 __fuzzybrow_file_ignore="log|bak|aux|lof|lol|lot|toc|bbl|blg|tmp|temp|swp|incomplete|o|class|cache|pyc|aria2|torrent|torrent.added|part|crdownload"
 
@@ -121,13 +125,17 @@ fuzzybrowse() {
           pushd "$tmp_dir" > /dev/null 2>&1
         fi
       ;;
-      ctrl-s|ctrl-x)
+      ctrl-x)
         export e
         e="$(full_path "$sel")"
         clear
         echo "\$e = $e"
         $SHELL
       ;;
+    ctrl-v)
+      stored_query="$query"
+      __fuzzybrowse_runFile "$sel"
+    ;;
     ctrl-l)
       stored_query="$query"
       __fuzzybrowse_previewFile "$sel"
@@ -198,7 +206,7 @@ __fuzzybrowse_fzf_cmd(){
   if [[ "$__fuzzybrowse_recursive" == 1 ]]; then
     prePrompt="{REC}"
   fi
-  fzf --reverse --multi --prompt="$prePrompt""$(pwd): " --ansi --extended --print-query "$@"  --expect=ctrl-c,ctrl-x,ctrl-s,\#,return,ctrl-o,ctrl-u,\`,ctrl-q,ctrl-h,ctrl-z,ctrl-f,ctrl-e,ctrl-l,/ 
+  fzf --reverse --multi --prompt="$prePrompt""$(pwd): " --ansi --extended --print-query "$@"  --expect=ctrl-c,ctrl-x,ctrl-s,\#,return,ctrl-o,ctrl-u,\`,ctrl-q,ctrl-h,ctrl-z,ctrl-f,ctrl-e,ctrl-l,/,ctrl-v
 
   #`# Hack to fix syntax highlight in vim..
 }
