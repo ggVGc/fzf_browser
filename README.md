@@ -58,17 +58,22 @@ If a directory is selected, `cd` to it. If one of more files are selected, opens
 See top of [fzf_browser.sh](https://github.com/ggVGc/fzf_browser/blob/master/fzf_browser.sh) for options/functions.
 
 #### Key mappings:
-* `Enter` - If selection is directory, change to it. If it is a file, select it and exit. If multiple entries are selected, just exits(with the selections).
-* `Tab` - Select multiple files/directories.
-* `Ctrl-l` - Preview selection. By default launches a `less` in a new terminal.
-* `Ctrl-q` - Toggle showing hidden files.
-* `Ctrl-f` - Change to file-recursive mode and back. Lists all files recursively from current dir.
-* `Ctrl-z` - (Currently only works if application `fasd` is available) Select recent directory and switch to it. 
-* `#` / '`' - Go to parent directory
-* `Ctrl-h` - Go to `$HOME`
-* `Ctrl-x` / `Ctrl-s` - Open `$SHELL`, with `$e` containing current selection.
-* `Ctrl-f` - Opens `$EDITOR` with selection.
-* `Ctrl-c` - Abort
-* `Ctrl-o` - Go backwards in directory stack.
-* `Ctrl-u` - Go forward in directory stack.(Currently only supports one jump)
+
+| Key                                | Description                                                      |
+| -------------------------------------- | ---------------------------------------------------------------- |
+| `:FuzzyBrowse``<start_dir>`           | Opens fuzzybrowse in `<start_dir>`, or current working dir if no argument is given. |
+| `:FuzzyBrowseHere`                     | Same as `FuzzyBrowse`, but starts in the directory of the current buffer(regardless of current working dir) |
+| `Enter` | If selection is directory, change to it. If it is a file, select it and exit. If multiple entries are selected, just exits(with the selections).|
+| `Tab` | Select multiple files/directories.|
+| `Ctrl-l` | Preview selection. By default launches a `less` in a new terminal.|
+| `Ctrl-q` | Toggle showing hidden files.|
+| `Ctrl-f` | Change to file-recursive mode and back. Lists all files recursively from current dir.|
+| `Ctrl-z` | (Currently only works if application `fasd` is available) Select recent directory and switch to it. |
+| `#` / `` ` | Go to parent directory|
+| `Ctrl-h` | Go to `$HOME`|
+| `Ctrl-x` / `Ctrl-s` | Open `$SHELL`, with `$e` containing current selection.|
+| `Ctrl-f` | Opens `$EDITOR` with selection.|
+| `Ctrl-c` | Abort|
+| `Ctrl-o` | Go backwards in directory stack.|
+| `Ctrl-u` | Go forward in directory stack.(Currently only supports one jump)|
 
