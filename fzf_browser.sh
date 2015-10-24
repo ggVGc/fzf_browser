@@ -211,9 +211,9 @@ __fuzzybrowse_combined_source(){
 
 __fuzzybrowse_dir_source(){
   if [[ "$__fuzzybrowse_show_hidden" == 1 ]]; then
-    cat <(echo ".") <(find . -maxdepth 1 -type d -o -type l | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list)
+    find . -maxdepth 1 -type d -o -type l | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list
   else
-    cat <(echo ".") <(find . -maxdepth 1 \( -type d -o -type l \) -not -path '*/\.*' | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list)
+    find . -maxdepth 1 \( -type d -o -type l \) -not -path '*/\.*' | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list
   fi
 }
 
