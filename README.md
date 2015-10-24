@@ -37,6 +37,14 @@ set rtp+=~/.fzf_browser
 
 Usage
 -----
+#### Special queries
+If any of these are entered as the input string, they will trigger an action instead of selecting the current entry.
+
+| Input string                | Description                                                      |
+| -------------------------- | ---------------------------------------------------------------- |
+| `.`                   | Select current dir and exit. |
+| `..`| Go to parent dir. |
+
 
 #### Shell usage
 | Command                | Description                                                      |
@@ -71,6 +79,7 @@ Key mappings:
 | `Ctrl-l`                               | Preview selection. By default launches a `less` in a new terminal.|
 | `Ctrl-q`                               | Toggle showing hidden files.|
 | `Ctrl-f`                               | Change to file-recursive mode and back. Lists all files recursively from current dir.|
+| `Ctrl-g`                               | In file-recursive mode, go to directory of selected file. |
 | `Ctrl-v`                               | View current selection using xdg-open |
 | `Ctrl-z`                               | (Currently only works if application `fasd` is available) Select recent directory and switch to it. |
 | `Ctrl-h`                               | Go to `$HOME`|

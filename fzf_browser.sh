@@ -66,12 +66,22 @@ fuzzybrowse() {
       return
     fi
     query=$(echo "$res" | head -1)
-    sel=$(echo "$res"|tail -n +3 | cut -f1 -d$'/')
+    sel=$(echo "$res"|tail -n +3)
     key=$(echo "$res" | head -2 | tail -1)
     if [[ -n "$start_query" && -z "$key" ]]; then
       break
     fi
     start_query=""
+
+    case "$query" in
+      ".")
+        sel="$(pwd)"
+        break
+      ;;
+      "..")
+        pushd ".." > /dev/null 2>&1
+      ;;
+    esac
     case "$key" in
       left|\#|\`)
         pushd ".." > /dev/null 2>&1
@@ -81,25 +91,24 @@ fuzzybrowse() {
           pushd "$sel" > /dev/null 2>&1
         fi
       ;;
-      "ctrl-o")
+      ctrl-o)
         prev_dir="$(pwd)"
         popd > /dev/null 2>&1
       ;;
-      "ctrl-u")
+      ctrl-u)
         if [[ -n "$prev_dir" ]]; then
           pushd "$prev_dir" > /dev/null 2>&1
           prev_dir=""
         fi
       ;;
       return)
-        if [[ "$sel" == "." ]]; then
-          sel="$(pwd)"
+        if [[ -f "$sel" ]]; then
           break
-        fi
-        if [[ -d "$sel" ]]; then
-          pushd "$sel" > /dev/null 2>&1
         else
-          break
+          sel=$(echo "$sel"|cut -f1 -d'/')
+          if [[ -d "$sel" ]]; then
+            pushd "$sel" > /dev/null 2>&1
+          fi
         fi
       ;;
       right)
@@ -148,6 +157,12 @@ fuzzybrowse() {
     ctrl-f)
       stored_query="$query"
       __fuzzybrowse_recursive=$((__fuzzybrowse_recursive==0))
+    ;;
+    ctrl-g)
+      sel="$(echo "$sel"| rev | cut -f2- -d'/' | rev)"
+      if [[ -d "$sel" ]]; then
+        pushd "$sel" > /dev/null 2>&1
+      fi
     ;;
     esac
   done
@@ -207,7 +222,7 @@ __fuzzybrowse_fzf_cmd(){
   if [[ "$__fuzzybrowse_recursive" == 1 ]]; then
     prePrompt="{REC}"
   fi
-  fzf --reverse --multi --prompt="$prePrompt""$(pwd): " --ansi --extended --print-query "$@"  --expect=ctrl-c,ctrl-x,ctrl-s,\#,return,ctrl-o,ctrl-u,\`,ctrl-q,ctrl-h,ctrl-z,ctrl-f,ctrl-e,ctrl-l,/,ctrl-v,left,right
+  fzf --reverse --multi --prompt="$prePrompt""$(pwd): " --ansi --extended --print-query "$@"  --expect=ctrl-c,ctrl-x,ctrl-s,\#,return,ctrl-o,ctrl-u,\`,ctrl-q,ctrl-h,ctrl-z,ctrl-f,ctrl-e,ctrl-l,/,ctrl-v,left,right,ctrl-g
 
   #`# Hack to fix syntax highlight in vim..
 }
