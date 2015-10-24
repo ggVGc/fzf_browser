@@ -54,10 +54,12 @@ If a directory is selected, `cd` to it. If one of more files are selected, opens
 
 
 
-#### Configuration
+Configuration
+-------------
 See top of [fzf_browser.sh](https://github.com/ggVGc/fzf_browser/blob/master/fzf_browser.sh) for options/functions.
 
-#### Key mappings:
+Key mappings:
+-------------
 
 
 |  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Key&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Description                                                      |
