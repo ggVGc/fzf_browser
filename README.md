@@ -45,12 +45,12 @@ Usage
 | (Zsh only) `_fuzzybrowse_zsh_insert_output`| Should be mapped to something with bindkey(see installation example). Inserts output from `fuzzybrowse` into current command line. |
 
 #### Vim usage
+If a directory is selected, `cd` to it. If one of more files are selected, opens them for editing.
 | Command                | Description                                                      |
 | -------------------------- | ---------------------------------------------------------------- |
-| `:FuzzyBrowse <start_dir>`             | Opens fuzzybrowse in <start_dir>. If no argument is specifice, uses current working dir. |
-| `:FuzzyBrowseHere`         | Same as `FuzzyBrowse`, but starts in the directory of the current buffer(regardless of current working dir) |
+| `:FuzzyBrowse <start_dir>`             | Opens fuzzybrowse in `<start_dir>`, or current working dir, if no argument is given. |
+| `:FuzzyBrowseHere`                     | Same as `FuzzyBrowse`, but starts in the directory of the current buffer(regardless of current working dir) |
 
-If a directory is selected, `cd` to it. If one of more files are selected, opens them for editing.
 
 
 #### Configuration
