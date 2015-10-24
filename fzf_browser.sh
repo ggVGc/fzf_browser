@@ -93,6 +93,7 @@ fuzzybrowse() {
       ;;
       return)
         if [[ "$sel" == "." ]]; then
+          sel="$(pwd)"
           break
         fi
         if [[ -d "$sel" ]]; then
@@ -127,7 +128,7 @@ fuzzybrowse() {
       ;;
       ctrl-x)
         export e
-        e="$(full_path "$sel")"
+        e="$(__fuzzybrowse_full_path "$sel")"
         clear
         echo "\$e = $e"
         $SHELL
