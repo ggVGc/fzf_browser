@@ -61,8 +61,6 @@ See top of [fzf_browser.sh](https://github.com/ggVGc/fzf_browser/blob/master/fzf
 
 | Key                                | Description                                                      |
 | -------------------------------------- | ---------------------------------------------------------------- |
-| `:FuzzyBrowse``<start_dir>`           | Opens fuzzybrowse in `<start_dir>`, or current working dir if no argument is given. |
-| `:FuzzyBrowseHere`                     | Same as `FuzzyBrowse`, but starts in the directory of the current buffer(regardless of current working dir) |
 | `Enter` | If selection is directory, change to it. If it is a file, select it and exit. If multiple entries are selected, just exits(with the selections).|
 | `Tab` | Select multiple files/directories.|
 | `Ctrl-l` | Preview selection. By default launches a `less` in a new terminal.|
