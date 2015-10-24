@@ -67,7 +67,7 @@ See top of [fzf_browser.sh](https://github.com/ggVGc/fzf_browser/blob/master/fzf
 | `Ctrl-q` | Toggle showing hidden files.|
 | `Ctrl-f` | Change to file-recursive mode and back. Lists all files recursively from current dir.|
 | `Ctrl-z` | (Currently only works if application `fasd` is available) Select recent directory and switch to it. |
-| `#`/` ` ` | Go to parent directory|
+| ``/#` | Go to parent directory|
 | `Ctrl-h` | Go to `$HOME`|
 | `Ctrl-x`/`Ctrl-s` | Open `$SHELL`, with `$e` containing current selection.|
 | `Ctrl-f` | Opens `$EDITOR` with selection.|
