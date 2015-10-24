@@ -47,8 +47,10 @@ Usage
 #### Vim usage
 | Command                | Description                                                      |
 | -------------------------- | ---------------------------------------------------------------- |
-| `fuzzybrowse`                   | Opens browser, and prints selected entries to stdout. |
-| (Zsh only) `_fuzzybrowse_zsh_insert_output`| Should be mapped to something with bindkey(see installation example). Inserts output from `fuzzybrowse` into current command line. |
+| `:FuzzyBrowse <start_dir>`             | Opens fuzzybrowse in <start_dir>. If no argument is specifice, uses current working dir. |
+| `:FuzzyBrowseHere`         | Same as `FuzzyBrowse`, but starts in the directory of the current buffer(regardless of current working dir) |
+
+If a directory is selected, `cd` to it. If one of more files are selected, opens them for editing.
 
 
 #### Configuration
