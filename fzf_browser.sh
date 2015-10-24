@@ -145,7 +145,7 @@ fuzzybrowse() {
   dirs -c
   local x rel_path
   echo "$sel" | while read x; do
-    rel_path="$(printf "%q\n" "$(realpath --relative-base="$initial_dir" "$x")")"
+    rel_path="$(printf "%q\n" "$(__fuzzybrowse_relpath "$initial_dir" "$x")")"
     fasd -A "$rel_path" > /dev/null 2>&1
     if [[ -n "$out_file" ]]; then
       echo "$rel_path" >> "$out_file"
@@ -172,9 +172,6 @@ __fuzzybrow_populate_dir_list(){
   done
 }
 
-full_path(){
-  printf "%q" "$(cd "$(dirname "$1")"; pwd)/$(basename "$1")"
-}
 
 __fuzzybrowse_file_source(){
   if [[ "$__fuzzybrowse_show_hidden" == 1 ]]; then
@@ -206,3 +203,51 @@ __fuzzybrowse_fzf_cmd(){
   #`# Hack to fix syntax highlight in vim..
 }
 
+
+
+__fuzzybrowse_full_path(){
+  printf "%q" "$(cd "$(dirname "$1")"; pwd)/$(basename "$1")"
+}
+
+__fuzzybrowse_relpath(){
+  # both $1 and $2 are absolute paths beginning with /
+  # returns relative path to $2/$target from $1/$source
+  source=$(__fuzzybrowse_full_path "$1")
+  target=$(__fuzzybrowse_full_path "$2")
+
+  common_part=$source # for now
+  result="" # for now
+
+  while [[ "${target#$common_part}" == "${target}" ]]; do
+    # no match, means that candidate common part is not correct
+    # go up one level (reduce common part)
+    common_part="$(dirname "$common_part")"
+    # and record that we went back, with correct / handling
+    if [[ -z $result ]]; then
+      result=".."
+    else
+      result="../$result"
+    fi
+  done
+
+
+  if [[ $common_part == "/" ]]; then
+    # special case for root (no common path)
+    #result="$result/"
+    result="/"
+  fi
+
+  # since we now have identified the common part,
+  # compute the non-common part
+  forward_part="${target#$common_part}"
+
+  # and now stick all parts together
+  if [[ -n $result ]] && [[ -n $forward_part ]]; then
+    result="$result$forward_part"
+  elif [[ -n $forward_part ]]; then
+    # extra slash removal
+    result="${forward_part:1}"
+  fi
+
+  echo "$result"
+}
