@@ -22,7 +22,7 @@ git clone https://github.com/ggVGc/fzf_browser ~/.fzf_browser
 
 Add the following line to your .zshrc
 ```sh
-source ~/.fzf_browser
+source ~/.fzf_browser/zsh_widgets.zsh
 bindkey "^b" _fuzzybrowse_zsh_insert_output
 ```
 This will bind ctrl-b to open fuzzybrowse, and insert the result in the current command line.
