@@ -91,12 +91,6 @@ fuzzybrowse() {
           prev_dir=""
         fi
       ;;
-      #";")
-        #break
-      #;;
-      #":")
-        #break
-      #;;
       return)
         if [[ "$sel" == "." ]]; then
           break
