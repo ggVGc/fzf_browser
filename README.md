@@ -63,12 +63,13 @@ See top of [fzf_browser.sh](https://github.com/ggVGc/fzf_browser/blob/master/fzf
 | -------------------------------------- | ---------------------------------------------------------------- |
 | `Enter`                                | If selection is directory, change to it. If it is a file, select it and exit. If multiple entries are selected, just exits(with the selections).|
 | `Tab`                                  | Select multiple files/directories.|
+| `Right arrow`                          | `cd` into selected directory |
+| `Left arrow`/ `#`/` ` `                | Go to parent directory|
 | `Ctrl-l`                               | Preview selection. By default launches a `less` in a new terminal.|
 | `Ctrl-q`                               | Toggle showing hidden files.|
 | `Ctrl-f`                               | Change to file-recursive mode and back. Lists all files recursively from current dir.|
 | `Ctrl-v`                               | View current selection using xdg-open |
 | `Ctrl-z`                               | (Currently only works if application `fasd` is available) Select recent directory and switch to it. |
-| `#`/` ` `                              | Go to parent directory|
 | `Ctrl-h`                               | Go to `$HOME`|
 | `Ctrl-x`                               | Open `$SHELL`, with `$e` containing current selection.|
 | `Ctrl-e`                               | Opens `$EDITOR` with selection.|

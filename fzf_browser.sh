@@ -73,7 +73,7 @@ fuzzybrowse() {
     fi
     start_query=""
     case "$key" in
-      \#|\`)
+      left|\#|\`)
         pushd ".." > /dev/null 2>&1
       ;;
       /)
@@ -99,6 +99,12 @@ fuzzybrowse() {
           pushd "$sel" > /dev/null 2>&1
         else
           break
+        fi
+      ;;
+      right)
+        stored_query="$query"
+        if [[ -d "$sel" ]]; then
+          pushd "$sel" > /dev/null 2>&1
         fi
       ;;
       ctrl-c)
@@ -200,7 +206,7 @@ __fuzzybrowse_fzf_cmd(){
   if [[ "$__fuzzybrowse_recursive" == 1 ]]; then
     prePrompt="{REC}"
   fi
-  fzf --reverse --multi --prompt="$prePrompt""$(pwd): " --ansi --extended --print-query "$@"  --expect=ctrl-c,ctrl-x,ctrl-s,\#,return,ctrl-o,ctrl-u,\`,ctrl-q,ctrl-h,ctrl-z,ctrl-f,ctrl-e,ctrl-l,/,ctrl-v
+  fzf --reverse --multi --prompt="$prePrompt""$(pwd): " --ansi --extended --print-query "$@"  --expect=ctrl-c,ctrl-x,ctrl-s,\#,return,ctrl-o,ctrl-u,\`,ctrl-q,ctrl-h,ctrl-z,ctrl-f,ctrl-e,ctrl-l,/,ctrl-v,left,right
 
   #`# Hack to fix syntax highlight in vim..
 }
