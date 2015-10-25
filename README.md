@@ -73,9 +73,10 @@ Key mappings:
 |  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Key&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Description                                                      |
 | -------------------------------------- | ---------------------------------------------------------------- |
 | `Enter`                                | If selection is directory, change to it. If it is a file, select it and exit. If multiple entries are selected, just exits(with the selections).|
+| `/`                                    | Select entry, regardless if it's a directory or folder |
 | `Tab`                                  | Select multiple files/directories.|
 | `Right arrow`                          | `cd` into selected directory |
-| `Left arrow`/ `#`/`` ` ``                | Go to parent directory|
+| `Left arrow`/ `#`/`` ` ``              | Go to parent directory|
 | `Ctrl-l`                               | Preview selection. By default launches a `less` in a new terminal.|
 | `Ctrl-q`                               | Toggle showing hidden files.|
 | `Ctrl-f`                               | Change to file-recursive mode and back. Lists all files recursively from current dir.|

@@ -87,9 +87,10 @@ fuzzybrowse() {
         pushd ".." > /dev/null 2>&1
       ;;
       /)
-        if [[ -d "$sel" ]]; then
-          pushd "$sel" > /dev/null 2>&1
-        fi
+        break;
+        #if [[ -d "$sel" ]]; then
+          #pushd "$sel" > /dev/null 2>&1
+        #fi
       ;;
       ctrl-o)
         prev_dir="$(pwd)"
@@ -177,6 +178,12 @@ fuzzybrowse() {
     fi
     #rel_path="$(printf "%q\n" "$(__fuzzybrowse_relpath "$initial_dir" "$x")")"
     rel_path="$(__fuzzybrowse_relpath "$initial_dir" "$x")"
+    if [[ "${sel: -1}" == "/" ]]; then
+      sel="${sel:0:-1}"
+    fi
+    if [[ "$rel_path" == "" ]]; then
+      rel_path="$(pwd)"
+    fi
     fasd -A "$rel_path" > /dev/null 2>&1
     if [[ -n "$out_file" ]]; then
       echo "$rel_path" >> "$out_file"
