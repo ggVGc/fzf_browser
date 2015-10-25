@@ -105,14 +105,17 @@ fuzzybrowse() {
         if [[ -f "$sel" ]]; then
           break
         else
-          sel=$(echo "$sel"|cut -f1 -d'/')
-          if [[ -d "$sel" ]]; then
-            pushd "$sel" > /dev/null 2>&1
+          tmp_dir=$(echo "$sel"|cut -f1 -d'/')
+          if [[ -d "$tmp_dir" ]]; then
+            pushd "$tmp_dir" > /dev/null 2>&1
+          else
+            break
           fi
         fi
       ;;
       right)
         stored_query="$query"
+        sel=$(echo "$sel"|cut -f1 -d'/')
         if [[ -d "$sel" ]]; then
           pushd "$sel" > /dev/null 2>&1
         fi
@@ -169,7 +172,11 @@ fuzzybrowse() {
   dirs -c
   local x rel_path
   echo "$sel" | while read x; do
-    rel_path="$(printf "%q\n" "$(__fuzzybrowse_relpath "$initial_dir" "$x")")"
+    if [[ ! -f "$x" ]]; then
+      x=$(echo "$x"|cut -f1 -d'/')
+    fi
+    #rel_path="$(printf "%q\n" "$(__fuzzybrowse_relpath "$initial_dir" "$x")")"
+    rel_path="$(__fuzzybrowse_relpath "$initial_dir" "$x")"
     fasd -A "$rel_path" > /dev/null 2>&1
     if [[ -n "$out_file" ]]; then
       echo "$rel_path" >> "$out_file"
