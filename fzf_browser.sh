@@ -178,11 +178,11 @@ fuzzybrowse() {
     fi
     #rel_path="$(printf "%q\n" "$(__fuzzybrowse_relpath "$initial_dir" "$x")")"
     rel_path="$(__fuzzybrowse_relpath "$initial_dir" "$x")"
-    if [[ "${sel: -1}" == "/" ]]; then
-      sel="${sel:0:-1}"
-    fi
     if [[ "$rel_path" == "" ]]; then
       rel_path="$(pwd)"
+    fi
+    if [[ "${rel_path: -1}" == "/" ]]; then
+      rel_path="${rel_path:0:-1}"
     fi
     fasd -A "$rel_path" > /dev/null 2>&1
     if [[ -n "$out_file" ]]; then
