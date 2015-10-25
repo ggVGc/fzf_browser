@@ -163,7 +163,7 @@ fuzzybrowse() {
       ;;
     ctrl-v)
       stored_query="$query"
-      __fuzzybrowse_runFile "$(__fuzzybrowse_get_entry "$sel")"
+      __fuzzybrowse_runFile "$(__fuzzybrowse_get_entry "$sel")" > /dev/null 2>&1
     ;;
     ctrl-l)
       stored_query="$query"
