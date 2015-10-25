@@ -141,7 +141,7 @@ fuzzybrowse() {
       ;;
       ctrl-x)
         export e
-        e="$(__fuzzybrowse_full_path "$sel")"
+        e="$(__fuzzybrowse_full_path "$(echo "$sel" | cut -f1 -d'/')")"
         clear
         echo "\$e = $e"
         $SHELL
