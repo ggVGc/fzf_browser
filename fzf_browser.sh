@@ -126,7 +126,7 @@ fuzzybrowse() {
           break
         fi
         if [[ -d "$sel" ]]; then
-            pushd "$tmp_dir" > /dev/null 2>&1
+            pushd "$sel" > /dev/null 2>&1
         fi
       ;;
       right)
