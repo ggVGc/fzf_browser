@@ -20,6 +20,24 @@ __fuzzybrow_file_ignore="log|bak|aux|lof|lol|lot|toc|bbl|blg|tmp|temp|swp|incomp
 ##### END CONFIGURATION ##### 
 
 
+__fuzzybrowse_get_dir(){
+  echo "$@" | cut -f1 -d'/'
+}
+
+__fuzzybrowse_get_entry(){
+  local tmp_dir
+  if [[ -f "$@" ]]; then
+    echo "$@"
+  else
+    tmp_dir=$(__fuzzybrowse_get_dir "$sel")
+    if [[ -d "$tmp_dir" ]]; then
+      echo "$tmp_dir"
+    else
+      echo "$@"
+    fi
+  fi
+}
+
 # Opens fuzzy dir browser. Tab to switch between file mode and directory mode. Esc to quit.
 fuzzybrowse() {
   local res key sel prev_dir query stored_query tmp_prompt
@@ -103,20 +121,17 @@ fuzzybrowse() {
         fi
       ;;
       return)
+        sel=$(__fuzzybrowse_get_entry "$sel")
         if [[ -f "$sel" ]]; then
           break
-        else
-          tmp_dir=$(echo "$sel"|cut -f1 -d'/')
-          if [[ -d "$tmp_dir" ]]; then
+        fi
+        if [[ -d "$sel" ]]; then
             pushd "$tmp_dir" > /dev/null 2>&1
-          else
-            break
-          fi
         fi
       ;;
       right)
         stored_query="$query"
-        sel=$(echo "$sel"|cut -f1 -d'/')
+        sel=$(__fuzzybrowse_get_dir "$sel")
         if [[ -d "$sel" ]]; then
           pushd "$sel" > /dev/null 2>&1
         fi
@@ -141,14 +156,14 @@ fuzzybrowse() {
       ;;
       ctrl-x)
         export e
-        e="$(__fuzzybrowse_full_path "$(echo "$sel" | cut -f1 -d'/')")"
+        e="$(__fuzzybrowse_full_path "$(__fuzzybrowse_get_dir "$sel")")"
         clear
         echo "\$e = $e"
         $SHELL
       ;;
     ctrl-v)
       stored_query="$query"
-      __fuzzybrowse_runFile "$sel"
+      __fuzzybrowse_runFile "$(__fuzzybrowse_get_entry "$sel")"
     ;;
     ctrl-l)
       stored_query="$query"
@@ -174,7 +189,7 @@ fuzzybrowse() {
   local x rel_path
   echo "$sel" | while read x; do
     if [[ ! -f "$x" ]]; then
-      x=$(echo "$x"|cut -f1 -d'/')
+      x=$(__fuzzybrowse_get_dir "$x")
     fi
     #rel_path="$(printf "%q\n" "$(__fuzzybrowse_relpath "$initial_dir" "$x")")"
     rel_path="$(__fuzzybrowse_relpath "$initial_dir" "$x")"
