@@ -32,7 +32,7 @@ This will bind ctrl-b to open fuzzybrowse, and insert the result in the current 
 
 Add the following line to your .vimrc. 
 ```vim
-set rtp+=~/.fzf_browser
+set rtp+=~/.fzf_browser/vim
 ```
 
 Usage
