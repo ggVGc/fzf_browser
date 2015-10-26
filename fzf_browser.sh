@@ -40,7 +40,7 @@ __fuzzybrowse_get_entry(){
 
 # Opens fuzzy dir browser. Tab to switch between file mode and directory mode. Esc to quit.
 fuzzybrowse() {
-  local res key sel prev_dir query stored_query tmp_prompt
+  local res key sel prev_dir query stored_query tmp_prompt tmp_file
   local initial_dir
   initial_dir="$(pwd)"
   local start_dir="$1"
@@ -72,11 +72,11 @@ fuzzybrowse() {
     else
       tmp_prompt="--ansi"
     fi
-    if [[ "$__fuzzybrowse_recursive" == 1 ]]; then
-      res="$(__fuzzybrowse_file_source "" 2>/dev/null | sort | __fuzzybrowse_fzf_cmd "$tmp_prompt" "$early_exit" "-q" "$stored_query" )"
-    else
+    #if [[ "$__fuzzybrowse_recursive" == 1 ]]; then
+      #res="$(__fuzzybrowse_file_source "" 2>/dev/null | __fuzzybrowse_fzf_cmd "$tmp_prompt" "$early_exit" "-q" "$stored_query" )"
+    #else
       res="$(__fuzzybrowse_combined_source 2>/dev/null | __fuzzybrowse_fzf_cmd "$tmp_prompt" "$early_exit" "-q" "$stored_query")" 
-    fi
+    #fi
     stored_query=""
     if [[ -z "$res" ]]; then
       dirs -c
@@ -121,19 +121,24 @@ fuzzybrowse() {
         fi
       ;;
       return)
-        sel=$(__fuzzybrowse_get_entry "$sel")
-        if [[ -f "$sel" ]]; then
+        tmp_file=$(__fuzzybrowse_get_entry "$sel")
+        if [[ -f "$tmp_file" ]]; then
+          sel="$tmp_file"
           break
         fi
-        if [[ -d "$sel" ]]; then
-            pushd "$sel" > /dev/null 2>&1
+        if [[ -d "$tmp_file" ]]; then
+            pushd "$tmp_file" > /dev/null 2>&1
+        else
+          break
         fi
       ;;
       right)
         stored_query="$query"
-        sel=$(__fuzzybrowse_get_dir "$sel")
-        if [[ -d "$sel" ]]; then
-          pushd "$sel" > /dev/null 2>&1
+        tmp_dir=$(__fuzzybrowse_get_dir "$sel")
+        if [[ -d "$tmp_dir" ]]; then
+          pushd "$tmp_dir" > /dev/null 2>&1
+        else
+          __fuzzybrowse_runFile "$sel"
         fi
       ;;
       ctrl-c)
@@ -235,14 +240,18 @@ __fuzzybrowse_file_source(){
 }
 
 __fuzzybrowse_combined_source(){
-  cat <(__fuzzybrowse_dir_source|sort) <(__fuzzybrowse_file_source -maxdepth 1 |sort) 
+  cat <(__fuzzybrowse_dir_source) <(__fuzzybrowse_file_source -maxdepth 1 ) 
 }
 
 __fuzzybrowse_dir_source(){
+  local max_dep=1
+  if [[ "$__fuzzybrowse_recursive" == 1 ]]; then
+    max_dep=99
+  fi
   if [[ "$__fuzzybrowse_show_hidden" == 1 ]]; then
-    find . -maxdepth 1 -type d -o -type l | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list
+    find . -maxdepth "$max_dep" -type d -o -type l | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list
   else
-    find . -maxdepth 1 \( -type d -o -type l \) -not -path '*/\.*' | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list
+    find . -maxdepth "$max_dep" \( -type d -o -type l \) -not -path '*/\.*' | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list
   fi
 }
 
