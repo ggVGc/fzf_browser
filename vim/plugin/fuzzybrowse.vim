@@ -11,5 +11,5 @@ fun! FuzzyBrowse(rootDir)
   endif
 endfun
 
-command! -nargs=? FuzzyBrowse silent call FuzzyBrowse(<q-args>) | redraw! | echo "cwd: ".getcwd()
-command! FuzzyBrowseHere exe 'FuzzyBrowse '.fnameescape(fnamemodify(expand("%"), ":p:h"))
+command! -nargs=? FuzzyBrowse silent call FuzzyBrowse(<q-args>)|redraw!|echo "cwd: ".getcwd()
+command! FuzzyBrowseHere silent call FuzzyBrowse(fnamemodify(expand("%"), ":p:h"))|redraw!|echo "cwd: ".getcwd()
