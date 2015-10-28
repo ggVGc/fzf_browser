@@ -18,26 +18,6 @@ __fuzzybrowse_runFile(){
 __fuzzybrow_file_ignore="log|bak|aux|lof|lol|lot|toc|bbl|blg|tmp|temp|swp|incomplete|o|class|cache|pyc|aria2|torrent|torrent.added|part|crdownload"
 
 ##### END CONFIGURATION ##### 
-
-
-__fuzzybrowse_get_dir(){
-  echo "$@" | cut -f1 -d'/'
-}
-
-__fuzzybrowse_get_entry(){
-  local tmp_dir
-  if [[ -f "$@" ]]; then
-    echo "$@"
-  else
-    tmp_dir=$(__fuzzybrowse_get_dir "$sel")
-    if [[ -d "$tmp_dir" ]]; then
-      echo "$tmp_dir"
-    else
-      echo "$@"
-    fi
-  fi
-}
-
 # Opens fuzzy dir browser. Tab to switch between file mode and directory mode. Esc to quit.
 fuzzybrowse() {
   local res key sel prev_dir query stored_query tmp_prompt tmp_file
@@ -216,6 +196,7 @@ fuzzybrowse() {
 }
 
 
+
 __fuzzybrowse_show_hidden=0
 __fuzzybrowse_recursive=0
 
@@ -224,36 +205,68 @@ __fuzzybrow_file_ignore_pat="$(printf ".*\(%q\)$"  "$__fuzzybrow_file_ignore")"
 __fuzzybrow_populate_dir_list(){
   local line
   
-  while read line ; do
-    if [[ -d "$line" ]]; then
-      echo -e "\e[36m$line/\e[0m $(cd "$line" && find . -maxdepth 1 -type f |head -9 | grep -v -i "$__fuzzybrow_file_ignore_pat" |cut -c3- | tr "\\n" "|" | sed 's/|/\\\e[36m | \\\e[0m/g')"
-    fi
-  done
+  if [[ "$__fuzzybrowse_recursive" == 1 ]]; then
+    while read line ; do
+        echo -e "\e[36m$line/"
+    done
+  else
+    while read line ; do
+      if [[ -d "$line" ]]; then
+        echo -e "\e[36m$line/\e[0m $(cd "$line" && find . -maxdepth 1 -type f |head -9 | grep -v -i "$__fuzzybrow_file_ignore_pat" |cut -c3- | tr "\\n" "|" | sed 's/|/\\\e[36m | \\\e[0m/g')"
+      fi
+    done
+  fi
 }
 
 
 __fuzzybrowse_file_source(){
-  if [[ "$__fuzzybrowse_show_hidden" == 1 ]]; then
-    find  . "$@" -type f -o -xtype f ! -iregex "$__fuzzybrow_file_ignore_pat" | cut -c3-
-  else
-    find . "$@" \( -type f -o -xtype f \) -not -path '*/\.*' ! -iregex "$__fuzzybrow_file_ignore_pat" | cut -c3-
+  local max_dep=1
+  if [[ -n "$1" ]]; then
+    max_dep="$1"
   fi
-}
-
-__fuzzybrowse_combined_source(){
-  cat <(__fuzzybrowse_dir_source) <(__fuzzybrowse_file_source -maxdepth 1 ) 
+  if [[ "$__fuzzybrowse_show_hidden" == 1 ]]; then
+    find  . "$@" -maxdepth "$max_dep" -type f -o -xtype f ! -iregex "$__fuzzybrow_file_ignore_pat" | cut -c3-
+  else
+    find . "$@" -maxdepth "$max_dep" \( -type f -o -xtype f \) -not -path '*/\.*' ! -iregex "$__fuzzybrow_file_ignore_pat" | cut -c3-
+  fi
 }
 
 __fuzzybrowse_dir_source(){
   local max_dep=1
-  if [[ "$__fuzzybrowse_recursive" == 1 ]]; then
-    max_dep=99
+  if [[ -n "$1" ]]; then
+    max_dep="$1"
   fi
   if [[ "$__fuzzybrowse_show_hidden" == 1 ]]; then
     find . -maxdepth "$max_dep" -type d -o -type l | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list
   else
     find . -maxdepth "$max_dep" \( -type d -o -type l \) -not -path '*/\.*' | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list
   fi
+}
+
+__fuzzybrowse_get_dir(){
+  echo "$@" | cut -f1 -d'/'
+}
+
+__fuzzybrowse_get_entry(){
+  local tmp_dir
+  if [[ -f "$@" ]]; then
+    echo "$@"
+  else
+    tmp_dir=$(__fuzzybrowse_get_dir "$sel")
+    if [[ -d "$tmp_dir" ]]; then
+      echo "$tmp_dir"
+    else
+      echo "$@"
+    fi
+  fi
+}
+
+__fuzzybrowse_combined_source(){
+  local max_dep=1
+  if [[ "$__fuzzybrowse_recursive" == 1 ]]; then
+    max_dep=99
+  fi
+  cat <(__fuzzybrowse_dir_source "$max_dep") <(__fuzzybrowse_file_source "$max_dep" ) 
 }
 
 __fuzzybrowse_fzf_cmd(){
