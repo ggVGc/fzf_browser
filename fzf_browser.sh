@@ -66,6 +66,7 @@ fuzzybrowse() {
   else
     early_exit="--ansi" # just dummy
   fi
+  start_query=""
   while true ; do
     if [[ -n "$custom_prompt" ]]; then
       tmp_prompt="--prompt=$custom_prompt""$(pwd)/"
@@ -86,10 +87,10 @@ fuzzybrowse() {
     query=$(echo "$res" | head -1)
     sel=$(echo "$res"|tail -n +3)
     key=$(echo "$res" | head -2 | tail -1)
-    if [[ -n "$start_query" && -z "$key" ]]; then
+    if [[ "$early_exit" == "-1" && -z "$key" ]]; then
       break
     fi
-    start_query=""
+    early_exit="--ansi"
 
     case "$query" in
       ".")
