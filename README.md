@@ -18,19 +18,24 @@ Clone this repository (recommended location ~/.fzf_browser)
 git clone https://github.com/ggVGc/fzf_browser ~/.fzf_browser
 ```
 
+#### Install
+Make sure this repository is added to your $PATH, i.e
+```sh
+PATH=${PATH}:~/.fzf_browser
+```
+
 #### Zsh integration
 
 Add the following line to your .zshrc
+This will bind ctrl-b to open fuzzybrowse, and insert the result in the current command line.
 ```sh
-source ~/.fzf_browser/zsh_widgets.zsh
 bindkey "^b" _fuzzybrowse_zsh_insert_output
 ```
-This will bind ctrl-b to open fuzzybrowse, and insert the result in the current command line.
 
 
 #### Vim plugin
 
-Add the following line to your .vimrc. 
+Add the following line to your .vimrc.
 ```vim
 set rtp+=~/.fzf_browser/vim
 ```
