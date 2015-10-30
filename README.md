@@ -67,9 +67,10 @@ For these commands, if a directory is selected, `cd` to it. If one of more files
 | `:FuzzyBrowseHere`                     | Same as `FuzzyBrowse`, but starts in the directory of the current buffer(regardless of current working dir) |
 
 
+
 | Map                                | Description                                                      |
 | -------------------------------------- | ---------------------------------------------------------------- |
-| `<plug>FuzzyPath`           | In insert mode, triggers path completion using fzf_browser  |
+| `<plug>FuzzyPath`           | (EXPERIMENTAL) In insert mode, triggers path completion using fzf_browser. Path must be preceded by a space to trigger.   |
 
 Example mapping:
 ```vim

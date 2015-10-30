@@ -142,7 +142,7 @@ fuzzybrowse() {
       ;;
       ctrl-x)
         export e
-        e="$(__fuzzybrowse_full_path "$(__fuzzybrowse_get_dir "$sel")")"
+        e="$(__fuzzybrowse_full_path "$(__fuzzybrowse_get_entry "$sel")")"
         clear
         echo "\$e = $e"
         $SHELL
@@ -196,7 +196,6 @@ fuzzybrowse() {
   export __fuzzybrowse_show_hidden=0
   export __fuzzybrowse_recursive=0
 }
-
 
 
 __fuzzybrowse_show_hidden=0
@@ -292,6 +291,11 @@ __fuzzybrowse_relpath(){
   # returns relative path to $2/$target from $1/$source
   source=$(__fuzzybrowse_full_path "$1")
   target=$(__fuzzybrowse_full_path "$2")
+
+  if [[ "$source" == "$target" ]]; then
+    echo "$source"
+    return
+  fi
 
   common_part=$source # for now
   result="" # for now

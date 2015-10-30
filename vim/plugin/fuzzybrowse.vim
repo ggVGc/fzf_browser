@@ -7,6 +7,7 @@ fun! LaunchFuzzyBrowse(rootDir, initialQuery)
     return ""
   endif
 endfun
+
 fun! FuzzyBrowse(rootDir, initialQuery)
   let entry=LaunchFuzzyBrowse(a:rootDir, a:initialQuery)
   if isdirectory(entry)
@@ -17,25 +18,40 @@ fun! FuzzyBrowse(rootDir, initialQuery)
 endfun
 
 fun! FuzzyPathFromHere()
-  let oldReg=@x
+  "let oldReg=@x
   let pos=getpos('.')
-  exec 'normal! a '
-  exec 'normal! "xyT '
-  let str=@x
-  let @x=oldReg
+  execute "normal! v?[^-[:alnum:]/_.~\"]\<cr>y"
+  let str=@0
+  "if len(str)>0 && str[0] == " "
+    let str = str[1:]
+  "endif
+  "let @x=oldReg
   call setpos('.', pos)
   let spl = split(str, '/')
-  let l:dir=join(spl[:-2], '/')
+  if len(spl)==0
+    let l:dir='.'
+    let l:extra = ''
+  elseif len(spl)==1
+    if str[0]=='/'
+      let l:extra=spl[0]
+      let l:dir = ''
+    else
+      let l:dir=spl[0]
+      let l:extra = ''
+    endif
+  else
+    let l:dir=join(spl[:-2], '/')
+    let extra=spl[-1]
+  endif
   if str[0]=='/'
     let l:dir='/'.l:dir
   endif
-  let extra=spl[-1]
+
   if isdirectory(l:dir)
-    let res = LaunchFuzzyBrowse(dir, extra)
+    let res = LaunchFuzzyBrowse(l:dir, l:extra)
     if res != ""
-      let @x=res." "
+      let @x=res
       normal! vT "xp
-      let @x=oldReg
     endif
   endif
   return ""
