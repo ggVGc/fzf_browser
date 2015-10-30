@@ -41,20 +41,25 @@ fun! FuzzyPathFromHere()
       let l:extra = ''
     endif
   else
-    let l:dir=join(spl[:-2], '/')
-    let extra=spl[-1]
+    if str[-1:] == '/'
+      let l:dir=join(spl, '/')
+      let extra=''
+    else
+      let l:dir=join(spl[:-2], '/')
+      let extra=spl[-1]
+    endif
   endif
   if str[0]=='/'
     let l:dir='/'.l:dir
   endif
 
   if isdirectory(l:dir)
-    let res = LaunchFuzzyBrowse(l:dir, l:extra)
+    let res = LaunchFuzzyBrowse(extra==''?'': '-q '.extra, l:dir)
     if res != ""
       let str = res
     endif
   endif
-  exec "normal! a".str
+  exec "normal! i".str
 endf
 
 00
