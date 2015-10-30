@@ -18,12 +18,12 @@ fun! FuzzyBrowse(rootDir, initialQuery)
 endfun
 
 fun! FuzzyPathFromHere()
-  "let oldReg=@x
-  let pos=getpos('.')
   execute "normal! dv?[^-[:alnum:]_/~.+]\\zs\\\|^\<cr>"
   let str=@"
-  "let @x=oldReg
-  call setpos('.', pos)
+  if match(str[0], "[\"'<(]") == 0
+    exec 'normal! i'.str[0]
+    let str = str[1:]
+  endif
   let spl = split(str, '/')
   if len(spl)==0
     let l:dir='.'
@@ -44,13 +44,8 @@ fun! FuzzyPathFromHere()
     let l:dir='/'.l:dir
   endif
 
-  "echo dir
-  "echo extra
-  "call input('asd')
   if isdirectory(l:dir)
     let res = LaunchFuzzyBrowse(l:dir, l:extra)
-    "echo res
-    "return
     if res != ""
       let str = res
     endif
