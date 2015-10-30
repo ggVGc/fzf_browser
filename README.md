@@ -111,7 +111,7 @@ Key mappings:
 | `Left arrow`/ `#`/`` ` ``              | Go to parent directory|
 | `Ctrl-l`                               | Preview selection. By default launches a `less` in a new terminal.|
 | `Ctrl-q`                               | Toggle showing hidden files.|
-| `Ctrl-r`                               | Toggle recursive mode. Lists all dirs/files recursively from current dir.|
+| `Ctrl-r` / `ctrl-a`                    | Toggle recursive mode. Lists all dirs/files recursively from current dir.|
 | `Ctrl-g`                               | In file-recursive mode, go to directory of selected file. |
 | `Ctrl-v`                               | View current selection using xdg-open |
 | `Ctrl-z`                               | (Currently only works if application `fasd` is available) Select recent directory and switch to it. |

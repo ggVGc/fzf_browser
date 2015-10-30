@@ -1,9 +1,9 @@
 
 _fuzzybrowse_zsh_insert_output() {
-  local startDir="$1"
+  local args="$@"
   local res
   () {
-    fuzzybrowse -o "$1" "$startDir"
+    fuzzybrowse -o "$1" "$args"
     res="$(<$1 tr "\\n" " ")"
   } =(:)
   zle reset-prompt

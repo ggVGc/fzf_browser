@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-##### CONFIGURATION #####
+################## CONFIGURATION ##############
 
 __fuzzybrowse_runInTerminal(){
   urxvt -e "$@"
@@ -16,8 +16,13 @@ __fuzzybrowse_runFile(){
 
 # List of extensions to ignore, separated by |
 __fuzzybrow_file_ignore="log|bak|aux|lof|lol|lot|toc|bbl|blg|tmp|temp|swp|incomplete|o|class|cache|pyc|aria2|torrent|torrent.added|part|crdownload"
+# List of folders to ignore, separated by |
+__fuzzybrow_dir_ignore=".git|.svn|.hg"
 
-##### END CONFIGURATION ##### 
+#################### END CONFIGURATION #########
+
+
+
 # Opens fuzzy dir browser. Tab to switch between file mode and directory mode. Esc to quit.
 fuzzybrowse() {
   local res key sel prev_dir query stored_query tmp_prompt tmp_file tmp_dir
@@ -94,7 +99,7 @@ fuzzybrowse() {
 
     case "$query" in
       ".")
-        sel="$(pwd)"
+        sel="$(pwd)/"
         break
       ;;
       "..")
@@ -122,7 +127,7 @@ fuzzybrowse() {
         fi
       ;;
       \>)
-        sel="$(pwd)"
+        sel="$(pwd)/"
         break
       ;;
       return)
@@ -183,7 +188,7 @@ fuzzybrowse() {
       stored_query="$query"
       "$EDITOR" "$sel"
       ;;
-    ctrl-r)
+    ctrl-r|ctrl-a)
       stored_query="$query"
       __fuzzybrowse_recursive=$((__fuzzybrowse_recursive==0))
     ;;
@@ -226,6 +231,7 @@ __fuzzybrowse_show_hidden=0
 __fuzzybrowse_recursive=0
 
 __fuzzybrow_file_ignore_pat="$(printf ".*\(%q\)$"  "$__fuzzybrow_file_ignore")"
+__fuzzybrow_dir_ignore_pat="$(printf "./\(%q\)$"  "$__fuzzybrow_dir_ignore")"
 
 __fuzzybrow_populate_dir_list(){
   local line
@@ -262,9 +268,9 @@ __fuzzybrowse_dir_source(){
     max_dep="$1"
   fi
   if [[ "$__fuzzybrowse_show_hidden" == 1 ]]; then
-    find . -maxdepth "$max_dep" -type d -o -type l | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list
+    find . -maxdepth "$max_dep" \( -type d -o -type l \) ! -iregex "$__fuzzybrow_dir_ignore_pat" | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list
   else
-    find . -maxdepth "$max_dep" \( -type d -o -type l \) -not -path '*/\.*' | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list
+    find . -maxdepth "$max_dep" \( -type d -o -type l \) -not -path '*/\.*' ! -iregex "$__fuzzybrow_dir_ignore_pat" | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list
   fi
 }
 
@@ -299,7 +305,7 @@ __fuzzybrowse_fzf_cmd(){
   if [[ "$__fuzzybrowse_recursive" == 1 ]]; then
     prePrompt="{REC}"
   fi
-  fzf --reverse --multi --prompt="$prePrompt""$(pwd): " --ansi --extended --print-query "$@"  --expect=ctrl-c,ctrl-x,ctrl-s,\#,return,ctrl-o,ctrl-u,\`,ctrl-q,ctrl-h,ctrl-z,ctrl-r,ctrl-e,ctrl-l,/,ctrl-v,left,right,ctrl-g,\>
+  fzf --reverse --multi --prompt="$prePrompt""$(pwd): " --ansi --extended --print-query "$@"  --expect=ctrl-c,ctrl-x,ctrl-s,\#,return,ctrl-o,ctrl-u,\`,ctrl-q,ctrl-h,ctrl-z,ctrl-r,ctrl-e,ctrl-l,/,ctrl-v,left,right,ctrl-g,\>,ctrl-a
 
   #`# Hack to fix syntax highlight in vim..
 }
