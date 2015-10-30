@@ -26,7 +26,7 @@ PATH=${PATH}:~/.fzf_browser
 
 #### Basic usage
 
-fuzzybrowse [options]k k root_path 
+fuzzybrowse [options] root_path 
 
 
 | Option                | Description                                                      |
