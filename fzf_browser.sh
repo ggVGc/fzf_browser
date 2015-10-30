@@ -231,7 +231,7 @@ __fuzzybrowse_show_hidden=0
 __fuzzybrowse_recursive=0
 
 __fuzzybrow_file_ignore_pat="$(printf ".*\(%q\)$"  "$__fuzzybrow_file_ignore")"
-__fuzzybrow_dir_ignore_pat="$(printf "./\(%q\)$"  "$__fuzzybrow_dir_ignore")"
+__fuzzybrow_dir_ignore_pat="$(printf "./\(%q\)\(/.*\|$\)"  "$__fuzzybrow_dir_ignore")"
 
 __fuzzybrow_populate_dir_list(){
   local line
