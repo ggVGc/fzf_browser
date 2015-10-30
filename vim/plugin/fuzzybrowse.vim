@@ -16,6 +16,31 @@ fun! FuzzyBrowse(rootDir, initialQuery)
   endif
 endfun
 
+fun! FuzzyPathFromHere()
+  let oldReg=@x
+  let pos=getpos('.')
+  exec 'normal! a '
+  exec 'normal! "xyT '
+  let str=@x
+  let @x=oldReg
+  call setpos('.', pos)
+  let spl = split(str, '/')
+  let l:dir=join(spl[:-2], '/')
+  if str[0]=='/'
+    let l:dir='/'.l:dir
+  endif
+  let extra=spl[-1]
+  if isdirectory(l:dir)
+    let res = LaunchFuzzyBrowse(dir, extra)
+    if res != ""
+      let @x=res." "
+      normal! vT "xp
+      let @x=oldReg
+    endif
+  endif
+  return ""
+endf
+
 command! -nargs=? FuzzyBrowse silent call FuzzyBrowse(<q-args>, "")|redraw!|echo "cwd: ".getcwd()
 command! FuzzyBrowseHere silent call FuzzyBrowse(fnamemodify(expand("%"), ":p:h"), "")|redraw!|echo "cwd: ".getcwd()
 inoremap <plug>FuzzyPath <esc>:call FuzzyPathFromHere()<cr>a
