@@ -3,7 +3,7 @@ _fuzzybrowse_zsh_insert_output() {
   local startDir="$1"
   local res
   () {
-    fuzzybrowse "$startDir" "" $1
+    fuzzybrowse -o "$1" "$startDir"
     res="$(<$1 tr "\\n" " ")"
   } =(:)
   zle reset-prompt

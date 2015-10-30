@@ -121,6 +121,10 @@ fuzzybrowse() {
           prev_dir=""
         fi
       ;;
+      \>)
+        sel="$(pwd)"
+        break
+      ;;
       return)
         tmp_file=$(__fuzzybrowse_get_entry "$sel")
         if [[ -f "$tmp_file" ]]; then
@@ -265,7 +269,7 @@ __fuzzybrowse_dir_source(){
 }
 
 __fuzzybrowse_get_dir(){
-  echo "$@" | cut -f1 -d'/'
+  echo "$@" | rev |cut -f2- -d'/' | rev
 }
 
 __fuzzybrowse_get_entry(){
@@ -295,7 +299,7 @@ __fuzzybrowse_fzf_cmd(){
   if [[ "$__fuzzybrowse_recursive" == 1 ]]; then
     prePrompt="{REC}"
   fi
-  fzf --reverse --multi --prompt="$prePrompt""$(pwd): " --ansi --extended --print-query "$@"  --expect=ctrl-c,ctrl-x,ctrl-s,\#,return,ctrl-o,ctrl-u,\`,ctrl-q,ctrl-h,ctrl-z,ctrl-r,ctrl-e,ctrl-l,/,ctrl-v,left,right,ctrl-g
+  fzf --reverse --multi --prompt="$prePrompt""$(pwd): " --ansi --extended --print-query "$@"  --expect=ctrl-c,ctrl-x,ctrl-s,\#,return,ctrl-o,ctrl-u,\`,ctrl-q,ctrl-h,ctrl-z,ctrl-r,ctrl-e,ctrl-l,/,ctrl-v,left,right,ctrl-g,\>
 
   #`# Hack to fix syntax highlight in vim..
 }
@@ -322,7 +326,7 @@ __fuzzybrowse_relpath(){
     return
   fi
 
-  common_part=$source # for now
+  common_part="$source" # for now
   result="" # for now
 
   while [[ "${target#$common_part}" == "${target}" ]]; do
@@ -350,6 +354,9 @@ __fuzzybrowse_relpath(){
   # since we now have identified the common part,
   # compute the non-common part
   forward_part="${target#$common_part}"
+  echo "$target"
+  echo "$common_part"
+  echo "$forward_part"
 
   # and now stick all parts together
   if [[ -n $result ]] && [[ -n $forward_part ]]; then
