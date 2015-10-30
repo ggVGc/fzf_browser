@@ -283,7 +283,12 @@ __fuzzybrowse_fzf_cmd(){
 
 
 __fuzzybrowse_full_path(){
-  printf "%q" "$(cd "$(dirname "$1")"; pwd)/$(basename "$1")"
+  local base
+  base="/$(basename "$1")"
+  if [[ "$base" == "/." ]]; then
+      base=""
+  fi
+  printf "%q" "$(cd "$(dirname "$1")"; pwd)$base"
 }
 
 __fuzzybrowse_relpath(){
@@ -313,10 +318,13 @@ __fuzzybrowse_relpath(){
   done
 
 
+  local no_common
+  no_common=0
   if [[ $common_part == "/" ]]; then
     # special case for root (no common path)
     #result="$result/"
     result="/"
+    no_common=1
   fi
 
   # since we now have identified the common part,
@@ -335,5 +343,8 @@ __fuzzybrowse_relpath(){
     result="${result:1}"
   fi
 
+  if [[ $no_common == 0 && "${result:0:1}" != "." ]]; then
+    result="./$result"
+  fi
   echo "$result"
 }
