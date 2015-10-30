@@ -70,7 +70,7 @@ For these commands, if a directory is selected, `cd` to it. If one of more files
 
 | Map                                | Description                                                      |
 | -------------------------------------- | ---------------------------------------------------------------- |
-| `<plug>FuzzyPath`           | (EXPERIMENTAL) In insert mode, triggers path completion using fzf_browser. Path must be preceded by a space to trigger.   |
+| `<plug>FuzzyPath`           | In insert mode, triggers path completion using fzf_browser. |
 
 Example mapping:
 ```vim

@@ -20,11 +20,8 @@ endfun
 fun! FuzzyPathFromHere()
   "let oldReg=@x
   let pos=getpos('.')
-  execute "normal! v?[^-[:alnum:]/_.~\"]\<cr>y"
-  let str=@0
-  "if len(str)>0 && str[0] == " "
-    let str = str[1:]
-  "endif
+  execute "normal! dv?[^-[:alnum:]_/~.+]\\zs\\\|^\<cr>"
+  let str=@"
   "let @x=oldReg
   call setpos('.', pos)
   let spl = split(str, '/')
@@ -47,14 +44,18 @@ fun! FuzzyPathFromHere()
     let l:dir='/'.l:dir
   endif
 
+  "echo dir
+  "echo extra
+  "call input('asd')
   if isdirectory(l:dir)
     let res = LaunchFuzzyBrowse(l:dir, l:extra)
+    "echo res
+    "return
     if res != ""
-      let @x=res
-      normal! vT "xp
+      let str = res
     endif
   endif
-  return ""
+  exec "normal! a".str
 endf
 
 command! -nargs=? FuzzyBrowse silent call FuzzyBrowse(<q-args>, "")|redraw!|echo "cwd: ".getcwd()

@@ -331,5 +331,9 @@ __fuzzybrowse_relpath(){
     result="${forward_part:1}"
   fi
 
+  if [[ "${result:0:2}" == "//" ]]; then
+    result="${result:1}"
+  fi
+
   echo "$result"
 }
