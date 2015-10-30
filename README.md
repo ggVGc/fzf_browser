@@ -24,6 +24,19 @@ Make sure this repository is added to your $PATH, i.e
 PATH=${PATH}:~/.fzf_browser
 ```
 
+#### Basic usage
+
+fuzzybrowse [options]k k root_path 
+
+
+| Option                | Description                                                      |
+| -------------------------- | ---------------------------------------------------------------- |
+| `-r`                   | Recursive mode |
+| `-h`                   | Show hidden files |
+| `-q` | Initial query |
+| `-e` | Early exit, if only one option(best combined with initial query)  |
+| `-o` | Output file, instead of writing to stdout |
+
 #### Zsh integration
 
 Add the following line to your .zshrc
@@ -65,6 +78,7 @@ For these commands, if a directory is selected, `cd` to it. If one of more files
 | -------------------------------------- | ---------------------------------------------------------------- |
 | `:FuzzyBrowse``<start_dir>`           | Opens fuzzybrowse in `<start_dir>`, or current working dir if no argument is given. |
 | `:FuzzyBrowseHere`                     | Same as `FuzzyBrowse`, but starts in the directory of the current buffer(regardless of current working dir) |
+| `:FuzzyInsertPath`                     | Launches fzf_browsers and inserts the selection into current buffer |
 
 
 

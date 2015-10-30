@@ -1,5 +1,5 @@
 fun! LaunchFuzzyBrowse(rootDir, initialQuery)
-  exec "!fuzzybrowse ".fnameescape(a:rootDir)." ".a:initialQuery." > /tmp/vim_fbrowse_out"
+  exec "!fuzzybrowse -q \"".a:initialQuery."\""." -o /tmp/vim_fbrowse_out ".fnameescape(a:rootDir)
   let l:res = readfile("/tmp/vim_fbrowse_out")
   if len(l:res) > 0
     return l:res[0]
@@ -10,6 +10,9 @@ endfun
 
 fun! FuzzyBrowse(rootDir, initialQuery)
   let entry=LaunchFuzzyBrowse(a:rootDir, a:initialQuery)
+  if entry == ""
+    return
+  endif
   if isdirectory(entry)
     exe "lcd ".fnameescape(entry)
   else
@@ -55,4 +58,5 @@ endf
 
 command! -nargs=? FuzzyBrowse silent call FuzzyBrowse(<q-args>, "")|redraw!|echo "cwd: ".getcwd()
 command! FuzzyBrowseHere silent call FuzzyBrowse(fnamemodify(expand("%"), ":p:h"), "")|redraw!|echo "cwd: ".getcwd()
+command! FuzzyInsertPath silent exec "normal! a".LaunchFuzzyBrowse('.', '')|redraw!|echo "cwd: ".getcwd()
 inoremap <plug>FuzzyPath <esc>:call FuzzyPathFromHere()<cr>a

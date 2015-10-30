@@ -20,14 +20,40 @@ __fuzzybrow_file_ignore="log|bak|aux|lof|lol|lot|toc|bbl|blg|tmp|temp|swp|incomp
 ##### END CONFIGURATION ##### 
 # Opens fuzzy dir browser. Tab to switch between file mode and directory mode. Esc to quit.
 fuzzybrowse() {
-  local res key sel prev_dir query stored_query tmp_prompt tmp_file
+  local res key sel prev_dir query stored_query tmp_prompt tmp_file tmp_dir
   local initial_dir
   initial_dir="$(pwd)"
-  local start_dir="$1"
-  local start_query="$2"
-  local out_file="$3"
-  local custom_prompt="$4"
-  local tmp_dir
+
+  local start_query
+  local out_file
+  local custom_prompt
+  local early_exit="--ansi"
+  while getopts "hrep:q:o:" opt; do
+      case "$opt" in
+      h)
+        __fuzzybrowse_show_hidden=1
+      ;;
+      r)
+        __fuzzybrowse_recursive=1
+      ;;
+      e)
+        early_exit="$OPTARG"
+      ;;
+      p)
+        custom_prompt="$OPTARG"
+      ;;
+      q)
+        start_query="$OPTARG"
+      ;;
+      o)
+        out_file="$OPTARG"
+      ;;
+      esac
+  done
+  shift $((OPTIND-1))
+
+  local start_dir
+  start_dir="$1"
 
   stored_query="$start_query"
 
@@ -39,12 +65,6 @@ fuzzybrowse() {
     cd "$start_dir" 
   else
     start_dir="$initial_dir"
-  fi
-  local early_exit
-  if [[ -n "$start_query" ]]; then
-    early_exit="-1"
-  else
-    early_exit="--ansi" # just dummy
   fi
   start_query=""
   while true ; do

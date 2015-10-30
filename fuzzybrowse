@@ -2,5 +2,8 @@
 
 thisDir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd -P )
 source "$thisDir"/fzf_browser.sh
+
+shift $((OPTIND-1))
+
 fuzzybrowse "$@"
 
