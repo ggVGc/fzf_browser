@@ -110,7 +110,7 @@ Key mappings:
 | `Right arrow`                          | `cd` into selected directory, or run file(same as ctrl-v for files) |
 | `Left arrow`/ `#`/`` ` ``              | Go to parent directory|
 | `Ctrl-l`                               | Preview selection. By default launches a `less` in a new terminal.|
-| `Ctrl-q`                               | Toggle showing hidden files.|
+| `Ctrl-w`                               | Toggle showing hidden files.|
 | `Ctrl-r` / `ctrl-a`                    | Toggle recursive mode. Lists all dirs/files recursively from current dir.|
 | `Ctrl-g`                               | In file-recursive mode, go to directory of selected file. |
 | `Ctrl-v`                               | View current selection using xdg-open |
