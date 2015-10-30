@@ -37,7 +37,7 @@ fuzzybrowse() {
         __fuzzybrowse_recursive=1
       ;;
       e)
-        early_exit="$OPTARG"
+        early_exit="-1"
       ;;
       p)
         custom_prompt="$OPTARG"
