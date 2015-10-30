@@ -58,12 +58,23 @@ If any of these are entered as the input string, they will trigger an action ins
 | (Zsh only) `_fuzzybrowse_zsh_insert_output`| Should be mapped to something with bindkey(see installation example). Inserts output from `fuzzybrowse` into current command line. |
 
 #### Vim usage
-If a directory is selected, `cd` to it. If one of more files are selected, opens them for editing.
+
+For these commands, if a directory is selected, `cd` to it. If one of more files are selected, opens them for editing.
 
 | Command                                | Description                                                      |
 | -------------------------------------- | ---------------------------------------------------------------- |
 | `:FuzzyBrowse``<start_dir>`           | Opens fuzzybrowse in `<start_dir>`, or current working dir if no argument is given. |
 | `:FuzzyBrowseHere`                     | Same as `FuzzyBrowse`, but starts in the directory of the current buffer(regardless of current working dir) |
+
+
+| Map                                | Description                                                      |
+| -------------------------------------- | ---------------------------------------------------------------- |
+| `<plug>FuzzyPath`           | In insert mode, triggers path completion using fzf_browser  |
+
+Example mapping:
+```vim
+imap <c-f> <plug>FuzzyPath
+```
 
 
 
