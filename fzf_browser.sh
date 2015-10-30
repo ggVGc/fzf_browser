@@ -354,9 +354,6 @@ __fuzzybrowse_relpath(){
   # since we now have identified the common part,
   # compute the non-common part
   forward_part="${target#$common_part}"
-  echo "$target"
-  echo "$common_part"
-  echo "$forward_part"
 
   # and now stick all parts together
   if [[ -n $result ]] && [[ -n $forward_part ]]; then
