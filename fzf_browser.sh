@@ -156,7 +156,7 @@ fuzzybrowse() {
         cd "$initial_dir"
         return
       ;;
-      ctrl-w)
+      ctrl-d)
         stored_query="$query"
         __fuzzybrowse_show_hidden=$((__fuzzybrowse_show_hidden==0))
       ;;
@@ -305,7 +305,7 @@ __fuzzybrowse_fzf_cmd(){
   if [[ "$__fuzzybrowse_recursive" == 1 ]]; then
     prePrompt="{REC}"
   fi
-  fzf --reverse --multi --prompt="$prePrompt""$(pwd): " --ansi --extended --print-query "$@"  --expect=ctrl-c,ctrl-x,ctrl-s,\#,return,ctrl-o,ctrl-u,\`,ctrl-w,ctrl-h,ctrl-z,ctrl-r,ctrl-e,ctrl-l,/,ctrl-v,left,right,ctrl-g,\>,ctrl-a
+  fzf --reverse --multi --prompt="$prePrompt""$(pwd): " --ansi --extended --print-query "$@"  --tiebreak=begin --expect=ctrl-c,ctrl-x,ctrl-s,\#,return,ctrl-o,ctrl-u,\`,ctrl-d,ctrl-h,ctrl-z,ctrl-r,ctrl-e,ctrl-l,/,ctrl-v,left,right,ctrl-g,\>,ctrl-a
 
   #`# Hack to fix syntax highlight in vim..
 }
