@@ -22,9 +22,6 @@ fun! FuzzyBrowse(...)
 endfun
 
 
-fun! FuzFindPath()
-  echo s:findPath(getline(line('.'))[:getpos('.')[2]-1])
-endf
 
 fun! s:findPath(content)
   let specialCharPat = "[^a-zA-Z0-9/\\\\\\.]"
