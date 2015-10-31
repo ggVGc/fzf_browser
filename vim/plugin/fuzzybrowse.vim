@@ -1,10 +1,12 @@
 fun! LaunchFuzzyBrowse(...)
-  exec "!fuzzybrowse -o /tmp/vim_fbrowse_out ".join(a:000, ' ')
-  let l:res = readfile("/tmp/vim_fbrowse_out")
+  let outFile="/tmp/vim_fbrowse_out"
+  exec "!fuzzybrowse -o ".outFile." ".join(a:000, ' ')
+  redraw!
+  let l:res = filereadable(outFile) ? readfile(outFile) : ''
   if len(l:res) > 0
     return l:res[0]
   else
-    return ""
+    return ''
   endif
 endfun
 
@@ -89,9 +91,9 @@ fun! FuzzyPathFromHere()
 endf
 
 
-command! -nargs=? -complete=file FuzzyBrowse silent call call('FuzzyBrowse', split(<q-args>))|redraw!|echo "cwd: ".getcwd()
-command! -nargs=? FuzzyBrowseHere silent call call('FuzzyBrowse', split(<q-args>)+[expand("%:p:h")])|redraw!|echo "cwd: ".getcwd()
-command! -nargs=? FuzzyInsertPath silent exec "normal! a".call('LaunchFuzzyBrowse', split(<q-args>))|redraw!|echo "cwd: ".getcwd()
+command! -nargs=? -complete=file FuzzyBrowse silent call call('FuzzyBrowse', split(<q-args>))|echo "cwd: ".getcwd()
+command! -nargs=? FuzzyBrowseHere silent call call('FuzzyBrowse', split(<q-args>)+[expand("%:p:h")])|echo "cwd: ".getcwd()
+command! -nargs=? FuzzyInsertPath silent exec "normal! a".call('LaunchFuzzyBrowse', split(<q-args>))|echo "cwd: ".getcwd()
 inoremap <plug>FuzzyPath <esc>:call FuzzyPathFromHere()<cr>a
 
 
