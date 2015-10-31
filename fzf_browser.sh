@@ -66,6 +66,10 @@ fuzzybrowse() {
     echo -n "" > "$out_file"
   fi
 
+  if [[ ! -d "$start_dir" ]]; then
+    >&2 echo "Invalid start directory"
+    return
+  fi
   if [[ -n "$start_dir" ]]; then
     cd "$start_dir" 
   else

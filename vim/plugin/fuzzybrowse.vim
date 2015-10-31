@@ -21,22 +21,29 @@ fun! FuzzyBrowse(...)
   endif
 endfun
 
+
+fun! FuzFindPath()
+  echo s:findPath(getline(line('.'))[:getpos('.')[2]-1])
+endf
+
 fun! s:findPath(content)
-  let specialCharPat = "[\"'<( =/]"
-  let ind = len(a:content)-1
-  while ind>0
-    if a:content[ind] == '/'
-      if a:content[ind-1]=='.'
-        break
-      elseif match(a:content[ind-1], specialCharPat)==0
-        let ind+=1
-        break
-      endif
+  let specialCharPat = "[^a-zA-Z0-9/\\\\\\.]"
+  let rev = join(reverse(split(a:content, '.\zs')), '')
+  let lastWasSpecial=0
+  let stepInd=0
+  while stepInd<len(rev)
+    let cur=rev[stepInd]
+    let specialMatch = match(cur, specialCharPat)==0
+    if lastWasSpecial && cur != '\'
+      break
     endif
-    let ind-=1
+    let stepInd+=1
+    let lastWasSpecial = specialMatch
   endwhile
+  let stepInd-=1
+  let ind=len(a:content)-stepInd+1
   if ind>0
-    return a:content[ind-1:-1]
+    return [a:content[ind-1:-1], stepInd]
   else
     return ''
   endif
@@ -44,15 +51,9 @@ endf
 
 
 
+
 fun! FuzzyPathFromHere()
-  "execute "normal! dv?[^-[:alnum:]_/~.+]\\zs\\\|^\<cr>"
-  "let str=@"
-  "if match(str[0], "") == 0
-    "exec 'normal! i'.str[0]
-    "let str = str[1:]
-  "endif
-  let str = s:findPath(getline(line('.'))[:getpos('.')[2]-1])
-  "exec "normal! ".(len(str)-1)."dhcl "
+  let [str, origLen] = s:findPath(getline(line('.'))[:getpos('.')[2]-1])
   let spl = split(str, '/')
   if len(spl)==0
     let l:dir='.'
@@ -78,19 +79,16 @@ fun! FuzzyPathFromHere()
     let l:dir='/'.l:dir
   endif
 
-  if isdirectory(l:dir)
-    let res = LaunchFuzzyBrowse(extra==''?'': '-q '.extra, l:dir)
-    if res != ""
-      let oldReg=@x
-      let @x=res
-      let l=len(str)
-      if l>0
-        exec "normal! v".(l-1).'h"xp'
-      else
-        exec 'normal! "xp'
-      endif
-      let @x=oldReg
+  let res = LaunchFuzzyBrowse(extra==''?'': '-q '.extra, l:dir)
+  if res != ""
+    let oldReg=@x
+    let @x=res
+    if origLen > 0
+      exec "normal! v".(origLen-1).'h"xp'
+    else
+      exec 'normal! "xp'
     endif
+    let @x=oldReg
   endif
 endf
 
