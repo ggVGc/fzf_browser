@@ -21,13 +21,38 @@ fun! FuzzyBrowse(...)
   endif
 endfun
 
-fun! FuzzyPathFromHere()
-  execute "normal! dv?[^-[:alnum:]_/~.+]\\zs\\\|^\<cr>"
-  let str=@"
-  if match(str[0], "[\"'<(]") == 0
-    exec 'normal! i'.str[0]
-    let str = str[1:]
+fun! s:findPath(content)
+  let specialCharPat = "[\"'<( =/]"
+  let ind = len(a:content)-1
+  while ind>0
+    if a:content[ind] == '/'
+      if a:content[ind-1]=='.'
+        break
+      elseif match(a:content[ind-1], specialCharPat)==0
+        let ind+=1
+        break
+      endif
+    endif
+    let ind-=1
+  endwhile
+  if ind>0
+    return a:content[ind-1:-1]
+  else
+    return ''
   endif
+endf
+
+
+
+fun! FuzzyPathFromHere()
+  "execute "normal! dv?[^-[:alnum:]_/~.+]\\zs\\\|^\<cr>"
+  "let str=@"
+  "if match(str[0], "") == 0
+    "exec 'normal! i'.str[0]
+    "let str = str[1:]
+  "endif
+  let str = s:findPath(getline(line('.'))[:getpos('.')[2]-1])
+  "exec "normal! ".(len(str)-1)."dhcl "
   let spl = split(str, '/')
   if len(spl)==0
     let l:dir='.'
@@ -56,13 +81,19 @@ fun! FuzzyPathFromHere()
   if isdirectory(l:dir)
     let res = LaunchFuzzyBrowse(extra==''?'': '-q '.extra, l:dir)
     if res != ""
-      let str = res
+      let oldReg=@x
+      let @x=res
+      let l=len(str)
+      if l>0
+        exec "normal! v".(l-1).'h"xp'
+      else
+        exec 'normal! "xp'
+      endif
+      let @x=oldReg
     endif
   endif
-  exec "normal! i".str
 endf
 
-00
 
 command! -nargs=? -complete=file FuzzyBrowse silent call call('FuzzyBrowse', split(<q-args>))|redraw!|echo "cwd: ".getcwd()
 command! -nargs=? FuzzyBrowseHere silent call call('FuzzyBrowse', split(<q-args>)+[expand("%:p:h")])|redraw!|echo "cwd: ".getcwd()
