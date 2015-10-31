@@ -1,5 +1,4 @@
 fun! LaunchFuzzyBrowse(...)
-  "exec "!fuzzybrowse -q \"".a:initialQuery."\""." -o /tmp/vim_fbrowse_out ".join(options, ' ').fnameescape(a:rootDir)
   exec "!fuzzybrowse -o /tmp/vim_fbrowse_out ".join(a:000, ' ')
   let l:res = readfile("/tmp/vim_fbrowse_out")
   if len(l:res) > 0
@@ -24,7 +23,7 @@ endfun
 
 
 fun! s:findPath(content)
-  let specialCharPat = "[^a-zA-Z0-9/\\\\\\.]"
+  let specialCharPat = "[^\.a-zA-Z0-9/\\\\\]"
   let rev = join(reverse(split(a:content, '.\zs')), '')
   let lastWasSpecial=0
   let stepInd=0
