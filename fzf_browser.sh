@@ -15,7 +15,7 @@ __fuzzybrowse_runFile(){
 }
 
 # List of extensions to ignore, separated by |
-__fuzzybrow_file_ignore="log|bak|aux|lof|lol|lot|toc|bbl|blg|tmp|temp|swp|incomplete|o|class|cache|pyc|aria2|torrent|torrent.added|part|crdownload"
+__fuzzybrow_file_ignore="log|bak|aux|lof|lol|lot|toc|bbl|blg|tmp|temp|swp|incomplete|o|class|pdb|cache|pyc|aria2|torrent|torrent.added|part|crdownload"
 # List of folders to ignore, separated by |
 __fuzzybrow_dir_ignore=".git|.svn|.hg"
 
@@ -83,11 +83,11 @@ fuzzybrowse() {
     else
       tmp_prompt="--ansi"
     fi
-    #if [[ "$__fuzzybrowse_recursive" == 1 ]]; then
-      #res="$(__fuzzybrowse_file_source "" 2>/dev/null | __fuzzybrowse_fzf_cmd "$tmp_prompt" "$early_exit" "-q" "$stored_query" )"
-    #else
+    if [[ "$__fuzzybrowse_recursive" == 1 ]]; then
+      res="$(__fuzzybrowse_all_source | __fuzzybrowse_fzf_cmd "$tmp_prompt" "$early_exit" "-q" "$stored_query")" 
+    else
       res="$(__fuzzybrowse_combined_source 2>/dev/null | __fuzzybrowse_fzf_cmd "$tmp_prompt" "$early_exit" "-q" "$stored_query")" 
-    #fi
+    fi
     stored_query=""
     if [[ -z "$res" ]]; then
       dirs -c
@@ -161,8 +161,8 @@ fuzzybrowse() {
         cd "$initial_dir"
         return
       ;;
-      ctrl-d)
-        stored_query="$query"
+      \\|?)
+        stored_query="${query:0:-1}"
         __fuzzybrowse_show_hidden=$((__fuzzybrowse_show_hidden==0))
       ;;
       ctrl-h)
@@ -236,14 +236,18 @@ __fuzzybrowse_show_hidden=0
 __fuzzybrowse_recursive=0
 
 __fuzzybrow_file_ignore_pat="$(printf ".*\(%q\)$"  "$__fuzzybrow_file_ignore")"
-__fuzzybrow_dir_ignore_pat="$(printf "./\(%q\)\(/.*\|$\)"  "$__fuzzybrow_dir_ignore")"
+__fuzzybrow_dir_ignore_pat="$(printf ".*/\(%q\)\(/.*\|$\)"  "$__fuzzybrow_dir_ignore")"
 
 __fuzzybrow_populate_dir_list(){
   local line
   
   if [[ "$__fuzzybrowse_recursive" == 1 ]]; then
     while read line ; do
-        echo -e "\e[36m$line/\e[0m"
+      if [[ -d "$line" ]]; then
+        echo -e "\e[36m$line/"
+      else
+        echo -e "\e[0m$line"
+      fi
     done
   else
     while read line ; do
@@ -279,6 +283,15 @@ __fuzzybrowse_dir_source(){
   fi
 }
 
+__fuzzybrowse_all_source(){
+  if [[ "$__fuzzybrowse_show_hidden" == 1 ]]; then
+    find . ! -iregex "$__fuzzybrow_dir_ignore_pat" ! -iregex "$__fuzzybrow_file_ignore_pat" | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list
+  else
+    find .  -not -path '*/\.*' ! -iregex "$__fuzzybrow_dir_ignore_pat" ! -iregex "$__fuzzybrow_file_ignore_pat" | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list
+  fi
+}
+
+
 __fuzzybrowse_get_dir(){
   echo "$@" | rev |cut -f2- -d'/' | rev
 }
@@ -308,9 +321,18 @@ __fuzzybrowse_combined_source(){
 __fuzzybrowse_fzf_cmd(){
   local prePrompt=""
   if [[ "$__fuzzybrowse_recursive" == 1 ]]; then
-    prePrompt="{REC}"
+    prePrompt="REC"
   fi
-  fzf --reverse --multi --prompt="$prePrompt""$(pwd): " --ansi --extended --print-query "$@"  --tiebreak=begin --expect=ctrl-c,ctrl-x,ctrl-s,\#,return,ctrl-o,ctrl-u,\`,ctrl-d,ctrl-h,ctrl-z,ctrl-r,ctrl-e,ctrl-l,/,ctrl-v,left,right,ctrl-g,\>,ctrl-a
+  if [[ "$__fuzzybrowse_show_hidden" == 1 ]]; then
+    if [[ -n "$prePrompt" ]]; then
+      prePrompt+="|"
+    fi
+    prePrompt+="HID"
+  fi
+  if [[ -n "$prePrompt" ]]; then
+    prePrompt="{$prePrompt}"
+  fi
+  fzf --reverse --multi --prompt="$prePrompt ""$(pwd): " --ansi --extended --print-query "$@"  --tiebreak=begin --expect=ctrl-c,ctrl-x,ctrl-s,\#,return,ctrl-o,ctrl-u,\`,\\,ctrl-h,ctrl-z,ctrl-r,ctrl-e,ctrl-l,/,ctrl-v,left,right,ctrl-g,\>,ctrl-a,?
 
   #`# Hack to fix syntax highlight in vim..
 }
