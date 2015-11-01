@@ -243,7 +243,7 @@ __fuzzybrow_populate_dir_list(){
   
   if [[ "$__fuzzybrowse_recursive" == 1 ]]; then
     while read line ; do
-        echo -e "\e[36m$line/"
+        echo -e "\e[36m$line/\e[0m"
     done
   else
     while read line ; do
