@@ -1,6 +1,7 @@
 fun! LaunchFuzzyBrowse(...)
-  let outFile="/tmp/vim_fbrowse_out"
-  exec "!fuzzybrowse -o ".outFile." ".join(a:000, ' ')
+  "let outFile="/tmp/vim_fbrowse_out"
+  let outFile = tempname()
+  exec "!fuzzybrowse ".join(a:000, ' ').' > '.outFile
   redraw!
   let l:res = filereadable(outFile) ? readfile(outFile) : ''
   if len(l:res) > 0
@@ -22,10 +23,13 @@ fun! FuzzyBrowse(...)
   endif
 endfun
 
+fun! FuzFindPath()
+  echo s:findPath(getline(line('.'))[:getpos('.')[2]-1])
+endf
 
 
 fun! s:findPath(content)
-  let specialCharPat = "[^\.a-zA-Z0-9/\\\\\]"
+  let specialCharPat = "[^$~\.a-zA-Z0-9/\\\\\]"
   let rev = join(reverse(split(a:content, '.\zs')), '')
   let lastWasSpecial=0
   let stepInd=0
@@ -51,38 +55,39 @@ endf
 
 
 fun! FuzzyPathFromHere()
-  let [str, origLen] = s:findPath(getline(line('.'))[:getpos('.')[2]-1])
-  let spl = split(str, '/')
-  if len(spl)==0
+  let [l:str, l:origLen] = s:findPath(getline(line('.'))[:getpos('.')[2]-1])
+  let l:spl = split(l:str, '/')
+  if len(l:spl)==0
     let l:dir='.'
     let l:extra = ''
-  elseif len(spl)==1
-    if str[0]=='/'
-      let l:extra=spl[0]
+  elseif len(l:spl)==1
+    if l:str[0]=='/'
+      let l:extra=l:spl[0]
       let l:dir = ''
     else
-      let l:dir=spl[0]
+      let l:dir=l:spl[0]
       let l:extra = ''
     endif
   else
-    if str[-1:] == '/'
-      let l:dir=join(spl, '/')
-      let extra=''
+    if l:str[-1:] == '/'
+      let l:dir=join(l:spl, '/')
+      let l:extra=''
     else
-      let l:dir=join(spl[:-2], '/')
-      let extra=spl[-1]
+      let l:dir=join(l:spl[:-2], '/')
+      let l:extra=l:spl[-1]
     endif
   endif
-  if str[0]=='/'
+  if l:str[0]=='/'
     let l:dir='/'.l:dir
   endif
 
-  let res = LaunchFuzzyBrowse(extra==''?'': '-q '.extra, l:dir)
-  if res != ""
+  let l:res = LaunchFuzzyBrowse(l:extra==''?'': '-q '.l:extra, l:dir)
+
+  if res != ''
     let oldReg=@x
-    let @x=res
-    if origLen > 0
-      exec "normal! v".(origLen-1).'h"xp'
+    let @x=l:res
+    if l:origLen > 0
+      exec "normal! v".(l:origLen-1).'h"xp'
     else
       exec 'normal! "xp'
     endif
@@ -95,6 +100,7 @@ command! -nargs=? -complete=file FuzzyBrowse silent call call('FuzzyBrowse', spl
 command! -nargs=? FuzzyBrowseHere silent call call('FuzzyBrowse', split(<q-args>)+[expand("%:p:h")])|echo "cwd: ".getcwd()
 command! -nargs=? FuzzyInsertPath silent exec "normal! a".call('LaunchFuzzyBrowse', split(<q-args>))|echo "cwd: ".getcwd()
 inoremap <plug>FuzzyPath <esc>:call FuzzyPathFromHere()<cr>a
+"inoremap <expr> <plug>FuzzyPath        FuzzyPathFromHere()
 
 
 
