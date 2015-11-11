@@ -2,6 +2,7 @@ fun! LaunchFuzzyBrowse(...)
   "let outFile="/tmp/vim_fbrowse_out"
   let outFile = tempname()
   let oldAutowrite = &autowrite
+  set noautowrite
   exec "!fuzzybrowse ".join(a:000, ' ').' > '.outFile
   let &autowrite = oldAutowrite
   redraw!

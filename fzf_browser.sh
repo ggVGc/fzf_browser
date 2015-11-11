@@ -60,6 +60,9 @@ fuzzybrowse() {
   local start_dir
   start_dir="$1"
 
+  if [[ "${start_query:0:1}" == "." ]]; then
+    __fuzzybrowse_show_hidden=1
+  fi
   stored_query="$start_query"
 
   if [[ -n "$out_file" ]]; then
@@ -67,11 +70,14 @@ fuzzybrowse() {
   fi
 
   if [[ -n "$start_dir" ]]; then
-    if [[ ! -d "$start_dir" ]]; then
+    if [[ "$start_dir" == "~" ]]; then
+      start_dir="$HOME"
+    fi
+    if [[ -d "$start_dir" ]]; then
+      cd "$start_dir" 
+    else
       >&2 echo "Invalid start directory"
       return
-    else
-      cd "$start_dir" 
     fi
   else
     start_dir="$initial_dir"
@@ -240,7 +246,7 @@ fuzzybrowse() {
 __fuzzybrowse_show_hidden=0
 __fuzzybrowse_recursive=0
 
-__fuzzybrow_file_ignore_pat="$(printf ".*\(%q\)$"  "$__fuzzybrow_file_ignore")"
+__fuzzybrow_file_ignore_pat="$(printf ".*\.\(%q\)$"  "$__fuzzybrow_file_ignore")"
 __fuzzybrow_dir_ignore_pat="$(printf ".*/\(%q\)\(/.*\|$\)"  "$__fuzzybrow_dir_ignore")"
 
 __fuzzybrow_populate_dir_list(){
