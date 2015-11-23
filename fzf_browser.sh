@@ -201,7 +201,8 @@ fuzzybrowse() {
       ;;
 
     \\)
-      stored_query="${query:0:-1}"
+      len=${#query}
+      stored_query="${query:0:$len-1}"
       __fuzzybrowse_recursive=$((__fuzzybrowse_recursive==0))
     ;;
     ctrl-r)
@@ -255,15 +256,15 @@ __fuzzybrow_populate_dir_list(){
   if [[ "$__fuzzybrowse_recursive" == 1 ]]; then
     while read line ; do
       if [[ -d "$line" ]]; then
-        echo -e "\e[36m$line/"
+        printf "\e[36m$line/\n"
       else
-        echo -e "\e[0m$line"
+        printf "\e[0m$line\n"
       fi
     done
   else
     while read line ; do
       if [[ -d "$line" ]]; then
-        echo -e "\e[36m$line/\e[0m $(cd "$line" && find . -maxdepth 1 -type f |head -9 | grep -v -i "$__fuzzybrow_file_ignore_pat" |cut -c3- | tr "\\n" "|" | sed 's/|/\\\e[36m | \\\e[0m/g')"
+        printf "\e[36m$line/\e[0m $(cd "$line" && find . -maxdepth 1 -type f |head -9 | grep -v -i "$__fuzzybrow_file_ignore_pat" |cut -c3- | tr "\\n" "|" | sed 's/|/\\\e[36m | \\\e[0m/g')\n"
       fi
     done
   fi
@@ -275,10 +276,16 @@ __fuzzybrowse_file_source(){
   if [[ -n "$1" ]]; then
     max_dep="$1"
   fi
+  # TODO: -xtype temporarily disabled, because of OSX. Fix.
+  # if [[ "$__fuzzybrowse_show_hidden" == 1 ]]; then
+  #   find  . "$@" -maxdepth "$max_dep" -type f -o -xtype f ! -iregex "$__fuzzybrow_file_ignore_pat" | cut -c3-
+  # else
+  #   find . "$@" -maxdepth "$max_dep" \( -type f -o -xtype f \) -not -path '*/\.*' ! -iregex "$__fuzzybrow_file_ignore_pat" | cut -c3-
+  # fi
   if [[ "$__fuzzybrowse_show_hidden" == 1 ]]; then
-    find  . "$@" -maxdepth "$max_dep" -type f -o -xtype f ! -iregex "$__fuzzybrow_file_ignore_pat" | cut -c3-
+    find  . "$@" -maxdepth "$max_dep" -type f  -! -iregex "$__fuzzybrow_file_ignore_pat" | cut -c3-
   else
-    find . "$@" -maxdepth "$max_dep" \( -type f -o -xtype f \) -not -path '*/\.*' ! -iregex "$__fuzzybrow_file_ignore_pat" | cut -c3-
+    find . "$@" -maxdepth "$max_dep" \( -type f \) -not -path '*/\.*' ! -iregex "$__fuzzybrow_file_ignore_pat" | cut -c3-
   fi
 }
 
