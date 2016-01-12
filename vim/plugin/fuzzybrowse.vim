@@ -99,7 +99,7 @@ fun! FuzzyPathFromHere()
 endf
 
 
-command! -nargs=? -complete=file FuzzyBrowse silent call call('FuzzyBrowse', split(<q-args>))|echo "cwd: ".getcwd()
+command! -nargs=* -complete=file FuzzyBrowse silent call call('FuzzyBrowse', split(<q-args>))|echo "cwd: ".getcwd()
 command! -nargs=? FuzzyBrowseHere silent call call('FuzzyBrowse', split(<q-args>)+[expand("%:p:h")])|echo "cwd: ".getcwd()
 command! -nargs=? FuzzyInsertPath silent exec "normal! a".call('LaunchFuzzyBrowse', split(<q-args>))|echo "cwd: ".getcwd()
 inoremap <plug>FuzzyPath <esc>:call FuzzyPathFromHere()<cr>a
