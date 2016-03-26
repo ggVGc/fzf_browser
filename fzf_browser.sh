@@ -31,9 +31,10 @@ fuzzybrowse() {
 
   local start_query
   local out_file
+  local fzf_opts
   local custom_prompt
   local early_exit="--ansi"
-  while getopts "hrep:q:o:" opt; do
+  while getopts "hrep:q:o:f:" opt; do
       case "$opt" in
       h)
         __fuzzybrowse_show_hidden=1
@@ -52,6 +53,9 @@ fuzzybrowse() {
       ;;
       o)
         out_file="$OPTARG"
+      ;;
+      f)
+        fzf_opts="$OPTARG"
       ;;
       esac
   done
@@ -199,7 +203,12 @@ fuzzybrowse() {
       stored_query="$query"
       "$EDITOR" "$sel"
       ;;
-
+    # ctrl-t)
+    #   stored_query="$query"
+    #     export e
+    #     e="$(__fuzzybrowse_full_path "$(__fuzzybrowse_get_entry "$sel")")"
+    #   __fuzzybrowse_runInTerminal "$SHELL"
+    #   ;;
     \\)
       len=${#query}
       stored_query="${query:0:$len-1}"
@@ -350,7 +359,7 @@ __fuzzybrowse_fzf_cmd(){
   if [[ -n "$prePrompt" ]]; then
     prePrompt="{$prePrompt}"
   fi
-  fzf --reverse --multi --prompt="$prePrompt ""$(pwd): " --ansi --extended --print-query "$@"  --tiebreak=begin --expect=ctrl-c,ctrl-x,ctrl-s,\#,return,ctrl-o,ctrl-u,\`,\\,ctrl-h,ctrl-z,ctrl-r,ctrl-e,ctrl-l,/,ctrl-v,left,right,ctrl-g,\>,ctrl-a
+  fzf "$fzf_opts" --reverse --multi --prompt="$prePrompt ""$(pwd): " --ansi --extended --print-query "$@"  --tiebreak=begin --expect=ctrl-c,ctrl-x,ctrl-s,\#,return,ctrl-o,ctrl-u,\`,\\,ctrl-h,ctrl-z,ctrl-r,ctrl-e,ctrl-l,/,ctrl-v,left,right,ctrl-g,\>,ctrl-a,ctrl-t
 
   #`# Hack to fix syntax highlight in vim..
 }
