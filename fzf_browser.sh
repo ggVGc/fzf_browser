@@ -31,9 +31,9 @@ fuzzybrowse() {
 
   local start_query
   local out_file
-  local fzf_opts
   local custom_prompt
   local early_exit="--ansi"
+  local fzf_opts="--ansi"
   while getopts "hrep:q:o:f:" opt; do
       case "$opt" in
       h)
