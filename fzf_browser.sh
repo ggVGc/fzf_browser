@@ -42,6 +42,9 @@ fuzzybrowse() {
       r)
         __fuzzybrowse_recursive=1
       ;;
+      s)
+        __fuzzybrowse_sort=1
+      ;;
       e)
         early_exit="-1"
       ;;
@@ -174,6 +177,10 @@ fuzzybrowse() {
       ctrl-a)
         stored_query="$query"
         __fuzzybrowse_show_hidden=$((__fuzzybrowse_show_hidden==0))
+      ;;
+      ctrl-y)
+        stored_query="$query"
+        __fuzzybrowse_sort=$((__fuzzybrowse_sort==0))
       ;;
       ctrl-h)
         pushd "$HOME" > /dev/null 2>&1
@@ -342,7 +349,14 @@ __fuzzybrowse_combined_source(){
   if [[ "$__fuzzybrowse_recursive" == 1 ]]; then
     max_dep=99
   fi
-  cat <(__fuzzybrowse_dir_source "$max_dep") <(__fuzzybrowse_file_source "$max_dep" ) 
+
+  if [[ "$__fuzzybrowse_sort" == 1 ]]; then
+    cat <(__fuzzybrowse_dir_source "$max_dep" | sort) <(__fuzzybrowse_file_source "$max_dep" | sort) 
+  else
+    cat <(__fuzzybrowse_dir_source "$max_dep") <(__fuzzybrowse_file_source "$max_dep" ) 
+  fi
+
+
 }
 
 __fuzzybrowse_fzf_cmd(){
@@ -359,7 +373,7 @@ __fuzzybrowse_fzf_cmd(){
   if [[ -n "$prePrompt" ]]; then
     prePrompt="{$prePrompt}"
   fi
-  fzf "$fzf_opts" --reverse --multi --prompt="$prePrompt ""$(pwd): " --ansi --extended --print-query "$@"  --tiebreak=begin --expect=ctrl-c,ctrl-x,ctrl-s,\#,return,ctrl-o,ctrl-u,\`,\\,ctrl-h,ctrl-z,ctrl-r,ctrl-e,ctrl-l,/,ctrl-v,left,right,ctrl-g,\>,ctrl-a,ctrl-t
+  fzf "$fzf_opts" --reverse --multi --prompt="$prePrompt ""$(pwd): " --ansi --extended --print-query "$@"  --tiebreak=begin --expect=ctrl-c,ctrl-x,ctrl-s,\#,return,ctrl-o,ctrl-u,\`,\\,ctrl-h,ctrl-z,ctrl-r,ctrl-e,ctrl-l,/,ctrl-v,left,right,ctrl-g,\>,ctrl-a,ctrl-t,ctrl-y
 
   #`# Hack to fix syntax highlight in vim..
 }
