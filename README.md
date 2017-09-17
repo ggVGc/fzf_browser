@@ -36,6 +36,7 @@ fuzzybrowse [options] root_path
 | `-q` | Initial query |
 | `-e` | Early exit, if only one option(best combined with initial query)  |
 | `-o` | Output file, instead of writing to stdout |
+| `-s` | Sort output |
 
 #### Zsh integration
 
@@ -121,4 +122,5 @@ Key mappings:
 | `Ctrl-c`                               | Abort|
 | `Ctrl-o`                               | Go backwards in directory stack.|
 | `Ctrl-u`                               | Go forward in directory stack.(Currently only supports one jump)|
+| `Ctrl-y`                               | Toggle sort |
 
