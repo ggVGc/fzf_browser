@@ -106,7 +106,7 @@ Key mappings:
 | -------------------------------------- | ---------------------------------------------------------------- |
 | `Enter`                                | If selection is directory, change to it. If it is a file, select it and exit. If multiple entries are selected, just exits(with the selections).|
 | `>`                                    | Select current working directory as result and exit.|
-| `/`                                    | Select entry, regardless if it's a directory or folder |
+| `ctrl-q` / `/`                         | Select entry, regardless if it's a directory or folder |
 | `Tab`                                  | Select multiple files/directories.|
 | `Right arrow`                          | `cd` into selected directory, or run file(same as ctrl-v for files) |
 | `Left arrow`/ `#`/`` ` ``              | Go to parent directory|

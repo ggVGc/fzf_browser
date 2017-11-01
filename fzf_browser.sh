@@ -17,7 +17,7 @@ __fuzzybrowse_runFile(){
 # List of extensions to ignore, separated by |
 __fuzzybrow_file_ignore="log|bak|aux|lof|lol|lot|toc|bbl|blg|tmp|temp|swp|incomplete|o|class|pdb|cache|pyc|aria2|torrent|torrent.added|part|crdownload"
 # List of folders to ignore, separated by |
-__fuzzybrow_dir_ignore="elm-stuff|node_modules|.git|.svn|.hg"
+__fuzzybrow_dir_ignore="_build|elm-stuff|node_modules|.git|.svn|.hg"
 
 #################### END CONFIGURATION #########
 
@@ -129,6 +129,12 @@ fuzzybrowse() {
         pushd ".." > /dev/null 2>&1
       ;;
       /)
+        break;
+        #if [[ -d "$sel" ]]; then
+          #pushd "$sel" > /dev/null 2>&1
+        #fi
+      ;;
+      ctrl-q)
         break;
         #if [[ -d "$sel" ]]; then
           #pushd "$sel" > /dev/null 2>&1
@@ -373,7 +379,7 @@ __fuzzybrowse_fzf_cmd(){
   if [[ -n "$prePrompt" ]]; then
     prePrompt="{$prePrompt}"
   fi
-  fzf "$fzf_opts" --reverse --multi --prompt="$prePrompt ""$(pwd): " --ansi --extended --print-query "$@"  --tiebreak=begin --expect=ctrl-c,ctrl-x,ctrl-s,\#,return,ctrl-o,ctrl-u,\`,\\,ctrl-h,ctrl-z,ctrl-r,ctrl-e,ctrl-l,/,ctrl-v,left,right,ctrl-g,\>,ctrl-a,ctrl-t,ctrl-y
+  fzf "$fzf_opts" --reverse --multi --prompt="$prePrompt ""$(pwd): " --ansi --extended --print-query "$@"  --tiebreak=begin --expect=ctrl-c,ctrl-x,ctrl-s,\#,return,ctrl-o,ctrl-u,\`,\\,ctrl-h,ctrl-z,ctrl-r,ctrl-e,ctrl-l,/,ctrl-v,left,right,ctrl-g,\>,ctrl-a,ctrl-t,ctrl-y,ctrl-q
 
   #`# Hack to fix syntax highlight in vim..
 }
