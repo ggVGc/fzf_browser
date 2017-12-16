@@ -17,14 +17,13 @@ __fuzzybrowse_runFile(){
 # List of extensions to ignore, separated by |
 __fuzzybrow_file_ignore="log|bak|aux|lof|lol|lot|toc|bbl|blg|tmp|temp|swp|incomplete|o|class|pdb|cache|pyc|aria2|torrent|torrent.added|part|crdownload"
 # List of folders to ignore, separated by |
-__fuzzybrow_dir_ignore="_build|elm-stuff|node_modules|.git|.svn|.hg"
+__fuzzybrow_dir_ignore="_build|elm-stuff|node_modules|.git|.svn|.hg|deps"
 
 #################### END CONFIGURATION #########
 
 
-
 # Opens fuzzy dir browser. Tab to switch between file mode and directory mode. Esc to quit.
-fuzzybrowse() {
+fzf_browser() {
   local res key sel prev_dir query stored_query tmp_prompt tmp_file tmp_dir
   local initial_dir
   initial_dir="$(pwd)"
@@ -34,7 +33,9 @@ fuzzybrowse() {
   local custom_prompt
   local early_exit="--ansi"
   local fzf_opts="--ansi"
-  while getopts "hrep:q:o:f:" opt; do
+  local extraIgnoreDirs=""
+  local extraIgnoreFiles=""
+  while getopts "hrep:q:o:f:s:i:d:" opt; do
       case "$opt" in
       h)
         __fuzzybrowse_show_hidden=1
@@ -60,9 +61,24 @@ fuzzybrowse() {
       f)
         fzf_opts="$OPTARG"
       ;;
+      i)
+        extraIgnoreFiles="|$OPTARG"
+      ;;
+      d)
+        extraIgnoreDirs="|$OPTARG"
+      ;;
+      *)
+        # invalid flag
+      ;;
       esac
   done
   shift $((OPTIND-1))
+
+
+  __fuzzybrow_file_ignore_pat="$(printf '.*\.\(%q\)$'  "$__fuzzybrow_file_ignore""$extraIgnoreFiles")"
+  __fuzzybrow_dir_ignore_pat="$(printf '.*/\(%q\)\(/.*\|$\)'  "$__fuzzybrow_dir_ignore""$extraIgnoreDirs")"
+  notify-send "$__fuzzybrow_dir_ignore_pat"
+  notify-send "$__fuzzybrow_file_ignore_pat"
 
   local start_dir
   start_dir="$1"
@@ -142,11 +158,11 @@ fuzzybrowse() {
       ;;
       ctrl-o)
         prev_dir="$(pwd)"
-        popd > /dev/null 2>&1
+        popd > /dev/null 2>&1 || exit
       ;;
       ctrl-u)
         if [[ -n "$prev_dir" ]]; then
-          pushd "$prev_dir" > /dev/null 2>&1
+          pushd "$prev_dir" > /dev/null 2>&1 || exit
           prev_dir=""
         fi
       ;;
@@ -161,7 +177,7 @@ fuzzybrowse() {
           break
         fi
         if [[ -d "$tmp_file" ]]; then
-            pushd "$tmp_file" > /dev/null 2>&1
+            pushd "$tmp_file" > /dev/null 2>&1 || exit
         else
           break
         fi
@@ -170,14 +186,14 @@ fuzzybrowse() {
         stored_query="$query"
         tmp_dir=$(__fuzzybrowse_get_dir "$sel")
         if [[ -d "$tmp_dir" ]]; then
-          pushd "$tmp_dir" > /dev/null 2>&1
+          pushd "$tmp_dir" > /dev/null 2>&1 || exit
         else
           __fuzzybrowse_runFile "$sel"
         fi
       ;;
       ctrl-c)
         dirs -c
-        cd "$initial_dir"
+        cd "$initial_dir" || exit
         return
       ;;
       ctrl-a)
@@ -189,12 +205,12 @@ fuzzybrowse() {
         __fuzzybrowse_sort=$((__fuzzybrowse_sort==0))
       ;;
       ctrl-h)
-        pushd "$HOME" > /dev/null 2>&1
+        pushd "$HOME" > /dev/null 2>&1  || exit
       ;;
       ctrl-z)
         tmp_dir="$(fasd -ld 2>&1 | sed -n 's/^[ 0-9.,]*//p' | fzf --tac +s)"
         if [[ -n "$tmp_dir" ]]; then
-          pushd "$tmp_dir" > /dev/null 2>&1
+          pushd "$tmp_dir" > /dev/null 2>&1 || exit
         fi
       ;;
       ctrl-x)
@@ -234,14 +250,14 @@ fuzzybrowse() {
     ctrl-g)
       sel="$(echo "$sel"| rev | cut -f2- -d'/' | rev)"
       if [[ -d "$sel" ]]; then
-        pushd "$sel" > /dev/null 2>&1
+        pushd "$sel" > /dev/null 2>&1 || exit
       fi
     ;;
     esac
   done
   dirs -c
   local x rel_path
-  echo "$sel" | while read x; do
+  echo "$sel" | while read -r x; do
     if [[ ! -f "$x" ]]; then
       x=$(__fuzzybrowse_get_dir "$x")
     fi
@@ -260,31 +276,30 @@ fuzzybrowse() {
       echo "$rel_path"
     fi
   done
-  cd "$initial_dir"
+  cd "$initial_dir" || return
   export __fuzzybrowse_show_hidden=0
   export __fuzzybrowse_recursive=0
+
+
 }
 
 
 __fuzzybrowse_show_hidden=0
 __fuzzybrowse_recursive=0
 
-__fuzzybrow_file_ignore_pat="$(printf ".*\.\(%q\)$"  "$__fuzzybrow_file_ignore")"
-__fuzzybrow_dir_ignore_pat="$(printf ".*/\(%q\)\(/.*\|$\)"  "$__fuzzybrow_dir_ignore")"
-
 __fuzzybrow_populate_dir_list(){
   local line
   
   if [[ "$__fuzzybrowse_recursive" == 1 ]]; then
-    while read line ; do
+    while read -r line ; do
       if [[ -d "$line" ]]; then
-        printf "\e[36m$line/\n"
+        printf '\e[36m%s/\n' "$line"
       else
-        printf "\e[0m$line\n"
+        printf '\e[0m%s\n' "$line"
       fi
     done
   else
-    while read line ; do
+    while read -r line ; do
       if [[ -d "$line" ]]; then
         printf "\e[36m$line/\e[0m $(cd "$line" && find . -maxdepth 1 -type f |head -9 | grep -v -i "$__fuzzybrow_file_ignore_pat" |cut -c3- | tr "\\n" "|" | sed 's/|/\\\e[36m | \\\e[0m/g')\n"
       fi

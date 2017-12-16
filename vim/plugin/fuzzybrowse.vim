@@ -1,9 +1,22 @@
+
+
+let g:fzf_browser_ignore_dirs=""
+let g:fzf_browser_ignore_files=""
+
 fun! LaunchFuzzyBrowse(...)
   "let outFile="/tmp/vim_fbrowse_out"
   let outFile = tempname()
   let oldAutowrite = &autowrite
   set noautowrite
-  exec "!fuzzybrowse ".join(a:000, ' ').' > '.outFile
+  let l:dirIgnore = " "
+  let l:fileIgnore = " "
+  if g:fzf_browser_ignore_files != ""
+    let l:fileIgnore = " -i ".g:fzf_browser_ignore_files." "
+  endif
+  if g:fzf_browser_ignore_dirs != ""
+    let l:dirIgnore = " -d ".g:fzf_browser_ignore_dirs." "
+  endif
+  exec "!fuzzybrowse ".l:dirIgnore.l:fileIgnore.join(a:000, ' ').' > '.outFile
   let &autowrite = oldAutowrite
   redraw!
   let l:res = filereadable(outFile) ? readfile(outFile) : ''

@@ -5,5 +5,5 @@ source "$thisDir"/fzf_browser.sh
 
 shift $((OPTIND-1))
 
-fuzzybrowse "$@"
+fzf_browser "$@"
 
