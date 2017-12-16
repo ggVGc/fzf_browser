@@ -77,8 +77,6 @@ fzf_browser() {
 
   __fuzzybrow_file_ignore_pat="$(printf '.*\.\(%q\)$'  "$__fuzzybrow_file_ignore""$extraIgnoreFiles")"
   __fuzzybrow_dir_ignore_pat="$(printf '.*/\(%q\)\(/.*\|$\)'  "$__fuzzybrow_dir_ignore""$extraIgnoreDirs")"
-  notify-send "$__fuzzybrow_dir_ignore_pat"
-  notify-send "$__fuzzybrow_file_ignore_pat"
 
   local start_dir
   start_dir="$1"
