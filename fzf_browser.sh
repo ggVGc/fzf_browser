@@ -238,7 +238,7 @@ fzf_browser() {
     #   ;;
     \\)
       len=${#query}
-      stored_query="${query:0:$len-1}"
+      stored_query="${query:0:$len}"
       __fuzzybrowse_recursive=$((__fuzzybrowse_recursive==0))
     ;;
     ctrl-r)
@@ -348,7 +348,7 @@ __fuzzybrowse_all_source(){
     fd -H | __fuzzybrow_populate_dir_list
   else
     # find .  -not -path '*/\.*' ! -iregex "$__fuzzybrow_dir_ignore_pat" ! -iregex "$__fuzzybrow_file_ignore_pat" | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list
-    fd -I | __fuzzybrow_populate_dir_list
+    fd  | __fuzzybrow_populate_dir_list
   fi
 }
 
