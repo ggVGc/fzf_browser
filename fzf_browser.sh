@@ -300,7 +300,7 @@ __fuzzybrow_populate_dir_list(){
     while read -r line ; do
       if [[ -d "$line" ]]; then
         # printf "\e[36m$line/\e[0m $(cd "$line" && find . -maxdepth 1 -type f |head -9 | grep -v -i "$__fuzzybrow_file_ignore_pat" |cut -c3- | tr "\\n" "|" | sed 's/|/\\\e[36m | \\\e[0m/g')\n"
-        printf "\e[36m$line/\e[0m $(cd "$line" && fd --max-depth 1 --type f |head -9 | grep -v -i "$__fuzzybrow_file_ignore_pat" |cut -c3- | tr "\\n" "|" | sed 's/|/\\\e[36m | \\\e[0m/g')\n"
+        printf "\e[36m$line/\e[0m $(cd "$line" && fd --max-depth 1 --type f |head -9 | grep -v -i "$__fuzzybrow_file_ignore_pat" | tr "\\n" "|" | sed 's/|/\\\e[36m | \\\e[0m/g')\n"
       fi
     done
   fi
@@ -320,10 +320,10 @@ __fuzzybrowse_file_source(){
   # fi
   if [[ "$__fuzzybrowse_show_hidden" == 1 ]]; then
     # find  . "$@" -maxdepth "$max_dep" -type f  -! -iregex "$__fuzzybrow_file_ignore_pat" | cut -c3-
-    fd  "$@" --max-depth "$max_dep" --type f -H
+    fd  --max-depth "$max_dep" --type f -H
   else
 
-    fd  "$@" --max-depth "$max_dep" --type f
+    fd  --max-depth "$max_dep" --type f
     # find . "$@" -maxdepth "$max_dep" \( -type f \) -not -path '*/\.*' ! -iregex "$__fuzzybrow_file_ignore_pat" | cut -c3-
   fi
 }
