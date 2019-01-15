@@ -3,10 +3,32 @@
 let g:fzf_browser_ignore_dirs=""
 let g:fzf_browser_ignore_files=""
 
+let s:oldAutowrite = 0
+let s:termBuf = 0
+" let g:fuzzy_out_file = ""
+
+func! s:AfterFuzzyTerminal(job, st)
+  if a:st == 0
+    let &autowrite = s:oldAutowrite
+    " redraw!
+    " echom g:fuzzy_out_file
+    " let l:res = filereadable(g:fuzzy_out_file) ? readfile(g:fuzzy_out_file) : ''
+    " echom l:res
+    let res = term_getline(s:termBuf, 1)
+    if len(l:res) > 0
+      exec "edit ".fnameescape(l:res)
+    else
+      bprevious
+    endif
+  else
+    bprevious
+  endif
+endfunc
+
 fun! LaunchFuzzyBrowse(...)
   "let outFile="/tmp/vim_fbrowse_out"
-  let outFile = tempname()
-  let oldAutowrite = &autowrite
+  let g:fuzzy_out_file = tempname()
+  let s:oldAutowrite = &autowrite
   set noautowrite
   let l:dirIgnore = " "
   let l:fileIgnore = " "
@@ -16,16 +38,12 @@ fun! LaunchFuzzyBrowse(...)
   if g:fzf_browser_ignore_dirs != ""
     let l:dirIgnore = " -d ".g:fzf_browser_ignore_dirs." "
   endif
-  exec "!fuzzybrowse ".l:dirIgnore.l:fileIgnore.join(a:000, ' ').' > '.outFile
-  let &autowrite = oldAutowrite
-  redraw!
-  let l:res = filereadable(outFile) ? readfile(outFile) : ''
-  if len(l:res) > 0
-    return l:res[0]
-  else
-    return ''
-  endif
+  " let cmd = "fuzzybrowse ".l:dirIgnore.l:fileIgnore.join(a:000, ' ').' > '.g:fuzzy_out_file
+  let cmd = "fuzzybrowse ".l:dirIgnore.l:fileIgnore.join(a:000, ' ')
+  " echom l:cmd
+  let s:termBuf = term_start(l:cmd, {'curwin': 1, 'exit_cb': function('s:AfterFuzzyTerminal')})
 endfun
+
 
 fun! FuzzyBrowse(...)
   let entry=call('LaunchFuzzyBrowse', a:000)
