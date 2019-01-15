@@ -7,7 +7,7 @@ let s:oldAutowrite = 0
 let s:termBuf = 0
 " let g:fuzzy_out_file = ""
 
-func! s:AfterFuzzyTerminal(st)
+func! s:AfterFuzzyTerminal(job, st)
   let &autowrite = s:oldAutowrite
   " redraw!
   " echom g:fuzzy_out_file
@@ -38,7 +38,7 @@ fun! LaunchFuzzyBrowse(...)
   " let cmd = "fuzzybrowse ".l:dirIgnore.l:fileIgnore.join(a:000, ' ').' > '.g:fuzzy_out_file
   let cmd = "fuzzybrowse ".l:dirIgnore.l:fileIgnore.join(a:000, ' ')
   " echom l:cmd
-  let s:termBuf = term_start(l:cmd, {'term_finish': 'close', 'close_cb': function('s:AfterFuzzyTerminal')})
+  let s:termBuf = term_start(l:cmd, {'term_finish': 'close', 'exit_cb': function('s:AfterFuzzyTerminal')})
 endfun
 
 
