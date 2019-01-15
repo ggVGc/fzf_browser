@@ -7,21 +7,18 @@ let s:oldAutowrite = 0
 let s:termBuf = 0
 " let g:fuzzy_out_file = ""
 
-func! s:AfterFuzzyTerminal(job, st)
-  if a:st == 0
-    let &autowrite = s:oldAutowrite
-    " redraw!
-    " echom g:fuzzy_out_file
-    " let l:res = filereadable(g:fuzzy_out_file) ? readfile(g:fuzzy_out_file) : ''
-    " echom l:res
-    let res = term_getline(s:termBuf, 1)
-    if len(l:res) > 0
-      exec "edit ".fnameescape(l:res)
-    else
-      bprevious
-    endif
+func! s:AfterFuzzyTerminal(st)
+  let &autowrite = s:oldAutowrite
+  " redraw!
+  " echom g:fuzzy_out_file
+  " let l:res = filereadable(g:fuzzy_out_file) ? readfile(g:fuzzy_out_file) : ''
+  " echom l:res
+  let res = term_getline(s:termBuf, 1)
+  if len(l:res) > 0
+    wincmd q
+    exec "edit ".fnameescape(l:res)
   else
-    bprevious
+    wincmd q
   endif
 endfunc
 
@@ -41,7 +38,7 @@ fun! LaunchFuzzyBrowse(...)
   " let cmd = "fuzzybrowse ".l:dirIgnore.l:fileIgnore.join(a:000, ' ').' > '.g:fuzzy_out_file
   let cmd = "fuzzybrowse ".l:dirIgnore.l:fileIgnore.join(a:000, ' ')
   " echom l:cmd
-  let s:termBuf = term_start(l:cmd, {'curwin': 1, 'exit_cb': function('s:AfterFuzzyTerminal')})
+  let s:termBuf = term_start(l:cmd, {'term_finish': 'close', 'close_cb': function('s:AfterFuzzyTerminal')})
 endfun
 
 
