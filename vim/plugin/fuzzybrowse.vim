@@ -4,10 +4,13 @@ let g:fzf_browser_ignore_dirs=""
 let g:fzf_browser_ignore_files=""
 
 let s:oldAutowrite = 0
+let s:oldTimeoutLen = 1000
 let s:termBuf = 0
+let s:firstOpen = 0
 " let g:fuzzy_out_file = ""
 
 func! s:AfterFuzzyTerminal(job, st)
+  let &timeoutlen = s:oldTimeoutLen
   let &autowrite = s:oldAutowrite
   " redraw!
   " echom g:fuzzy_out_file
@@ -17,14 +20,29 @@ func! s:AfterFuzzyTerminal(job, st)
   if len(l:res) > 0
     wincmd q
     exec "edit ".fnameescape(l:res)
-  else
-    wincmd q
   endif
 endfunc
 
+
+fun! s:OnTerminalOpen(job, dunno)
+  if !s:firstOpen
+    let s:firstOpen = 1
+    " Messing with timeoutlen to make esc for exiting instanteneous
+    let s:oldTimeoutLen = &timeoutlen
+    setlocal timeoutlen=10
+    " Add dummy mapping for right arrow, in order to trigger
+    " timeoutlen for esc, and make other arrow keys get sent to terminal
+    " instance instead of esc triggering directly
+    let resetTimeoutLen = "let &timeoutlen = ".s:oldTimeoutLen
+    tnoremap <buffer> OC <c-w>:echo "dummy map"<cr>
+    exec "tnoremap <buffer> <esc> <c-w>:".l:resetTimeoutLen."<cr><c-w>:bd!<cr>"
+  endif
+endfun
+
+
 fun! LaunchFuzzyBrowse(...)
   "let outFile="/tmp/vim_fbrowse_out"
-  let g:fuzzy_out_file = tempname()
+  " let g:fuzzy_out_file = tempname()
   let s:oldAutowrite = &autowrite
   set noautowrite
   let l:dirIgnore = " "
@@ -38,7 +56,8 @@ fun! LaunchFuzzyBrowse(...)
   " let cmd = "fuzzybrowse ".l:dirIgnore.l:fileIgnore.join(a:000, ' ').' > '.g:fuzzy_out_file
   let cmd = "fuzzybrowse ".l:dirIgnore.l:fileIgnore.join(a:000, ' ')
   " echom l:cmd
-  let s:termBuf = term_start(l:cmd, {'term_finish': 'close', 'exit_cb': function('s:AfterFuzzyTerminal')})
+  let s:firstOpen = 0
+  let s:termBuf = term_start(l:cmd, {'term_finish': 'close', 'exit_cb': function('s:AfterFuzzyTerminal'), 'callback': function('s:OnTerminalOpen')})
 endfun
 
 
