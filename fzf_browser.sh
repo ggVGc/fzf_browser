@@ -400,7 +400,7 @@ __fuzzybrowse_fzf_cmd(){
   if [[ -n "$prePrompt" ]]; then
     prePrompt="{$prePrompt}"
   fi
-  fzf "$fzf_opts" --reverse --multi --prompt="$prePrompt ""$(pwd): " --ansi --extended --print-query "$@"  --tiebreak=begin --expect=ctrl-c,ctrl-x,ctrl-s,\#,return,ctrl-o,ctrl-u,\`,\\,ctrl-h,ctrl-z,ctrl-r,ctrl-e,ctrl-l,/,ctrl-v,left,right,ctrl-g,\>,ctrl-a,ctrl-t,ctrl-y,ctrl-q
+  fzf "$fzf_opts" --reverse --multi --prompt="$prePrompt ""$(pwd): " --ansi --extended --print-query "$@"  --tiebreak=begin,index --expect=ctrl-c,ctrl-x,ctrl-s,\#,return,ctrl-o,ctrl-u,\`,\\,ctrl-h,ctrl-z,ctrl-r,ctrl-e,ctrl-l,/,ctrl-v,left,right,ctrl-g,\>,ctrl-a,ctrl-t,ctrl-y,ctrl-q
 
   #`# Hack to fix syntax highlight in vim..
 }
