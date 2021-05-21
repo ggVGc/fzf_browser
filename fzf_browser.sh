@@ -35,7 +35,8 @@ fzf_browser() {
   local fzf_opts="--ansi"
   local extraIgnoreDirs=""
   local extraIgnoreFiles=""
-  while getopts "hrep:q:o:f:s:i:d:" opt; do
+  local full_path=""
+  while getopts "Fhrep:q:o:f:s:i:d:" opt; do
       case "$opt" in
       h)
         __fuzzybrowse_show_hidden=1
@@ -66,6 +67,9 @@ fzf_browser() {
       ;;
       d)
         extraIgnoreDirs="|$OPTARG"
+      ;;
+      F)
+        full_path=1
       ;;
       *)
         # invalid flag
@@ -254,25 +258,32 @@ fzf_browser() {
     esac
   done
   dirs -c
-  local x rel_path
+  local x out_path
   echo "$sel" | while read -r x; do
     if [[ ! -f "$x" ]]; then
       x=$(__fuzzybrowse_get_dir "$x")
     fi
-    #rel_path="$(printf "%q\n" "$(__fuzzybrowse_relpath "$initial_dir" "$x")")"
-    rel_path="$(__fuzzybrowse_relpath "$initial_dir" "$x")"
-    if [[ "$rel_path" == "" ]]; then
-      rel_path="$(pwd)"
-    fi
-    if [[ "${rel_path: -1}" == "/" ]]; then
-      rel_path="${rel_path:0:-1}"
-    fi
-    fasd -A "$rel_path" > /dev/null 2>&1
-    if [[ -n "$out_file" ]]; then
-      echo "$rel_path" >> "$out_file"
+
+    if [[ "$full_path" == 1 ]]; then
+      out_path="$(__fuzzybrowse_full_path "$x")"
     else
-      echo "$rel_path"
+      #out_path="$(printf "%q\n" "$(__fuzzybrowse_relpath "$initial_dir" "$x")")"
+      out_path="$(__fuzzybrowse_relpath "$initial_dir" "$x")"
+      if [[ "$out_path" == "" ]]; then
+        out_path="$(pwd)"
+      fi
+      if [[ "${out_path: -1}" == "/" ]]; then
+        out_path="${out_path:0:-1}"
+      fi
     fi
+
+    fasd -A "$out_path" > /dev/null 2>&1
+    if [[ -n "$out_file" ]]; then
+      echo "$out_path" >> "$out_file"
+    else
+      echo "$out_path"
+    fi
+
   done
   cd "$initial_dir" || return
   export __fuzzybrowse_show_hidden=0
