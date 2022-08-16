@@ -11,7 +11,8 @@ __fuzzybrowse_previewFile(){
 }
 
 __fuzzybrowse_runFile(){
-  xdg-open "$@"
+  # xdg-open "$@"
+  nohup xdg-open "$@" > /dev/null 2>&1 &
 }
 
 # List of extensions to ignore, separated by |
@@ -237,7 +238,7 @@ fzf_browser() {
     # ctrl-t)
     #   stored_query="$query"
     #     export e
-    #     e="$(__fuzzybrowse_full_path "$(__fuzzybrowse_get_entry "$sel")")"
+    #     e="$(__fuzz=ybrowse_full_path "$(__fuzzybrowse_get_entry "$sel")")"
     #   __fuzzybrowse_runInTerminal "$SHELL"
     #   ;;
     \\)
