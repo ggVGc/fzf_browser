@@ -2,6 +2,10 @@
 
 ################## CONFIGURATION ##############
 
+# Use fd instead of find.
+# Currently breaks directory selection in (dir+files mode)
+__fuzzybrowse_use_fd=0
+
 __fuzzybrowse_runInTerminal(){
   urxvt -e "$@"
 }
@@ -311,8 +315,11 @@ __fuzzybrow_populate_dir_list(){
   else
     while read -r line ; do
       if [[ -d "$line" ]]; then
-        # printf "\e[36m$line/\e[0m $(cd "$line" && find . -maxdepth 1 -type f |head -9 | grep -v -i "$__fuzzybrow_file_ignore_pat" |cut -c3- | tr "\\n" "|" | sed 's/|/\\\e[36m | \\\e[0m/g')\n"
-        printf "\e[36m$line/\e[0m $(cd "$line" && fd --max-depth 1 --type f |head -9 | grep -v -i "$__fuzzybrow_file_ignore_pat" | tr "\\n" "|" | sed 's/|/\\\e[36m | \\\e[0m/g')\n"
+        if [[ "$__fuzzybrowse_use_fd" == 1 ]]; then
+          printf "\e[36m$line/\e[0m $(cd "$line" && fd --max-depth 1 --type f |head -9 | grep -v -i "$__fuzzybrow_file_ignore_pat" | tr "\\n" "|" | sed 's/|/\\\e[36m | \\\e[0m/g')\n"
+        else
+          printf "\e[36m$line/\e[0m $(cd "$line" && find . -maxdepth 1 -type f |head -9 | grep -v -i "$__fuzzybrow_file_ignore_pat" |cut -c3- | tr "\\n" "|" | sed 's/|/\\\e[36m | \\\e[0m/g')\n"
+        fi
       fi
     done
   fi
@@ -330,13 +337,19 @@ __fuzzybrowse_file_source(){
   # else
   #   find . "$@" -maxdepth "$max_dep" \( -type f -o -xtype f \) -not -path '*/\.*' ! -iregex "$__fuzzybrow_file_ignore_pat" | cut -c3-
   # fi
-  if [[ "$__fuzzybrowse_show_hidden" == 1 ]]; then
-    # find  . "$@" -maxdepth "$max_dep" -type f  -! -iregex "$__fuzzybrow_file_ignore_pat" | cut -c3-
-    fd  --max-depth "$max_dep" --type f -H
-  else
 
-    fd  --max-depth "$max_dep" --type f
-    # find . "$@" -maxdepth "$max_dep" \( -type f \) -not -path '*/\.*' ! -iregex "$__fuzzybrow_file_ignore_pat" | cut -c3-
+  if [[ "$__fuzzybrowse_show_hidden" == 1 ]]; then
+      if [[ "$__fuzzybrowse_use_fd" == 1 ]]; then
+        fd  --max-depth "$max_dep" --type f -H
+      else
+        find  . "$@" -maxdepth "$max_dep" -type f  -! -iregex "$__fuzzybrow_file_ignore_pat" | cut -c3-
+      fi
+  else
+      if [[ "$__fuzzybrowse_use_fd" == 1 ]]; then
+        fd  --max-depth "$max_dep" --type f
+      else
+        find . "$@" -maxdepth "$max_dep" \( -type f \) -not -path '*/\.*' ! -iregex "$__fuzzybrow_file_ignore_pat" | cut -c3-
+      fi
   fi
 }
 
@@ -346,21 +359,33 @@ __fuzzybrowse_dir_source(){
     max_dep="$1"
   fi
   if [[ "$__fuzzybrowse_show_hidden" == 1 ]]; then
-    # find . -maxdepth "$max_dep" \( -type d -o -type l \) ! -iregex "$__fuzzybrow_dir_ignore_pat" | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list
-    fd --max-depth "$max_dep" -H  | __fuzzybrow_populate_dir_list
+      if [[ "$__fuzzybrowse_use_fd" == 1 ]]; then
+        fd --max-depth "$max_dep" -H  | __fuzzybrow_populate_dir_list
+      else
+        find . -maxdepth "$max_dep" \( -type d -o -type l \) ! -iregex "$__fuzzybrow_dir_ignore_pat" | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list
+      fi
   else
-    # find . -maxdepth "$max_dep" \( -type d -o -type l \) -not -path '*/\.*' ! -iregex "$__fuzzybrow_dir_ignore_pat" | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list
-    fd --max-depth "$max_dep"   | __fuzzybrow_populate_dir_list
+      if [[ "$__fuzzybrowse_use_fd" == 1 ]]; then
+        fd --max-depth "$max_dep"   | __fuzzybrow_populate_dir_list
+      else
+        find . -maxdepth "$max_dep" \( -type d -o -type l \) -not -path '*/\.*' ! -iregex "$__fuzzybrow_dir_ignore_pat" | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list
+      fi
   fi
 }
 
 __fuzzybrowse_all_source(){
   if [[ "$__fuzzybrowse_show_hidden" == 1 ]]; then
-    # find . ! -iregex "$__fuzzybrow_dir_ignore_pat" ! -iregex "$__fuzzybrow_file_ignore_pat" | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list
-    fd -H | __fuzzybrow_populate_dir_list
+      if [[ "$__fuzzybrowse_use_fd" == 1 ]]; then
+        fd -H | __fuzzybrow_populate_dir_list
+      else
+        find . ! -iregex "$__fuzzybrow_dir_ignore_pat" ! -iregex "$__fuzzybrow_file_ignore_pat" | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list
+      fi
   else
-    # find .  -not -path '*/\.*' ! -iregex "$__fuzzybrow_dir_ignore_pat" ! -iregex "$__fuzzybrow_file_ignore_pat" | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list
-    fd  | __fuzzybrow_populate_dir_list
+      if [[ "$__fuzzybrowse_use_fd" == 1 ]]; then
+        fd  | __fuzzybrow_populate_dir_list
+      else
+        find .  -not -path '*/\.*' ! -iregex "$__fuzzybrow_dir_ignore_pat" ! -iregex "$__fuzzybrow_file_ignore_pat" | tail -n +2 | cut -c3- | __fuzzybrow_populate_dir_list
+      fi
   fi
 }
 
