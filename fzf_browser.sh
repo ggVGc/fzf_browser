@@ -20,9 +20,9 @@ __fuzzybrowse_runFile(){
 }
 
 # List of extensions to ignore, separated by |
-__fuzzybrow_file_ignore="log|bak|aux|lof|lol|lot|toc|bbl|blg|tmp|temp|swp|incomplete|o|class|pdb|cache|pyc|aria2|torrent|torrent.added|part|crdownload"
+__fuzzybrow_file_ignore="log|bak|aux|lof|lol|lot|toc|bbl|blg|tmp|temp|swp|incomplete|o|class|pdb|cache|pyc|aria2|torrent|torrent.added|part|crdownload|CMakeCache.txt"
 # List of folders to ignore, separated by |
-__fuzzybrow_dir_ignore="_build|elm-stuff|node_modules|.git|.svn|.hg|deps|ex_gdax"
+__fuzzybrow_dir_ignore="_build|elm-stuff|node_modules|.git|.svn|.hg|deps|ex_gdax|CMakeFiles"
 
 #################### END CONFIGURATION #########
 
