@@ -106,7 +106,7 @@ fzf_browser() {
     if [[ -d "$start_dir" ]]; then
       cd "$start_dir"
     else
-      >&2 echo "Invalid start directory"
+      >&2 echo "Invalid start directory: $start_dir"
       return
     fi
   else

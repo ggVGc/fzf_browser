@@ -6,14 +6,9 @@ let g:fzf_browser_ignore_files=""
 let s:oldAutowrite = 0
 let s:termBuf = 0
 let s:firstOpen = 0
-" let g:fuzzy_out_file = ""
 
-func! s:AfterFuzzyTerminal(job, st)
+func! s:OpenResult(_job, _st)
   let &autowrite = s:oldAutowrite
-  " redraw!
-  " echom g:fuzzy_out_file
-  " let l:res = filereadable(g:fuzzy_out_file) ? readfile(g:fuzzy_out_file) : ''
-  " echom l:res
   let res = term_getline(s:termBuf, 1)
   if len(l:res) > 0
     wincmd q
@@ -22,9 +17,7 @@ func! s:AfterFuzzyTerminal(job, st)
 endfunc
 
 
-fun! LaunchFuzzyBrowse(...)
-  "let outFile="/tmp/vim_fbrowse_out"
-  " let g:fuzzy_out_file = tempname()
+fun! LaunchFuzzyBrowse(callbackName, ...)
   let s:oldAutowrite = &autowrite
   set noautowrite
   let l:dirIgnore = " "
@@ -35,24 +28,14 @@ fun! LaunchFuzzyBrowse(...)
   if g:fzf_browser_ignore_dirs != ""
     let l:dirIgnore = " -d ".g:fzf_browser_ignore_dirs." "
   endif
-  " let cmd = "fuzzybrowse ".l:dirIgnore.l:fileIgnore.join(a:000, ' ').' > '.g:fuzzy_out_file
   let cmd = "fuzzybrowse ".l:dirIgnore.l:fileIgnore.join(a:000, ' ')
-  " echom l:cmd
   let s:firstOpen = 0
-  let s:termBuf = term_start(l:cmd, {'term_finish': 'close', 'exit_cb': function('s:AfterFuzzyTerminal')})
+  let s:termBuf = term_start(l:cmd, {'term_finish': 'close', 'exit_cb': function(a:callbackName)})
 endfun
 
 
 fun! FuzzyBrowse(...)
-  let entry=call('LaunchFuzzyBrowse', a:000)
-  if entry == ""
-    return
-  endif
-  if isdirectory(entry)
-    exe "lcd ".fnameescape(entry)
-  else
-    exe "e ".entry
-  endif
+  call call('LaunchFuzzyBrowse', extend(["s:OpenResult"], a:000))
 endfun
 
 fun! FuzFindPath()
@@ -74,7 +57,7 @@ fun! s:findPath(content)
     let stepInd+=1
     let lastWasSpecial = specialMatch
   endwhile
-  let stepInd-=1
+
   let ind=len(a:content)-stepInd+1
   if ind>0
     return [a:content[ind-1:-1], stepInd]
@@ -85,9 +68,27 @@ endf
 
 
 
+let g:origLen = ""
+
+func! s:HandlePathResult(_job, _st)
+  let &autowrite = s:oldAutowrite
+  let res = term_getline(s:termBuf, 1)
+  if len(l:res) > 0
+    wincmd q
+    let oldReg=@x
+    let @x=l:res
+    if g:origLen > 0
+      exec "normal! v".(g:origLen-1).'h"xp'
+    else
+      exec 'normal! "xp'
+    endif
+    let @x=oldReg
+  endif
+endfunc
 
 fun! FuzzyPathFromHere()
   let [l:str, l:origLen] = s:findPath(getline(line('.'))[:getpos('.')[2]-1])
+  let g:origLen = l:origLen
   let l:spl = split(l:str, '/')
   if len(l:spl)==0
     let l:dir='.'
@@ -113,25 +114,14 @@ fun! FuzzyPathFromHere()
     let l:dir='/'.l:dir
   endif
 
-  let l:res = LaunchFuzzyBrowse(l:extra==''?'': '-q '.l:extra, l:dir)
-
-  if res != ''
-    let oldReg=@x
-    let @x=l:res
-    if l:origLen > 0
-      exec "normal! v".(l:origLen-1).'h"xp'
-    else
-      exec 'normal! "xp'
-    endif
-    let @x=oldReg
-  endif
+  call LaunchFuzzyBrowse('s:HandlePathResult', l:extra==''?'': '-q '.l:extra, l:dir)
 endf
 
 
 command! -nargs=* -complete=file FuzzyBrowse silent call call('FuzzyBrowse', split(<q-args>))|echo "cwd: ".getcwd()
 command! -nargs=? FuzzyBrowseHere silent call call('FuzzyBrowse', split(<q-args>)+[expand("%:p:h")])|echo "cwd: ".getcwd()
 command! -nargs=? FuzzyInsertPath silent exec "normal! a".call('LaunchFuzzyBrowse', split(<q-args>))|echo "cwd: ".getcwd()
-inoremap <plug>FuzzyPath <esc>:call FuzzyPathFromHere()<cr>a
+inoremap <plug>FuzzyPath <esc>:call FuzzyPathFromHere()<cr>
 "inoremap <expr> <plug>FuzzyPath        FuzzyPathFromHere()
 
 
