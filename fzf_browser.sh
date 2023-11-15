@@ -41,7 +41,7 @@ fzf_browser() {
   local extraIgnoreDirs=""
   local extraIgnoreFiles=""
   local full_path=""
-  while getopts "Fhrep:q:o:f:s:i:d:" opt; do
+  while getopts "Fshrep:q:o:f:i:d:" opt; do
     case "$opt" in
       h)
         __fuzzybrowse_show_hidden=1
@@ -208,6 +208,10 @@ fzf_browser() {
               __fuzzybrowse_show_hidden=$((__fuzzybrowse_show_hidden==0))
               ;;
             ctrl-y)
+              stored_query="$query"
+              __fuzzybrowse_sort=$((__fuzzybrowse_sort==0))
+              ;;
+            ctrl-s)
               stored_query="$query"
               __fuzzybrowse_sort=$((__fuzzybrowse_sort==0))
               ;;
