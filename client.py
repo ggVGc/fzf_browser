@@ -1,6 +1,7 @@
 import socket
 import subprocess
-import sys
+
+# import sys
 
 
 def open_finder(_query):
@@ -24,18 +25,18 @@ def main():
             finder_ui = None
 
         if not should_respond:
-            (command, content) = reader.readline().strip().split(":", 1)
-            sys.stderr.write(f"command: {command}\n")
-            match command:
-                case "exit":
-                    sys.stdout.write(content)
+            content = reader.readline().strip()
+            # sys.stderr.write(f"command: {command}\n")
+            match content[0]:
+                case "x":  # "exit":
+                    # sys.stdout.write(content)
                     return
-                case "wait-for-response":
+                case "w":  # "wait-for-response":
                     should_respond = True
-                case "entry":
-                    finder_ui.stdin.write((content + "\n").encode())
+                case "e":  # case "entry":
+                    finder_ui.stdin.write((content[1:] + "\n").encode())
                     finder_ui.stdin.flush()
-                case "open-finder":
+                case "o":  # "open-finder":
                     finder_ui = open_finder("")
 
 

@@ -4,7 +4,8 @@ defmodule Fub.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      Fub.Server
+      Fub.Server,
+      {Task.Supervisor, name: Fub.ClientSupervisor}
     ]
 
     opts = [strategy: :one_for_one, name: Fub.Supervisor]
