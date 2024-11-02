@@ -1,22 +1,49 @@
 defmodule Fub.Session do
   require Logger
 
-  def new(client_socket) do
-    # for x <- 0..999_999_0 do
-    :ok = :gen_tcp.send(client_socket, "eyeoo\n")
-    # end
+  @key_bindings ["ctrl-y"]
 
-    :ok = :gen_tcp.send(client_socket, "eit's a hard life\n")
-    :ok = :gen_tcp.send(client_socket, "eyeoo yaya ddd\n")
+  def new(client_socket) do
     loop(client_socket)
   end
 
   defp loop(socket) do
-    :ok = :gen_tcp.send(socket, "w\n")
-    Logger.info("Waiting for response")
-    {:ok, response} = :gen_tcp.recv(socket, 0)
-    [code, content] = String.split(response, ":", parts: 2)
-    Logger.info("Killing client")
-    :ok = :gen_tcp.send(socket, "x#{content}\n")
+    Logger.debug("Waiting for message")
+
+    case :gen_tcp.recv(socket, 0) do
+      {:ok, message} ->
+        handle_message(socket, Jason.decode!(message))
+        loop(socket)
+
+      {:error, :closed} ->
+        Logger.debug("Connection closed")
+
+      {:error, :enotconn} ->
+        Logger.debug("Not connected")
+    end
+  end
+
+  defp handle_message(socket, %{"tag" => "list-files"} = message) do
+    Logger.debug("Received message: #{inspect(message)}")
+
+    respond(socket, :open_finder, %{query: "the query", key_bindings: @key_bindings})
+    respond(socket, :entry, "neo")
+    Process.sleep(1)
+    respond(socket, :wait_for_response)
+  end
+
+  defp handle_message(socket, %{"tag" => "result"} = message) do
+    case Map.fetch!(message, "code") do
+      code when code in [0, 1] ->
+        case Map.fetch!(message, "key") do
+          "" ->
+            respond(socket, :exit, Map.fetch!(message, "output"))
+        end
+    end
+  end
+
+  defp respond(socket, prefix, content \\ nil) do
+    {:ok, payload} = Fub.Protocol.encode(prefix, content)
+    :ok = :gen_tcp.send(socket, payload)
   end
 end
