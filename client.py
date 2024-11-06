@@ -2,9 +2,10 @@ import socket
 import subprocess
 import sys
 import json
+import os
 
 
-def open_finder(args):
+def open_fzf(args):
     sys.stderr.write("DEBUG: " + str(args) + "\n")
     sys.stderr.flush()
     command = [
@@ -18,59 +19,70 @@ def open_finder(args):
 
 
 def main():
-    finder_ui = None
+    fzf = None
     client = socket.socket(socket.AF_UNIX)
     # client.settimeout(1)
     client.connect("/tmp/fuba.socket")
+
+    client.sendall(
+        json.dumps(
+            {
+                "tag": "client_init",
+                "start_directory": os.path.abspath(os.getcwd()),
+            }
+        ).encode()
+        + b"\n"
+    )
+
     reader = client.makefile("r")
-    client.sendall(json.dumps({"tag": "list-files"}).encode() + b"\n")
 
-    should_respond = False
+    read_content = True
     while True:
-        if finder_ui is not None:
-            finder_ui.poll()
+        if fzf is not None:
+            fzf.poll()
 
-            if finder_ui.returncode is not None:
-                if finder_ui.returncode > 128:
+            if fzf.returncode is not None:
+                if fzf.returncode > 128:
                     return
-                output_lines = finder_ui.stdout.read().decode().split("\n")
+                output_lines = fzf.stdout.read().decode().split("\n")
                 client.sendall(
                     json.dumps(
                         {
                             "tag": "result",
                             "output": output_lines[1],
-                            "code": finder_ui.returncode,
+                            "code": fzf.returncode,
                             "key": output_lines[0],
                         }
                     ).encode()
                     + b"\n"
                 )
-                # f"{finder_ui.returncode}:{output}\n".encode())
-                should_respond = False
-                finder_ui.wait()
-                finder_ui = None
+                # f"{fzf.returncode}:{output}\n".encode())
+                read_content = True
+                fzf.wait()
+                fzf = None
 
-        if not should_respond:
+        if read_content:
             # print("waiting for response")
             content = reader.readline().strip()
             # print("got response")
             # print(content)
             # sys.stderr.write(f"command: {command}\n")
             match content[0]:
+                case "z":  # "end of content":
+                    read_content = False
                 case "x":  # "exit":
                     sys.stdout.write(content[1:])
                     return
-                case "w":  # "wait-for-response":
-                    should_respond = True
                 case "e":  # case "entry":
                     # print(f"entry: {content[1:]}")
-                    finder_ui.stdin.write((content[1:] + "\n").encode())
-                    finder_ui.stdin.flush()
+                    if fzf is not None:
+                        fzf.stdin.write((content[1:] + "\n").encode())
+                        fzf.stdin.flush()
                 case "o":  # "open-finder":
                     # sys.stderr.write("open-finder\n")
                     # sys.stderr.flush()
                     payload = json.loads(content[1:])
-                    finder_ui = open_finder(payload)
+                    fzf = open_fzf(payload)
 
 
 if __name__ == "__main__":

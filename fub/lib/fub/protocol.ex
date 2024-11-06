@@ -9,8 +9,8 @@ defmodule Fub.Protocol do
     {:ok, "x" <> output <> "\n"}
   end
 
-  def encode(:wait_for_response, nil) do
-    {:ok, "w\n"}
+  def encode(:end_of_content, nil) do
+    {:ok, "z\n"}
   end
 
   def encode(:open_finder, payload) do
