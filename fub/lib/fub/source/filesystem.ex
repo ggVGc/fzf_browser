@@ -49,18 +49,8 @@ defmodule Fub.Source.Filesystem do
   end
 
   @impl true
-  def get_query_prefix(%__MODULE__{current_directory: path}) do
-    path
-  end
-
-  @impl true
-  def get_key_bindings(%__MODULE__{}) do
-    @key_bindings
-  end
-
-  @impl true
-  def get_query(%__MODULE__{stored_query: query}) do
-    query
+  def get_launch_info(%__MODULE__{} = mod) do
+    %{query_prefix: mod.current_directory, key_bindings: @key_bindings, query: mod.stored_query}
   end
 
   @impl true
@@ -78,6 +68,9 @@ defmodule Fub.Source.Filesystem do
       end
 
     case key do
+      "ctrl-z" ->
+        {:switch_source, Fub.Source.Recent.new()}
+
       "ctrl-x" ->
         handle_selection(selection, query, state, & &1)
 
@@ -91,6 +84,7 @@ defmodule Fub.Source.Filesystem do
 
       key when key in @key_bindings ->
         state = %{state | stored_query: query}
+
         {:ok, state} = handle_key(key, state)
         {:continue, state}
 

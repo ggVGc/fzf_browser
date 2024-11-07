@@ -5,6 +5,7 @@ defmodule Fub.Session do
   def new(client_socket) do
     state = %{
       sources: %{},
+      previous_source: nil,
       current_source: nil
     }
 
@@ -26,13 +27,17 @@ defmodule Fub.Session do
 
   defp run_current_source(socket, state) do
     source_state = current_source_state(state)
-    prefix = state.current_source.get_query_prefix(source_state)
-    key_bindings = state.current_source.get_key_bindings(source_state)
-    query = state.current_source.get_query(source_state)
+
+    %{
+      prefix: prefix,
+      query: query,
+      key_bindings: key_bindings
+    } = state.current_source.get_launch_info(source_state)
+
     open_finder(socket, query, prefix, key_bindings)
     content = state.current_source.get_content(source_state)
     :ok = stream_response(socket, content)
-    {:ok, state}
+    :ok
   end
 
   defp stream_response(socket, content) do
@@ -47,26 +52,6 @@ defmodule Fub.Session do
     respond(socket, :end_of_content)
     :ok
   end
-
-  # "ctrl-z" ->
-  #   list_recent_locations(socket, state)
-  #   {:ok, state}
-
-  # defp list_recent_locations(socket, state) do
-  #   open_finder(socket, state.stored_query, state.current_directory)
-  #   %Porcelain.Process{out: content} = Porcelain.spawn("fasd", ["-ld"], out: :stream)
-  #   respond(socket, :begin_entries)
-
-  #   # TODO: Run asynchronously and stop streaming if any command 
-  #   # is received from client.
-  #   Enum.each(content, fn chunk ->
-  #     respond(socket, :raw, chunk)
-  #   end)
-
-  #   respond(socket, :end_entries)
-  #   respond(socket, :end_of_content)
-  #   :ok
-  # end
 
   defp loop(socket, state) do
     Logger.debug("Waiting for message")
@@ -91,12 +76,15 @@ defmodule Fub.Session do
     state = %{
       state
       | current_source: Source.Filesystem,
+        previous_source: Source.Filesystem,
         sources: %{
-          Source.Filesystem => Source.Filesystem.new(start_directory)
+          Source.Filesystem => Source.Filesystem.new(start_directory),
+          Source.Recent => Source.Recent.new()
         }
     }
 
-    run_current_source(socket, state)
+    :ok = run_current_source(socket, state)
+    {:ok, state}
   end
 
   defp handle_message(socket, %{"tag" => "result"} = message, state) do
@@ -119,6 +107,24 @@ defmodule Fub.Session do
             respond(socket, :exit, "'#{output}'")
             {:ok, state}
 
+          {:switch_source, :previous} ->
+            state = %{state | current_source: state.previous_source}
+            :ok = run_current_source(socket, state)
+            {:ok, state}
+
+          {:switch_source, new_source_state} ->
+            %source_module{} = new_source_state
+
+            state = %{
+              state
+              | current_source: source_module,
+                previous_source: state.previous_source,
+                sources: Map.put(state.sources, source_module, new_source_state)
+            }
+
+            :ok = run_current_source(socket, state)
+            {:ok, state}
+
           {:continue, new_source_state} ->
             {:ok,
              state =
@@ -126,7 +132,8 @@ defmodule Fub.Session do
                  Map.put(states, state.current_source, new_source_state)
                end)}
 
-            run_current_source(socket, state)
+            :ok = run_current_source(socket, state)
+            {:ok, state}
         end
     end
   end

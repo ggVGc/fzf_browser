@@ -1,7 +1,5 @@
 defmodule Fub.Source.Source do
-  @callback get_query_prefix(state :: map) :: String.t()
-  @callback get_key_bindings(state :: map) :: map
-  @callback get_query(state :: map) :: String.t()
+  @callback get_launch_info(state :: map) :: map
   @callback get_content(state :: map) :: Enumerable.t()
   @callback handle_result(
               state :: map,
