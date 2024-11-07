@@ -34,7 +34,7 @@ defmodule Fub.Session do
         recursive: false,
         show_hidden: false,
         # mode: :files, :directories, :mixed
-        mode: :directories
+        mode: :mixed
       },
       cache: %{}
     }
@@ -50,46 +50,29 @@ defmodule Fub.Session do
     })
   end
 
-  defp list_dir(socket, path, cache, flags) do
-    # key = {path, flags.mode}
-    # cache |> IO.inspect(label: "cache")
+  defp list_dir(socket, path, flags) do
+    fd_args =
+      List.flatten([
+        ["--color=always"],
+        if(flags.recursive, do: [], else: ["--max-depth=1"]),
+        if(flags.show_hidden, do: ["-H"], else: []),
+        case flags.mode do
+          :directories ->
+            ["--type", "d"]
 
-    # if content = Map.get(cache, key) do
-    {cache, content} =
-      if false do
-        # TODO: Start task for cache update
-        # If new entries are found, push them.
-        # If an entry which is removed is selected, error upon selection and refresh.
-        # This should be a very uncommon case.
-        # {cache, content}
-        nil
-      else
-        fd_args =
-          List.flatten([
-            ["--color=always"],
-            if(flags.recursive, do: [], else: ["--max-depth=1"]),
-            if(flags.show_hidden, do: ["-H"], else: []),
-            case flags.mode do
-              :directories ->
-                ["--type", "d"]
+          :files ->
+            ["--type", "f"]
 
-              :files ->
-                ["--type", "f"]
+          :mixed ->
+            []
+        end
+      ])
+      |> IO.inspect(label: "fd_args")
 
-              :mixed ->
-                []
-            end
-          ])
-          |> IO.inspect(label: "fd_args")
+    # TODO: Stream instead of buffering whole output. Maybe use porcelain.
+    {content, 0} = System.cmd("fd", fd_args, cd: path)
 
-        # TODO: Stream instead of buffering whole output. Maybe use porcelain.
-        {content, 0} = System.cmd("fd", fd_args, cd: path)
-
-        content = String.split(content, "\n")
-        # content = File.ls!(path)
-        # {Map.put(cache, key, content), content}
-        {cache, content}
-      end
+    content = String.split(content, "\n")
 
     content =
       if flags.sort do
@@ -105,12 +88,13 @@ defmodule Fub.Session do
     end)
 
     respond(socket, :end_of_content)
-    cache
+    :ok
   end
 
   defp list_current_dir(socket, state) do
     open_finder(socket, state.stored_query)
-    %{state | cache: list_dir(socket, state.current_directory, state.cache, state.flags)}
+    list_dir(socket, state.current_directory, state.flags)
+    state
   end
 
   defp loop(socket, state) do
