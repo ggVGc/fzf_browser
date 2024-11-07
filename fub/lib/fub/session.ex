@@ -1,75 +1,143 @@
 defmodule Fub.Session do
+  use GenServer
+
   require Logger
   alias Fub.Source
 
-  def new(client_socket) do
+  def start_link([client_socket]) do
+    Logger.info("Starting session")
+    GenServer.start_link(__MODULE__, client_socket, [])
+  end
+
+  @impl true
+  def init(client_socket) do
     state = %{
+      client_socket: client_socket,
       sources: %{},
       previous_source: nil,
-      current_source: nil
+      current_source: nil,
+      stream_task: nil
     }
 
-    loop(client_socket, state)
+    :inet.setopts(client_socket, [{:active, true}])
+    Logger.info("Session started")
+    {:ok, state}
+  end
+
+  @impl true
+  def handle_info({:tcp, _socket, message}, state) do
+    {:ok, state} = handle_message(Jason.decode!(message), state)
+    {:noreply, state}
+  end
+
+  def handle_info({_ref, :ok}, state) do
+    # %{stream_task: %{ref: ^ref}} = state
+    Logger.debug("Streaming ref exited: :ok")
+    {:noreply, state}
+  end
+
+  def handle_info({:DOWN, _ref, :process, _pid, reason}, state) do
+    # %{stream_task: %{ref: ^ref}} = state
+    Logger.debug("Streaming ref DOWN, reason: #{inspect(reason)}")
+    {:noreply, %{state | stream_task: nil}}
+  end
+
+  def handle_info({:tcp_closed, _socket}, state) do
+    Logger.debug("Connection closed")
+    {:noreply, state}
+  end
+
+  def handle_info(:delayed_run_current_source, state) do
+    run_current_source(state)
+    {:noreply, state}
+  end
+
+  def send_response(pid, prefix, content \\ nil) do
+    GenServer.call(pid, {:send_response, prefix, content})
+  end
+
+  @impl true
+  def handle_call({:send_response, prefix, content}, _caller, state) do
+    reply = respond(state.client_socket, prefix, content)
+    {:reply, reply, state}
   end
 
   defp open_finder(socket, query, prompt_prefix, key_bindings) do
-    respond(socket, :open_finder, %{
-      query: query,
-      key_bindings: key_bindings,
-      with_ansi_colors: true,
-      prompt_prefix: prompt_prefix
-    })
+    :ok =
+      respond(socket, :open_finder, %{
+        query: query,
+        key_bindings: key_bindings,
+        with_ansi_colors: true,
+        prompt_prefix: prompt_prefix
+      })
   end
 
   defp current_source_state(state) do
     state.sources[state.current_source]
   end
 
-  defp run_current_source(socket, state) do
+  defp run_current_source(%{stream_task: nil} = state) do
     source_state = current_source_state(state)
 
     %{
-      prefix: prefix,
+      query_prefix: prefix,
       query: query,
       key_bindings: key_bindings
     } = state.current_source.get_launch_info(source_state)
 
-    open_finder(socket, query, prefix, key_bindings)
+    open_finder(state.client_socket, query, prefix, key_bindings)
     content = state.current_source.get_content(source_state)
-    :ok = stream_response(socket, content)
+    {:ok, task} = stream_response(self(), content)
+    state = %{state | stream_task: task}
+    {:ok, state}
+  end
+
+  defp run_current_source(%{stream_task: task} = state) when not is_nil(task) do
+    Logger.debug("Waiting for stream exit")
+    Process.send_after(self(), :delayed_run_current_source, 100)
+    {:ok, state}
+  end
+
+  defp stream_response(parent_pid, content) do
+    task =
+      Task.Supervisor.async_nolink(Fub.TaskSupervisor, fn ->
+        :ok = send_response(parent_pid, :begin_entries)
+        # TODO: Run asynchronously and stop streaming if any command 
+        # is received from client.
+        result =
+          try do
+            for chunk <- content do
+              :ok = send_response(parent_pid, :raw, chunk)
+            end
+
+            :ok = send_response(parent_pid, :end_entries)
+            :ok = send_response(parent_pid, :end_of_content)
+          rescue
+            _ -> :aborted
+          end
+
+        if result == :ok do
+          Logger.info("Streaming completed")
+        else
+          Logger.info("Streaming aborted, result: #{inspect(result)}")
+        end
+      end)
+      |> IO.inspect(label: "task")
+
+    {:ok, Map.take(task, [:ref, :pid])}
+  end
+
+  defp stop_streaming(%{stream_task: nil}) do
     :ok
   end
 
-  defp stream_response(socket, content) do
-    respond(socket, :begin_entries)
-    # TODO: Run asynchronously and stop streaming if any command 
-    # is received from client.
-    Enum.each(content, fn chunk ->
-      respond(socket, :raw, chunk)
-    end)
-
-    respond(socket, :end_entries)
-    respond(socket, :end_of_content)
+  defp stop_streaming(%{stream_task: %{pid: task_pid}}) do
+    Logger.debug("Terminating streaming task")
+    Task.Supervisor.terminate_child(Fub.TaskSupervisor, task_pid)
     :ok
   end
 
-  defp loop(socket, state) do
-    Logger.debug("Waiting for message")
-
-    case :gen_tcp.recv(socket, 0) do
-      {:ok, message} ->
-        {:ok, state} = handle_message(socket, Jason.decode!(message), state)
-        loop(socket, state)
-
-      {:error, :closed} ->
-        Logger.debug("Connection closed")
-
-      {:error, :enotconn} ->
-        Logger.debug("Not connected")
-    end
-  end
-
-  defp handle_message(socket, %{"tag" => "client_init"} = message, state) do
+  defp handle_message(%{"tag" => "client_init"} = message, state) do
     start_directory = Map.fetch!(message, "start_directory")
     Logger.debug("Client started in #{start_directory}")
 
@@ -83,11 +151,13 @@ defmodule Fub.Session do
         }
     }
 
-    :ok = run_current_source(socket, state)
-    {:ok, state}
+    {:ok, _state} = run_current_source(state)
   end
 
-  defp handle_message(socket, %{"tag" => "result"} = message, state) do
+  defp handle_message(%{"tag" => "result"} = message, state) do
+    Logger.info("Received result: #{inspect(message)}")
+    :ok = stop_streaming(state)
+
     case Map.fetch!(message, "code") do
       code when code in [0, 1] ->
         query = Map.fetch!(message, "query")
@@ -104,13 +174,12 @@ defmodule Fub.Session do
 
         case result do
           {:exit, output} ->
-            respond(socket, :exit, "'#{output}'")
+            :ok = respond(state.client_socket, :exit, "'#{output}'")
             {:ok, state}
 
           {:switch_source, :previous} ->
             state = %{state | current_source: state.previous_source}
-            :ok = run_current_source(socket, state)
-            {:ok, state}
+            run_current_source(state)
 
           {:switch_source, new_source_state} ->
             %source_module{} = new_source_state
@@ -122,8 +191,7 @@ defmodule Fub.Session do
                 sources: Map.put(state.sources, source_module, new_source_state)
             }
 
-            :ok = run_current_source(socket, state)
-            {:ok, state}
+            run_current_source(state)
 
           {:continue, new_source_state} ->
             {:ok,
@@ -132,14 +200,13 @@ defmodule Fub.Session do
                  Map.put(states, state.current_source, new_source_state)
                end)}
 
-            :ok = run_current_source(socket, state)
-            {:ok, state}
+            run_current_source(state)
         end
     end
   end
 
-  defp respond(socket, prefix, content \\ nil) do
+  defp respond(socket, prefix, content) do
     {:ok, payload} = Fub.Protocol.encode(prefix, content)
-    :ok = :gen_tcp.send(socket, payload)
+    :gen_tcp.send(socket, payload)
   end
 end

@@ -20,7 +20,11 @@ defmodule Fub.Server do
     Logger.debug("Waiting for connection")
     {:ok, client_socket} = :gen_tcp.accept(socket)
     Logger.debug("Accepted connection")
-    Task.Supervisor.start_child(Fub.ClientSupervisor, fn -> Fub.Session.new(client_socket) end)
+
+    {:ok, session_pid} =
+      DynamicSupervisor.start_child(Fub.SessionSupervisor, {Fub.Session, [client_socket]})
+
+    :gen_tcp.controlling_process(client_socket, session_pid)
     loop(state)
   end
 

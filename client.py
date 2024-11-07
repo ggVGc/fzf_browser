@@ -46,11 +46,15 @@ def main():
     reader = client.makefile("r")
 
     read_content = True
+    reading_entries = False
+    wait_for_empty = False
+
     while True:
         if fzf is not None:
             fzf.poll()
 
             if fzf.returncode is not None:
+                # print(f"FZF exited with code {fzf.returncode}")
                 if fzf.returncode > 128:
                     return
                 output_lines = fzf.stdout.read().decode().split("\n")
@@ -68,35 +72,58 @@ def main():
                 )
                 # f"{fzf.returncode}:{output}\n".encode())
                 read_content = True
+                if reading_entries:
+                    wait_for_empty = True
+                reading_entries = False
                 fzf.wait()
                 fzf = None
 
         if read_content:
-            # print("waiting for response")
-            content = reader.readline().strip()
-            # print("got response")
-            # print(content)
-            # sys.stderr.write(f"command: {command}\n")
-            match content[0]:
-                case "z":  # "end of content":
-                    read_content = False
-                case "x":  # "exit":
-                    sys.stdout.write(content[1:])
-                    return
-                case "e":  # case "begin-entries":
-                    # print(f"entry: {content[1:]}")
-                    entry = reader.readline()
-                    while entry != "\n":
+            if reading_entries:
+                entry = reader.readline()
+
+                if entry == "\n":
+                    reading_entries = False
+                else:
+                    try:
                         fzf.stdin.write((entry).encode())
-                        entry = reader.readline()
+                        fzf.stdin.flush()
+                    except Exception:
+                        reading_entries = False
+            elif wait_for_empty:
+                entry = reader.readline().strip()
+                if entry == "":
+                    wait_for_empty = False
+            else:
+                # print("waiting for response")
+                content = reader.readline().strip()
+                # print("got response")
+                # print(content)
+                # sys.stderr.write(f"command: {command}\n")
+                cmd = content[0]
+                match cmd:
+                    case "z":  # "end of content":
+                        read_content = False
+                    case "x":  # "exit":
+                        sys.stdout.write(content[1:])
+                        return
+                    case "e":  # case "begin-entries":
+                        reading_entries = True
 
-                    fzf.stdin.flush()
+                    case "o":  # "open-finder":
+                        # sys.stderr.write("open-finder\n")
+                        # sys.stderr.flush()
+                        payload = json.loads(content[1:])
+                        fzf = open_fzf(payload)
 
-                case "o":  # "open-finder":
-                    # sys.stderr.write("open-finder\n")
-                    # sys.stderr.flush()
-                    payload = json.loads(content[1:])
-                    fzf = open_fzf(payload)
+                    case _:
+                        # Escape char
+                        if ord(cmd) == 27:
+                            pass
+                        else:
+                            # TODO: Fix bidirectional communication so that this doesn't happen
+                            sys.stderr.write(f"Unhandled command string:{cmd}\n")
+                            # return
 
 
 if __name__ == "__main__":
