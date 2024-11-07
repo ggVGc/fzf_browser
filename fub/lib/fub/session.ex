@@ -34,7 +34,7 @@ defmodule Fub.Session do
       dir_stack: DirStack.new(),
       flags: %{
         sort: false,
-        recursive: false,
+        recursion_level: 0,
         show_hidden: false,
         # mode: :files, :directories, :mixed
         mode: :mixed
@@ -58,7 +58,11 @@ defmodule Fub.Session do
     fd_args =
       List.flatten([
         ["--color=always"],
-        if(flags.recursive, do: [], else: ["--max-depth=1"]),
+        case flags.recursion_level do
+          0 -> ["--max-depth=1"]
+          1 -> ["--max-depth=2"]
+          2 -> []
+        end,
         if(flags.show_hidden, do: ["-H"], else: []),
         case flags.mode do
           :directories ->
@@ -231,7 +235,13 @@ defmodule Fub.Session do
           toggle_flag(state, :show_hidden)
 
         "\\" ->
-          toggle_flag(state, :recursive)
+          %{
+            state
+            | flags: %{
+                state.flags
+                | recursion_level: Integer.mod(state.flags.recursion_level + 1, 3)
+              }
+          }
 
         _ ->
           Logger.error("Unhandled key: #{key}")
