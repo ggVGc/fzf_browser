@@ -21,6 +21,7 @@ defmodule Fub.MixProject do
 
   defp deps do
     [
+      {:exsync, "~> 0.4", only: :dev},
       {:jason, "~> 1.4.4"}
     ]
   end

@@ -1,8 +1,16 @@
 # TODO: Replace with HTTP, or something else that isn't homegrown...
 
 defmodule Fub.Protocol do
+  def encode(:begin_entries, nil) do
+    {:ok, "e\n"}
+  end
+
   def encode(:entry, entry) do
-    {:ok, "e" <> entry <> "\n"}
+    {:ok, entry <> "\n"}
+  end
+
+  def encode(:end_entries, nil) do
+    {:ok, "\n"}
   end
 
   def encode(:exit, output) do

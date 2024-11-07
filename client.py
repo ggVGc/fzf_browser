@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import socket
 import subprocess
 import sys
@@ -81,11 +83,15 @@ def main():
                 case "x":  # "exit":
                     sys.stdout.write(content[1:])
                     return
-                case "e":  # case "entry":
+                case "e":  # case "begin-entries":
                     # print(f"entry: {content[1:]}")
-                    if fzf is not None:
-                        fzf.stdin.write((content[1:] + "\n").encode())
-                        fzf.stdin.flush()
+                    entry = reader.readline()
+                    while entry != "\n":
+                        fzf.stdin.write((entry).encode())
+                        entry = reader.readline()
+
+                    fzf.stdin.flush()
+
                 case "o":  # "open-finder":
                     # sys.stderr.write("open-finder\n")
                     # sys.stderr.flush()

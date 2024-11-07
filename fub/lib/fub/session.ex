@@ -21,6 +21,7 @@ defmodule Fub.Session do
     "ctrl-g",
     # Toggle hidden files
     "ctrl-a",
+    # Recursive
     "\\"
   ]
 
@@ -28,7 +29,9 @@ defmodule Fub.Session do
     state = %{
       start_directory: nil,
       current_directory: nil,
+      previous_directory: nil,
       stored_query: "",
+      dir_stack: [],
       flags: %{
         sort: true,
         recursive: false,
@@ -67,7 +70,8 @@ defmodule Fub.Session do
             []
         end
       ])
-      |> IO.inspect(label: "fd_args")
+
+    Logger.debug("fd_args: #{inspect(fd_args)}")
 
     # TODO: Stream instead of buffering whole output. Maybe use porcelain.
     {content, 0} = System.cmd("fd", fd_args, cd: path)
@@ -81,12 +85,15 @@ defmodule Fub.Session do
         content
       end
 
+    respond(socket, :begin_entries)
+
     Enum.each(content, fn entry ->
       if entry != "" do
         respond(socket, :entry, entry)
       end
     end)
 
+    respond(socket, :end_entries)
     respond(socket, :end_of_content)
     :ok
   end
@@ -94,7 +101,7 @@ defmodule Fub.Session do
   defp list_current_dir(socket, state) do
     open_finder(socket, state.stored_query)
     list_dir(socket, state.current_directory, state.flags)
-    state
+    {:ok, state}
   end
 
   defp loop(socket, state) do
@@ -102,7 +109,7 @@ defmodule Fub.Session do
 
     case :gen_tcp.recv(socket, 0) do
       {:ok, message} ->
-        state = handle_message(socket, Jason.decode!(message), state)
+        {:ok, state} = handle_message(socket, Jason.decode!(message), state)
         loop(socket, state)
 
       {:error, :closed} ->
@@ -118,8 +125,7 @@ defmodule Fub.Session do
     Logger.debug("Client started in #{start_directory}")
 
     state = %{state | start_directory: start_directory, current_directory: start_directory}
-
-    _state = list_current_dir(socket, state)
+    list_current_dir(socket, state)
   end
 
   defp handle_message(socket, %{"tag" => "result"} = message, state) do
@@ -128,7 +134,7 @@ defmodule Fub.Session do
         case Map.fetch!(message, "key") do
           key when key in @key_bindings ->
             query = Map.fetch!(message, "query")
-            state = handle_key(key, state)
+            {:ok, state} = handle_key(key, state)
             state = %{state | stored_query: query}
             list_current_dir(socket, state)
 
@@ -147,32 +153,80 @@ defmodule Fub.Session do
     full_path = Path.join(state.current_directory, selection)
 
     if File.dir?(full_path) do
-      state = %{state | current_directory: full_path}
+      state = push_directory(state, full_path)
       list_current_dir(socket, state)
     else
       result = Path.relative_to(full_path, state.start_directory)
-      # Only quote result of selection contains non-alphanumeric/period characters.
+      # Only quote result if selection contains non-alphanumeric/period characters.
       respond(socket, :exit, "'#{result}'")
+      {:ok, state}
+    end
+  end
+
+  defp toggle_flag(state, name) do
+    %{state | flags: %{state.flags | show_hidden: not Map.fetch!(state.flags, name)}}
+  end
+
+  defp push_directory(state, new_directory) do
+    %{
       state
+      | dir_stack: [state.current_directory | state.dir_stack],
+        previous_directory: state.current_directory,
+        current_directory: new_directory
+    }
+    |> IO.inspect(label: "state")
+  end
+
+  defp pop_directory(state) do
+    case state.dir_stack do
+      [] ->
+        state
+
+      [new_directory | rest] ->
+        %{
+          state
+          | dir_stack: rest,
+            current_directory: new_directory,
+            previous_directory: state.current_directory
+        }
+    end
+  end
+
+  defp push_previous_dir(state) do
+    if is_nil(state.previous_directory) do
+      state
+    else
+      push_directory(state, state.previous_directory)
     end
   end
 
   defp handle_key(key, state) do
-    case key do
-      sort_toggle when sort_toggle in ["ctrl-s", "ctrl-y"] ->
-        Logger.debug("Toggling sort: #{not state.flags.sort}")
-        %{state | flags: %{state.flags | sort: not state.flags.sort}}
+    state =
+      case key do
+        "ctrl-h" ->
+          push_directory(state, Path.expand("~"))
 
-      "ctrl-a" ->
-        %{state | flags: %{state.flags | show_hidden: not state.flags.show_hidden}}
+        "ctrl-o" ->
+          pop_directory(state)
 
-      "\\" ->
-        %{state | flags: %{state.flags | recursive: not state.flags.recursive}}
+        "ctrl-u" ->
+          push_previous_dir(state)
 
-      _ ->
-        Logger.error("Unhandled key: #{key}")
-        state
-    end
+        sort_toggle when sort_toggle in ["ctrl-s", "ctrl-y"] ->
+          toggle_flag(state, :sort)
+
+        "ctrl-a" ->
+          toggle_flag(state, :show_hidden)
+
+        "\\" ->
+          toggle_flag(state, :recursive)
+
+        _ ->
+          Logger.error("Unhandled key: #{key}")
+          state
+      end
+
+    {:ok, state}
   end
 
   defp respond(socket, prefix, content \\ nil) do
