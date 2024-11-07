@@ -3,6 +3,8 @@ defmodule Fub.Session do
   alias Fub.DirStack
 
   @key_bindings [
+    # Select full path
+    "ctrl-x",
     # Go into directory, or open file
     "right",
     # Go up one directory
@@ -137,15 +139,32 @@ defmodule Fub.Session do
       code when code in [0, 1] ->
         query = Map.fetch!(message, "query")
 
+        selection = Map.fetch!(message, "selection")
+
+        selection =
+          if query == "." do
+            state.current_directory
+          else
+            selection
+          end
+
         case Map.fetch!(message, "key") do
+          "ctrl-x" ->
+            handle_selection(socket, selection, query, state, & &1)
+
+          "" ->
+            handle_selection(
+              socket,
+              selection,
+              query,
+              state,
+              &Path.relative_to(&1, state.start_directory)
+            )
+
           key when key in @key_bindings ->
             state = %{state | stored_query: query}
             {:ok, state} = handle_key(key, state)
             list_current_dir(socket, state)
-
-          "" ->
-            selection = Map.fetch!(message, "selection")
-            handle_selection(socket, selection, query, state)
 
           tag ->
             Logger.error("Unhandled message tag: #{tag}")
@@ -154,7 +173,7 @@ defmodule Fub.Session do
     end
   end
 
-  defp handle_selection(socket, selection, query, state) do
+  defp handle_selection(socket, selection, query, state, path_transformer) do
     full_path = Path.join(state.current_directory, selection)
 
     if File.dir?(full_path) do
@@ -166,7 +185,8 @@ defmodule Fub.Session do
 
       list_current_dir(socket, state)
     else
-      result = Path.relative_to(full_path, state.start_directory)
+      result = path_transformer.(full_path)
+
       # Only quote result if selection contains non-alphanumeric/period characters.
       respond(socket, :exit, "'#{result}'")
       {:ok, state}
