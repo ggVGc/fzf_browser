@@ -1,98 +1,43 @@
 defmodule Fub.Session do
   require Logger
-  alias Fub.DirStack
-
-  @key_bindings [
-    # Select full path
-    "ctrl-x",
-    # Go into directory, or open file
-    "right",
-    # Go up one directory
-    "left",
-    # Dir stack back
-    "ctrl-o",
-    # Dir stack forward
-    "ctrl-u",
-    # Toggle sorting
-    "ctrl-y",
-    "ctrl-s",
-    # Go to home directory
-    "ctrl-h",
-    # Launch directory jumper (currently fasd -ld)
-    "ctrl-z",
-    # Go to directory of selected file
-    "ctrl-g",
-    # Toggle hidden files
-    "ctrl-a",
-    # Recursive
-    "\\"
-  ]
+  alias Fub.Source
 
   def new(client_socket) do
     state = %{
-      start_directory: nil,
-      current_directory: nil,
-      stored_query: "",
-      dir_stack: DirStack.new(),
-      flags: %{
-        sort: false,
-        recursion_level: 0,
-        show_hidden: false,
-        # mode: :files, :directories, :mixed
-        mode: :mixed
-      },
-      cache: %{}
+      sources: %{},
+      current_source: nil
     }
 
     loop(client_socket, state)
   end
 
-  defp open_finder(socket, query, current_directory) do
+  defp open_finder(socket, query, prompt_prefix, key_bindings) do
     respond(socket, :open_finder, %{
       query: query,
-      key_bindings: @key_bindings,
+      key_bindings: key_bindings,
       with_ansi_colors: true,
-      current_directory: current_directory
+      prompt_prefix: prompt_prefix
     })
   end
 
-  defp list_dir(socket, path, flags) do
-    fd_args =
-      List.flatten([
-        ["--color=always"],
-        case flags.recursion_level do
-          0 -> ["--max-depth=1"]
-          1 -> ["--max-depth=2"]
-          2 -> []
-        end,
-        if(flags.show_hidden, do: ["-H"], else: []),
-        case flags.mode do
-          :directories ->
-            ["--type", "d"]
+  defp current_source_state(state) do
+    state.sources[state.current_source]
+  end
 
-          :files ->
-            ["--type", "f"]
+  defp run_current_source(socket, state) do
+    source_state = current_source_state(state)
+    prefix = state.current_source.get_query_prefix(source_state)
+    key_bindings = state.current_source.get_key_bindings(source_state)
+    query = state.current_source.get_query(source_state)
+    open_finder(socket, query, prefix, key_bindings)
+    content = state.current_source.get_content(source_state)
+    :ok = stream_response(socket, content)
+    {:ok, state}
+  end
 
-          :mixed ->
-            []
-        end
-      ])
-
-    Logger.debug("fd_args: #{inspect(fd_args)}")
-
-    File.cd!(path)
-    %Porcelain.Process{out: content} = Porcelain.spawn("fd", fd_args, out: :stream)
-
-    content =
-      if flags.sort do
-        Enum.sort(content)
-      else
-        content
-      end
-
+  defp stream_response(socket, content) do
     respond(socket, :begin_entries)
-
-    # TODO: Run asynchronously stop streaming if any command 
+    # TODO: Run asynchronously and stop streaming if any command 
     # is received from client.
     Enum.each(content, fn chunk ->
       respond(socket, :raw, chunk)
@@ -103,11 +48,25 @@ defmodule Fub.Session do
     :ok
   end
 
-  defp list_current_dir(socket, state) do
-    open_finder(socket, state.stored_query, state.current_directory)
-    list_dir(socket, state.current_directory, state.flags)
-    {:ok, state}
-  end
+  # "ctrl-z" ->
+  #   list_recent_locations(socket, state)
+  #   {:ok, state}
+
+  # defp list_recent_locations(socket, state) do
+  #   open_finder(socket, state.stored_query, state.current_directory)
+  #   %Porcelain.Process{out: content} = Porcelain.spawn("fasd", ["-ld"], out: :stream)
+  #   respond(socket, :begin_entries)
+
+  #   # TODO: Run asynchronously and stop streaming if any command 
+  #   # is received from client.
+  #   Enum.each(content, fn chunk ->
+  #     respond(socket, :raw, chunk)
+  #   end)
+
+  #   respond(socket, :end_entries)
+  #   respond(socket, :end_of_content)
+  #   :ok
+  # end
 
   defp loop(socket, state) do
     Logger.debug("Waiting for message")
@@ -129,146 +88,47 @@ defmodule Fub.Session do
     start_directory = Map.fetch!(message, "start_directory")
     Logger.debug("Client started in #{start_directory}")
 
-    state = %{state | start_directory: start_directory, current_directory: start_directory}
+    state = %{
+      state
+      | current_source: Source.Filesystem,
+        sources: %{
+          Source.Filesystem => Source.Filesystem.new(start_directory)
+        }
+    }
 
-    list_current_dir(socket, state)
+    run_current_source(socket, state)
   end
 
   defp handle_message(socket, %{"tag" => "result"} = message, state) do
     case Map.fetch!(message, "code") do
       code when code in [0, 1] ->
         query = Map.fetch!(message, "query")
-
         selection = Map.fetch!(message, "selection")
+        key = Map.fetch!(message, "key")
 
-        selection =
-          if query == "." do
-            state.current_directory
-          else
-            selection
-          end
+        result =
+          state.current_source.handle_result(
+            current_source_state(state),
+            selection,
+            query,
+            key
+          )
 
-        case Map.fetch!(message, "key") do
-          "ctrl-x" ->
-            handle_selection(socket, selection, query, state, & &1)
+        case result do
+          {:exit, output} ->
+            respond(socket, :exit, "'#{output}'")
+            {:ok, state}
 
-          "" ->
-            handle_selection(
-              socket,
-              selection,
-              query,
-              state,
-              &Path.relative_to(&1, state.start_directory)
-            )
+          {:continue, new_source_state} ->
+            {:ok,
+             state =
+               Map.update!(state, :sources, fn states ->
+                 Map.put(states, state.current_source, new_source_state)
+               end)}
 
-          key when key in @key_bindings ->
-            state = %{state | stored_query: query}
-            {:ok, state} = handle_key(key, state)
-            list_current_dir(socket, state)
-
-          tag ->
-            Logger.error("Unhandled message tag: #{tag}")
-            list_current_dir(socket, state)
+            run_current_source(socket, state)
         end
     end
-  end
-
-  defp handle_selection(socket, selection, query, state, path_transformer) do
-    full_path = Path.join(state.current_directory, selection)
-
-    if File.dir?(full_path) do
-      state =
-        %{
-          push_directory(state, full_path, query)
-          | stored_query: ""
-        }
-
-      list_current_dir(socket, state)
-    else
-      result = path_transformer.(full_path)
-
-      # Only quote result if selection contains non-alphanumeric/period characters.
-      respond(socket, :exit, "'#{result}'")
-      {:ok, state}
-    end
-  end
-
-  defp toggle_flag(state, name) do
-    %{state | flags: %{state.flags | name => not Map.fetch!(state.flags, name)}}
-  end
-
-  defp push_directory(state, new_directory, current_query) do
-    %{
-      state
-      | dir_stack: DirStack.push(state.dir_stack, state.current_directory, current_query),
-        current_directory: new_directory
-    }
-  end
-
-  defp dir_back(state) do
-    case DirStack.back(state.dir_stack) do
-      :empty ->
-        state
-
-      {%{path: new_directory, query: query}, dir_stack} ->
-        %{
-          state
-          | current_directory: new_directory,
-            stored_query: query,
-            dir_stack: dir_stack
-        }
-    end
-  end
-
-  defp dir_forward(state) do
-    case DirStack.forward(state.dir_stack) do
-      :empty ->
-        state
-
-      {%{path: new_directory, query: query}, dir_stack} ->
-        %{
-          state
-          | current_directory: new_directory,
-            stored_query: query,
-            dir_stack: dir_stack
-        }
-    end
-  end
-
-  defp handle_key(key, state) do
-    state =
-      case key do
-        "ctrl-h" ->
-          state = push_directory(state, Path.expand("~"), state.stored_query)
-          %{state | stored_query: ""}
-
-        "ctrl-o" ->
-          dir_back(state)
-
-        "ctrl-u" ->
-          dir_forward(state)
-
-        sort_toggle when sort_toggle in ["ctrl-s", "ctrl-y"] ->
-          toggle_flag(state, :sort)
-
-        "ctrl-a" ->
-          toggle_flag(state, :show_hidden)
-
-        "\\" ->
-          %{
-            state
-            | flags: %{
-                state.flags
-                | recursion_level: Integer.mod(state.flags.recursion_level + 1, 3)
-              }
-          }
-
-        _ ->
-          Logger.error("Unhandled key: #{key}")
-          state
-      end
-
-    {:ok, state}
   end
 
   defp respond(socket, prefix, content \\ nil) do
