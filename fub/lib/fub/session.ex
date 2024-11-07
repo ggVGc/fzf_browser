@@ -1,5 +1,6 @@
 defmodule Fub.Session do
   require Logger
+  alias Fub.DirStack
 
   @key_bindings [
     # Go into directory, or open file
@@ -29,11 +30,10 @@ defmodule Fub.Session do
     state = %{
       start_directory: nil,
       current_directory: nil,
-      previous_directory: nil,
       stored_query: "",
-      dir_stack: [],
+      dir_stack: DirStack.new(),
       flags: %{
-        sort: true,
+        sort: false,
         recursive: false,
         show_hidden: false,
         # mode: :files, :directories, :mixed
@@ -45,11 +45,12 @@ defmodule Fub.Session do
     loop(client_socket, state)
   end
 
-  defp open_finder(socket, query) do
+  defp open_finder(socket, query, current_directory) do
     respond(socket, :open_finder, %{
       query: query,
       key_bindings: @key_bindings,
-      with_ansi_colors: true
+      with_ansi_colors: true,
+      current_directory: current_directory
     })
   end
 
@@ -73,10 +74,8 @@ defmodule Fub.Session do
 
     Logger.debug("fd_args: #{inspect(fd_args)}")
 
-    # TODO: Stream instead of buffering whole output. Maybe use porcelain.
-    {content, 0} = System.cmd("fd", fd_args, cd: path)
-
-    content = String.split(content, "\n")
+    File.cd!(path)
+    %Porcelain.Process{out: content} = Porcelain.spawn("fd", fd_args, out: :stream)
 
     content =
       if flags.sort do
@@ -87,10 +86,10 @@ defmodule Fub.Session do
 
     respond(socket, :begin_entries)
 
-    Enum.each(content, fn entry ->
-      if entry != "" do
-        respond(socket, :entry, entry)
-      end
+    # TODO: Run asynchronously stop streaming if any command 
+    # is received from client.
+    Enum.each(content, fn chunk ->
+      respond(socket, :raw, chunk)
     end)
 
     respond(socket, :end_entries)
@@ -99,7 +98,7 @@ defmodule Fub.Session do
   end
 
   defp list_current_dir(socket, state) do
-    open_finder(socket, state.stored_query)
+    open_finder(socket, state.stored_query, state.current_directory)
     list_dir(socket, state.current_directory, state.flags)
     {:ok, state}
   end
@@ -125,22 +124,24 @@ defmodule Fub.Session do
     Logger.debug("Client started in #{start_directory}")
 
     state = %{state | start_directory: start_directory, current_directory: start_directory}
+
     list_current_dir(socket, state)
   end
 
   defp handle_message(socket, %{"tag" => "result"} = message, state) do
     case Map.fetch!(message, "code") do
       code when code in [0, 1] ->
+        query = Map.fetch!(message, "query")
+
         case Map.fetch!(message, "key") do
           key when key in @key_bindings ->
-            query = Map.fetch!(message, "query")
-            {:ok, state} = handle_key(key, state)
             state = %{state | stored_query: query}
+            {:ok, state} = handle_key(key, state)
             list_current_dir(socket, state)
 
           "" ->
             selection = Map.fetch!(message, "selection")
-            handle_selection(socket, selection, state)
+            handle_selection(socket, selection, query, state)
 
           tag ->
             Logger.error("Unhandled message tag: #{tag}")
@@ -149,11 +150,16 @@ defmodule Fub.Session do
     end
   end
 
-  defp handle_selection(socket, selection, state) do
+  defp handle_selection(socket, selection, query, state) do
     full_path = Path.join(state.current_directory, selection)
 
     if File.dir?(full_path) do
-      state = push_directory(state, full_path)
+      state =
+        %{
+          push_directory(state, full_path, query)
+          | stored_query: ""
+        }
+
       list_current_dir(socket, state)
     else
       result = Path.relative_to(full_path, state.start_directory)
@@ -164,39 +170,44 @@ defmodule Fub.Session do
   end
 
   defp toggle_flag(state, name) do
-    %{state | flags: %{state.flags | show_hidden: not Map.fetch!(state.flags, name)}}
+    %{state | flags: %{state.flags | name => not Map.fetch!(state.flags, name)}}
   end
 
-  defp push_directory(state, new_directory) do
+  defp push_directory(state, new_directory, current_query) do
     %{
       state
-      | dir_stack: [state.current_directory | state.dir_stack],
-        previous_directory: state.current_directory,
+      | dir_stack: DirStack.push(state.dir_stack, state.current_directory, current_query),
         current_directory: new_directory
     }
-    |> IO.inspect(label: "state")
   end
 
-  defp pop_directory(state) do
-    case state.dir_stack do
-      [] ->
+  defp dir_back(state) do
+    case DirStack.back(state.dir_stack) do
+      :empty ->
         state
 
-      [new_directory | rest] ->
+      {%{path: new_directory, query: query}, dir_stack} ->
         %{
           state
-          | dir_stack: rest,
-            current_directory: new_directory,
-            previous_directory: state.current_directory
+          | current_directory: new_directory,
+            stored_query: query,
+            dir_stack: dir_stack
         }
     end
   end
 
-  defp push_previous_dir(state) do
-    if is_nil(state.previous_directory) do
-      state
-    else
-      push_directory(state, state.previous_directory)
+  defp dir_forward(state) do
+    case DirStack.forward(state.dir_stack) do
+      :empty ->
+        state
+
+      {%{path: new_directory, query: query}, dir_stack} ->
+        %{
+          state
+          | current_directory: new_directory,
+            stored_query: query,
+            dir_stack: dir_stack
+        }
     end
   end
 
@@ -204,13 +215,14 @@ defmodule Fub.Session do
     state =
       case key do
         "ctrl-h" ->
-          push_directory(state, Path.expand("~"))
+          state = push_directory(state, Path.expand("~"), state.stored_query)
+          %{state | stored_query: ""}
 
         "ctrl-o" ->
-          pop_directory(state)
+          dir_back(state)
 
         "ctrl-u" ->
-          push_previous_dir(state)
+          dir_forward(state)
 
         sort_toggle when sort_toggle in ["ctrl-s", "ctrl-y"] ->
           toggle_flag(state, :sort)

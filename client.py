@@ -12,7 +12,7 @@ def open_fzf(args):
     sys.stderr.flush()
     # ansi = []
 
-    command = ["fzf"]
+    command = ["fzf", "--prompt", args["current_directory"] + ": "]
 
     if "with_ansi_colors" in args and args["with_ansi_colors"]:
         command = command + ["--ansi"]

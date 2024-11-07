@@ -5,8 +5,8 @@ defmodule Fub.Protocol do
     {:ok, "e\n"}
   end
 
-  def encode(:entry, entry) do
-    {:ok, entry <> "\n"}
+  def encode(:raw, content) do
+    {:ok, content}
   end
 
   def encode(:end_entries, nil) do
