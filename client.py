@@ -6,10 +6,17 @@ import os
 
 
 def open_fzf(args):
-    sys.stderr.write("DEBUG: " + str(args) + "\n")
+    # sys.stderr.write("DEBUG: " + str(args) + "\n")
     sys.stderr.flush()
-    command = [
-        "fzf",
+    # ansi = []
+
+    command = ["fzf"]
+
+    if "with_ansi_colors" in args and args["with_ansi_colors"]:
+        command = command + ["--ansi"]
+
+    command = command + [
+        "--print-query",
         "--query",
         args["query"],
         "--expect",
@@ -49,9 +56,10 @@ def main():
                     json.dumps(
                         {
                             "tag": "result",
-                            "output": output_lines[1],
+                            "query": output_lines[0],
+                            "key": output_lines[1],
+                            "selection": output_lines[2],
                             "code": fzf.returncode,
-                            "key": output_lines[0],
                         }
                     ).encode()
                     + b"\n"

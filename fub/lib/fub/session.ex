@@ -1,18 +1,40 @@
 defmodule Fub.Session do
   require Logger
 
-  @key_bindings ["ctrl-y", "ctrl-s"]
+  @key_bindings [
+    # Go into directory, or open file
+    "right",
+    # Go up one directory
+    "left",
+    # Dir stack back
+    "ctrl-o",
+    # Dir stack forward
+    "ctrl-u",
+    # Toggle sorting
+    "ctrl-y",
+    "ctrl-s",
+    # Go to home directory
+    "ctrl-h",
+    # Launch directory jumper (currently fasd -ld)
+    "ctrl-z",
+    # Go to directory of selected file
+    "ctrl-g",
+    # Toggle hidden files
+    "ctrl-a",
+    "\\"
+  ]
 
   def new(client_socket) do
     state = %{
       start_directory: nil,
       current_directory: nil,
+      stored_query: "",
       flags: %{
         sort: true,
-        recursion_depth: 1,
+        recursive: false,
         show_hidden: false,
         # mode: :files, :directories, :mixed
-        mode: :mixed
+        mode: :directories
       },
       cache: %{}
     }
@@ -21,24 +43,52 @@ defmodule Fub.Session do
   end
 
   defp open_finder(socket, query) do
-    respond(socket, :open_finder, %{query: query, key_bindings: @key_bindings})
+    respond(socket, :open_finder, %{
+      query: query,
+      key_bindings: @key_bindings,
+      with_ansi_colors: true
+    })
   end
 
   defp list_dir(socket, path, cache, flags) do
-    key = {path, flags.mode}
+    # key = {path, flags.mode}
+    # cache |> IO.inspect(label: "cache")
 
-    cache |> IO.inspect(label: "cache")
-
+    # if content = Map.get(cache, key) do
     {cache, content} =
-      if content = Map.get(cache, key) do
+      if false do
         # TODO: Start task for cache update
         # If new entries are found, push them.
         # If an entry which is removed is selected, error upon selection and refresh.
         # This should be a very uncommon case.
-        {cache, content}
+        # {cache, content}
+        nil
       else
-        content = File.ls!(path)
-        {Map.put(cache, key, content), content}
+        fd_args =
+          List.flatten([
+            ["--color=always"],
+            if(flags.recursive, do: [], else: ["--max-depth=1"]),
+            if(flags.show_hidden, do: ["-H"], else: []),
+            case flags.mode do
+              :directories ->
+                ["--type", "d"]
+
+              :files ->
+                ["--type", "f"]
+
+              :mixed ->
+                []
+            end
+          ])
+          |> IO.inspect(label: "fd_args")
+
+        # TODO: Stream instead of buffering whole output. Maybe use porcelain.
+        {content, 0} = System.cmd("fd", fd_args, cd: path)
+
+        content = String.split(content, "\n")
+        # content = File.ls!(path)
+        # {Map.put(cache, key, content), content}
+        {cache, content}
       end
 
     content =
@@ -49,7 +99,9 @@ defmodule Fub.Session do
       end
 
     Enum.each(content, fn entry ->
-      respond(socket, :entry, entry)
+      if entry != "" do
+        respond(socket, :entry, entry)
+      end
     end)
 
     respond(socket, :end_of_content)
@@ -57,6 +109,7 @@ defmodule Fub.Session do
   end
 
   defp list_current_dir(socket, state) do
+    open_finder(socket, state.stored_query)
     %{state | cache: list_dir(socket, state.current_directory, state.cache, state.flags)}
   end
 
@@ -82,7 +135,6 @@ defmodule Fub.Session do
 
     state = %{state | start_directory: start_directory, current_directory: start_directory}
 
-    open_finder(socket, "")
     _state = list_current_dir(socket, state)
   end
 
@@ -90,17 +142,52 @@ defmodule Fub.Session do
     case Map.fetch!(message, "code") do
       code when code in [0, 1] ->
         case Map.fetch!(message, "key") do
-          "ctrl-s" ->
-            state = %{state | flags: %{state.flags | sort: not state.flags.sort}}
-
-            open_finder(socket, "")
+          key when key in @key_bindings ->
+            query = Map.fetch!(message, "query")
+            state = handle_key(key, state)
+            state = %{state | stored_query: query}
             list_current_dir(socket, state)
-            state
 
           "" ->
-            respond(socket, :exit, Map.fetch!(message, "output"))
-            state
+            selection = Map.fetch!(message, "selection")
+            handle_selection(socket, selection, state)
+
+          tag ->
+            Logger.error("Unhandled message tag: #{tag}")
+            list_current_dir(socket, state)
         end
+    end
+  end
+
+  defp handle_selection(socket, selection, state) do
+    full_path = Path.join(state.current_directory, selection)
+
+    if File.dir?(full_path) do
+      state = %{state | current_directory: full_path}
+      list_current_dir(socket, state)
+    else
+      result = Path.relative_to(full_path, state.start_directory)
+      # Only quote result of selection contains non-alphanumeric/period characters.
+      respond(socket, :exit, "'#{result}'")
+      state
+    end
+  end
+
+  defp handle_key(key, state) do
+    case key do
+      sort_toggle when sort_toggle in ["ctrl-s", "ctrl-y"] ->
+        Logger.debug("Toggling sort: #{not state.flags.sort}")
+        %{state | flags: %{state.flags | sort: not state.flags.sort}}
+
+      "ctrl-a" ->
+        %{state | flags: %{state.flags | show_hidden: not state.flags.show_hidden}}
+
+      "\\" ->
+        %{state | flags: %{state.flags | recursive: not state.flags.recursive}}
+
+      _ ->
+        Logger.error("Unhandled key: #{key}")
+        state
     end
   end
 
