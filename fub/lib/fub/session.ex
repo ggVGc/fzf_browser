@@ -122,7 +122,6 @@ defmodule Fub.Session do
           Logger.info("Streaming aborted, result: #{inspect(result)}")
         end
       end)
-      |> IO.inspect(label: "task")
 
     {:ok, Map.take(task, [:ref, :pid])}
   end

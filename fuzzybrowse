@@ -5,6 +5,7 @@ import subprocess
 import sys
 import json
 import os
+import time
 
 
 def open_fzf(args):
@@ -125,6 +126,8 @@ def main():
                             # TODO: Fix bidirectional communication so that this doesn't happen
                             sys.stderr.write(f"Unhandled command string:{cmd}\n")
                             # return
+        else:
+            time.sleep(0.1)
 
 
 if __name__ == "__main__":

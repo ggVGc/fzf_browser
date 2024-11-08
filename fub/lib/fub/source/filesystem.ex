@@ -8,13 +8,15 @@ defmodule Fub.Source.Filesystem do
 
   @key_bindings [
     # Cycle mode
-    "ctrl-l",
+    "ctrl-p",
     # Select full path
     "ctrl-x",
-    # Go into directory, or open file
-    # "right",
     # Go up one directory
     "left",
+    "ctrl-h",
+    # Go into directory, or open file
+    "right",
+    "ctrl-l",
     # Dir stack back
     "ctrl-o",
     # Dir stack forward
@@ -23,7 +25,7 @@ defmodule Fub.Source.Filesystem do
     "ctrl-y",
     "ctrl-s",
     # Go to home directory
-    "ctrl-h",
+    "ctrl-d",
     # Launch directory jumper (currently fasd -ld)
     "ctrl-z",
     # Go to directory of selected file
@@ -34,8 +36,8 @@ defmodule Fub.Source.Filesystem do
     "\\"
   ]
 
-  @modes [:mixed, :files, :directories]
-  @recursion_levels [:none, :single, :full]
+  @modes [:mixed, :directories, :files]
+  @recursion_levels [:count, :full]
 
   def new(start_directory) do
     %__MODULE__{
@@ -46,6 +48,7 @@ defmodule Fub.Source.Filesystem do
       flags: %{
         sort: false,
         recursion_level_index: 0,
+        recursion_count: 1,
         show_hidden: false,
         mode_index: 0
       }
@@ -94,8 +97,8 @@ defmodule Fub.Source.Filesystem do
           ["D"]
       end,
       case recursion_level(flags) do
-        :none -> []
-        :single -> ["1"]
+        # :none -> []
+        :count -> ["#{flags.recursion_count}"]
         :full -> ["-"]
       end
     ])
@@ -127,17 +130,7 @@ defmodule Fub.Source.Filesystem do
   @impl true
   def handle_result(state, selection, query, key) do
     case key do
-      "ctrl-z" ->
-        {:switch_source, Fub.Source.Recent.new()}
-
-      "ctrl-x" ->
-        if query == "." do
-          {:exit, state.current_directory}
-        else
-          handle_selection(selection, query, state, & &1)
-        end
-
-      "" ->
+      acceptor when acceptor in ["", "right", "ctrl-l"] ->
         if query == "." do
           {:exit, Path.relative_to(state.current_directory, state.start_directory)}
         else
@@ -149,10 +142,20 @@ defmodule Fub.Source.Filesystem do
           )
         end
 
+      "ctrl-x" ->
+        if query == "." do
+          {:exit, Path.absname(state.current_directory)}
+        else
+          handle_selection(selection, query, state, &Path.absname/1)
+        end
+
+      "ctrl-z" ->
+        {:switch_source, Fub.Source.Recent.new()}
+
       key when key in @key_bindings ->
         state = %{state | stored_query: query}
 
-        {:ok, state} = handle_key(key, state)
+        {:ok, state} = handle_continue_key(state, key, query)
         {:continue, state}
 
       tag ->
@@ -161,18 +164,17 @@ defmodule Fub.Source.Filesystem do
     end
   end
 
-  defp handle_key(key, state) do
+  defp handle_continue_key(state, key, query) do
     state =
       case key do
-        "ctrl-l" ->
+        "ctrl-p" ->
           cycle_mode(state)
 
-        "ctrl-h" ->
-          state = push_directory(state, Path.expand("~"), state.stored_query)
-          %{state | stored_query: ""}
+        "ctrl-d" ->
+          goto_home(state)
 
         "ctrl-o" ->
-          dir_back(state)
+          dir_back(state, query)
 
         "ctrl-u" ->
           dir_forward(state)
@@ -182,6 +184,9 @@ defmodule Fub.Source.Filesystem do
 
         "ctrl-a" ->
           toggle_flag(state, :show_hidden)
+
+        dir_up_key when dir_up_key in ["left", "ctrl-h"] ->
+          dir_up(state, query)
 
         "\\" ->
           cycle_rec_level(state)
@@ -195,14 +200,15 @@ defmodule Fub.Source.Filesystem do
   end
 
   defp handle_selection(selection, query, state, path_transformer) do
-    full_path = Path.join(state.current_directory, selection)
+    full_path =
+      [state.current_directory, selection]
+      |> Path.join()
+      |> Path.expand()
+      |> Path.absname()
 
     if File.dir?(full_path) do
       state =
-        %{
-          push_directory(state, full_path, query)
-          | stored_query: ""
-        }
+        %{push_directory(state, full_path, query) | stored_query: ""}
 
       {:continue, state}
     else
@@ -217,16 +223,42 @@ defmodule Fub.Source.Filesystem do
     %{state | flags: %{state.flags | name => not Map.fetch!(state.flags, name)}}
   end
 
+  defp goto_home(state) do
+    state = push_directory(state, Path.expand("~"), state.stored_query)
+    %{state | stored_query: ""}
+  end
+
   defp push_directory(state, new_directory, current_query) do
-    %{
+    new_directory = Path.expand(new_directory)
+
+    if File.dir?(new_directory) do
+      dir_stack = DirStack.push(state.dir_stack, state.current_directory, current_query)
+
+      %{
+        state
+        | dir_stack: dir_stack,
+          current_directory: new_directory
+      }
+    else
       state
-      | dir_stack: DirStack.push(state.dir_stack, state.current_directory, current_query),
-        current_directory: new_directory
+    end
+  end
+
+  defp dir_up(state, query) do
+    new_directory = Path.join([state.current_directory, ".."])
+
+    %{
+      push_directory(state, new_directory, query)
+      | flags: %{
+          state.flags
+          | recursion_count: state.flags.recursion_count + 1,
+            recursion_level_index: 0
+        }
     }
   end
 
-  defp dir_back(state) do
-    case DirStack.back(state.dir_stack) do
+  defp dir_back(state, query) do
+    case DirStack.back(state.dir_stack, state.current_directory, query) do
       :empty ->
         state
 
@@ -260,8 +292,8 @@ defmodule Fub.Source.Filesystem do
       List.flatten([
         ["--color=always"],
         case recursion_level(flags) do
-          :none -> ["--max-depth=1"]
-          :single -> ["--max-depth=2"]
+          # :none -> ["--max-depth=1"]
+          :count -> ["--max-depth=#{flags.recursion_count}"]
           :full -> []
         end,
         if(flags.show_hidden, do: ["-H"], else: []),
