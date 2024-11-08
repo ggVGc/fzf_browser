@@ -16,12 +16,13 @@ defmodule Fub.Source.Filesystem do
   @key_bindings [
     # Cycle mode
     "ctrl-p",
+    "]",
     # Select full path
     "ctrl-x",
     # Go up one directory
     "left",
     "ctrl-h",
-    # Go into directory, or open file
+    # Down one directory
     "right",
     "ctrl-l",
     # Dir stack back
@@ -137,7 +138,7 @@ defmodule Fub.Source.Filesystem do
   @impl true
   def handle_result(state, selection, query, key) do
     case key do
-      acceptor when acceptor in ["", "right", "ctrl-l"] ->
+      "" ->
         if query == "." do
           {:exit, Path.relative_to(state.current_directory, state.start_directory)}
         else
@@ -162,7 +163,7 @@ defmodule Fub.Source.Filesystem do
       key when key in @key_bindings ->
         state = %{state | stored_query: query}
 
-        {:ok, state} = handle_continue_key(state, key, query)
+        {:ok, state} = handle_continue_key(state, key, selection, query)
         {:continue, state}
 
       tag ->
@@ -171,17 +172,20 @@ defmodule Fub.Source.Filesystem do
     end
   end
 
-  defp handle_continue_key(state, key, query) do
+  defp handle_continue_key(state, key, selection, current_query) do
     state =
       case key do
-        "ctrl-p" ->
+        cycle_key when cycle_key in ["ctrl-p", "]"] ->
           cycle_mode(state)
 
         "ctrl-d" ->
           goto_home(state)
 
+        "ctrl-g" ->
+          enter_path_directory(state, selection, current_query)
+
         "ctrl-o" ->
-          dir_back(state, query)
+          dir_back(state, current_query)
 
         "ctrl-u" ->
           dir_forward(state)
@@ -193,7 +197,10 @@ defmodule Fub.Source.Filesystem do
           toggle_flag(state, :show_hidden)
 
         dir_up_key when dir_up_key in ["left", "ctrl-h"] ->
-          dir_up(state, query)
+          dir_up(state, current_query)
+
+        dir_down_key when dir_down_key in ["right", "ctrl-l"] ->
+          dir_down(state, selection, current_query)
 
         "\\" ->
           cycle_rec_level(state)
@@ -206,6 +213,15 @@ defmodule Fub.Source.Filesystem do
     {:ok, state}
   end
 
+  defp enter_path_directory(state, selection, current_query) do
+    directory =
+      [state.current_directory, selection]
+      |> Path.join()
+      |> Path.dirname()
+
+    push_directory(state, directory, current_query)
+  end
+
   defp handle_selection(selection, query, state, path_transformer) do
     full_path =
       [state.current_directory, selection]
@@ -215,7 +231,7 @@ defmodule Fub.Source.Filesystem do
 
     if File.dir?(full_path) do
       state =
-        %{push_directory(state, full_path, query) | stored_query: ""}
+        push_directory(state, full_path, query)
 
       {:continue, state}
     else
@@ -255,7 +271,8 @@ defmodule Fub.Source.Filesystem do
       %{
         state
         | dir_stack: dir_stack,
-          current_directory: new_directory
+          current_directory: new_directory,
+          stored_query: ""
       }
     else
       state
@@ -265,6 +282,17 @@ defmodule Fub.Source.Filesystem do
   defp dir_up(state, query) do
     new_directory = Path.join([state.current_directory, ".."])
     push_directory(state, new_directory, query)
+  end
+
+  defp dir_down(state, selection, query) do
+    [first | _] = Path.split(selection)
+    new_path = Path.join([state.current_directory, first])
+
+    if File.dir?(new_path) do
+      push_directory(state, new_path, query)
+    else
+      state
+    end
   end
 
   defp dir_back(state, query) do
