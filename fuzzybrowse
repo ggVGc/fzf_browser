@@ -103,6 +103,7 @@ def main():
                 cmd = content[0]
                 match cmd:
                     case "z":  # "end of content":
+                        fzf.stdin.close()
                         read_content = False
                     case "x":  # "exit":
                         sys.stdout.write(content[1:])
