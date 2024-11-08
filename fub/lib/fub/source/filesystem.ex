@@ -60,27 +60,28 @@ defmodule Fub.Source.Filesystem do
 
   @impl true
   def handle_result(state, selection, query, key) do
-    selection =
-      if query == "." do
-        state.current_directory
-      else
-        selection
-      end
-
     case key do
       "ctrl-z" ->
         {:switch_source, Fub.Source.Recent.new()}
 
       "ctrl-x" ->
-        handle_selection(selection, query, state, & &1)
+        if query == "." do
+          {:exit, state.current_directory}
+        else
+          handle_selection(selection, query, state, & &1)
+        end
 
       "" ->
-        handle_selection(
-          selection,
-          query,
-          state,
-          &Path.relative_to(&1, state.start_directory)
-        )
+        if query == "." do
+          {:exit, Path.relative_to(state.current_directory, state.start_directory)}
+        else
+          handle_selection(
+            selection,
+            query,
+            state,
+            &Path.relative_to(&1, state.start_directory)
+          )
+        end
 
       key when key in @key_bindings ->
         state = %{state | stored_query: query}
@@ -215,10 +216,7 @@ defmodule Fub.Source.Filesystem do
 
     Logger.debug("fd_args: #{inspect(fd_args)}")
 
-    {:ok, cwd} = File.cwd()
-    File.cd!(path)
-    %Porcelain.Process{out: content} = Porcelain.spawn("fd", fd_args, out: :stream)
-    File.cd!(cwd)
+    %Porcelain.Process{out: content} = Porcelain.spawn("fd", fd_args, out: :stream, dir: path)
 
     if flags.sort do
       Enum.sort(content)

@@ -174,7 +174,7 @@ defmodule Fub.Session do
 
         case result do
           {:exit, output} ->
-            :ok = respond(state.client_socket, :exit, "'#{output}'")
+            :ok = respond(state.client_socket, :exit, "#{output}")
             {:ok, state}
 
           {:switch_source, :previous} ->
