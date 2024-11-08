@@ -1,0 +1,3 @@
+- [ ] Fix crashes when UI aborts during file streaming
+- [ ] Error nicely if fd is not installed
+  - [ ] Fall back to Elixir file listing implementation, without colors
