@@ -117,9 +117,9 @@ defmodule Fub.Session do
           end
 
         if result == :ok do
-          Logger.info("Streaming completed")
+          Logger.debug("Streaming completed")
         else
-          Logger.info("Streaming aborted, result: #{inspect(result)}")
+          Logger.debug("Streaming aborted, result: #{inspect(result)}")
         end
       end)
 
