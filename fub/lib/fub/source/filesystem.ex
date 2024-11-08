@@ -7,10 +7,12 @@ defmodule Fub.Source.Filesystem do
   defstruct [:current_directory, :dir_stack, :flags, :stored_query, :start_directory]
 
   @key_bindings [
+    # Cycle mode
+    "ctrl-l",
     # Select full path
     "ctrl-x",
     # Go into directory, or open file
-    "right",
+    # "right",
     # Go up one directory
     "left",
     # Dir stack back
@@ -32,6 +34,9 @@ defmodule Fub.Source.Filesystem do
     "\\"
   ]
 
+  @modes [:mixed, :files, :directories]
+  @recursion_levels [:none, :single, :full]
+
   def new(start_directory) do
     %__MODULE__{
       dir_stack: DirStack.new(),
@@ -40,17 +45,78 @@ defmodule Fub.Source.Filesystem do
       current_directory: start_directory,
       flags: %{
         sort: false,
-        recursion_level: 0,
+        recursion_level_index: 0,
         show_hidden: false,
-        # mode: :files, :directories, :mixed
-        mode: :mixed
+        mode_index: 0
       }
     }
   end
 
+  defp mode(flags) do
+    Enum.at(@modes, flags.mode_index)
+  end
+
+  defp recursion_level(flags) do
+    Enum.at(@recursion_levels, flags.recursion_level_index)
+  end
+
+  defp cycle_mode(state) do
+    %{
+      state
+      | flags: %{
+          state.flags
+          | mode_index: Integer.mod(state.flags.mode_index + 1, length(@modes))
+        }
+    }
+  end
+
+  defp cycle_rec_level(state) do
+    %{
+      state
+      | flags: %{
+          state.flags
+          | recursion_level_index:
+              Integer.mod(state.flags.recursion_level_index + 1, length(@recursion_levels))
+        }
+    }
+  end
+
+  defp build_prefixes(flags) do
+    List.flatten([
+      case mode(flags) do
+        :mixed ->
+          ["M"]
+
+        :files ->
+          ["F"]
+
+        :directories ->
+          ["D"]
+      end,
+      case recursion_level(flags) do
+        :none -> []
+        :single -> ["1"]
+        :full -> ["-"]
+      end
+    ])
+  end
+
   @impl true
-  def get_launch_info(%__MODULE__{} = mod) do
-    %{query_prefix: mod.current_directory, key_bindings: @key_bindings, query: mod.stored_query}
+  def get_launch_info(%__MODULE__{} = state) do
+    prefix =
+      case build_prefixes(state.flags) do
+        [] ->
+          ""
+
+        prefixes ->
+          "[#{Enum.join(prefixes, ",")}]"
+      end
+
+    %{
+      query_prefix: prefix <> " #{state.current_directory}",
+      key_bindings: @key_bindings,
+      query: state.stored_query
+    }
   end
 
   @impl true
@@ -159,6 +225,9 @@ defmodule Fub.Source.Filesystem do
   defp handle_key(key, state) do
     state =
       case key do
+        "ctrl-l" ->
+          cycle_mode(state)
+
         "ctrl-h" ->
           state = push_directory(state, Path.expand("~"), state.stored_query)
           %{state | stored_query: ""}
@@ -176,13 +245,7 @@ defmodule Fub.Source.Filesystem do
           toggle_flag(state, :show_hidden)
 
         "\\" ->
-          %{
-            state
-            | flags: %{
-                state.flags
-                | recursion_level: Integer.mod(state.flags.recursion_level + 1, 3)
-              }
-          }
+          cycle_rec_level(state)
 
         _ ->
           Logger.error("Unhandled key: #{key}")
@@ -196,13 +259,13 @@ defmodule Fub.Source.Filesystem do
     fd_args =
       List.flatten([
         ["--color=always"],
-        case flags.recursion_level do
-          0 -> ["--max-depth=1"]
-          1 -> ["--max-depth=2"]
-          2 -> []
+        case recursion_level(flags) do
+          :none -> ["--max-depth=1"]
+          :single -> ["--max-depth=2"]
+          :full -> []
         end,
         if(flags.show_hidden, do: ["-H"], else: []),
-        case flags.mode do
+        case mode(flags) do
           :directories ->
             ["--type", "d"]
 
