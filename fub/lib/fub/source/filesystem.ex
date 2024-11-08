@@ -4,7 +4,14 @@ defmodule Fub.Source.Filesystem do
   require Logger
   alias Fub.DirStack
 
-  defstruct [:current_directory, :dir_stack, :flags, :stored_query, :start_directory]
+  defstruct [
+    :current_directory,
+    :dir_stack,
+    :flags,
+    :stored_query,
+    :start_directory,
+    :deepest_dir
+  ]
 
   @key_bindings [
     # Cycle mode
@@ -37,7 +44,7 @@ defmodule Fub.Source.Filesystem do
   ]
 
   @modes [:mixed, :directories, :files]
-  @recursion_levels [:count, :full]
+  @recursion_levels [:relative_deepest_dir, :full, :none]
 
   def new(start_directory) do
     %__MODULE__{
@@ -45,10 +52,10 @@ defmodule Fub.Source.Filesystem do
       stored_query: "",
       start_directory: start_directory,
       current_directory: start_directory,
+      deepest_dir: start_directory,
       flags: %{
         sort: false,
         recursion_level_index: 0,
-        recursion_count: 1,
         show_hidden: false,
         mode_index: 0
       }
@@ -97,9 +104,9 @@ defmodule Fub.Source.Filesystem do
           ["D"]
       end,
       case recursion_level(flags) do
-        # :none -> []
-        :count -> ["#{flags.recursion_count}"]
-        :full -> ["-"]
+        :none -> []
+        :relative_deepest_dir -> ["-"]
+        :full -> ["R"]
       end
     ])
   end
@@ -123,8 +130,8 @@ defmodule Fub.Source.Filesystem do
   end
 
   @impl true
-  def get_content(%__MODULE__{current_directory: path, flags: flags}) do
-    list_dir(path, flags)
+  def get_content(%__MODULE__{} = state) do
+    list_dir(state.current_directory, state.deepest_dir, state.flags)
   end
 
   @impl true
@@ -228,8 +235,19 @@ defmodule Fub.Source.Filesystem do
     %{state | stored_query: ""}
   end
 
+  defp dir_len(path) do
+    path |> Path.split() |> length()
+  end
+
   defp push_directory(state, new_directory, current_query) do
     new_directory = Path.expand(new_directory)
+
+    state =
+      if dir_len(new_directory) > dir_len(state.deepest_dir) do
+        %{state | deepest_dir: new_directory}
+      else
+        state
+      end
 
     if File.dir?(new_directory) do
       dir_stack = DirStack.push(state.dir_stack, state.current_directory, current_query)
@@ -246,15 +264,7 @@ defmodule Fub.Source.Filesystem do
 
   defp dir_up(state, query) do
     new_directory = Path.join([state.current_directory, ".."])
-
-    %{
-      push_directory(state, new_directory, query)
-      | flags: %{
-          state.flags
-          | recursion_count: state.flags.recursion_count + 1,
-            recursion_level_index: 0
-        }
-    }
+    push_directory(state, new_directory, query)
   end
 
   defp dir_back(state, query) do
@@ -287,14 +297,32 @@ defmodule Fub.Source.Filesystem do
     end
   end
 
-  defp list_dir(path, flags) do
+  defp list_dir(path, deepest_dir, flags) do
     fd_args =
       List.flatten([
         ["--color=always"],
         case recursion_level(flags) do
-          # :none -> ["--max-depth=1"]
-          :count -> ["--max-depth=#{flags.recursion_count}"]
-          :full -> []
+          :none ->
+            ["--max-depth=1"]
+
+          :relative_deepest_dir ->
+            relative = Path.relative_to(deepest_dir, path)
+
+            count =
+              case relative do
+                "." ->
+                  0
+
+                _ ->
+                  relative
+                  |> Path.split()
+                  |> length()
+              end
+
+            ["--max-depth=#{count + 1}"]
+
+          :full ->
+            []
         end,
         if(flags.show_hidden, do: ["-H"], else: []),
         case mode(flags) do
