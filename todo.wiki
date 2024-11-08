@@ -1,3 +1,4 @@
 - [ ] Fix crashes when UI aborts during file streaming
+- [ ] Accept fzf options in fuzzybrowse client. Starting directory, query etc.
 - [ ] Error nicely if fd is not installed
   - [ ] Fall back to Elixir file listing implementation, without colors
