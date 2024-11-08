@@ -161,6 +161,39 @@ defmodule Fub.Source.Filesystem do
     end
   end
 
+  defp handle_key(key, state) do
+    state =
+      case key do
+        "ctrl-l" ->
+          cycle_mode(state)
+
+        "ctrl-h" ->
+          state = push_directory(state, Path.expand("~"), state.stored_query)
+          %{state | stored_query: ""}
+
+        "ctrl-o" ->
+          dir_back(state)
+
+        "ctrl-u" ->
+          dir_forward(state)
+
+        sort_toggle when sort_toggle in ["ctrl-s", "ctrl-y"] ->
+          toggle_flag(state, :sort)
+
+        "ctrl-a" ->
+          toggle_flag(state, :show_hidden)
+
+        "\\" ->
+          cycle_rec_level(state)
+
+        _ ->
+          Logger.error("Unhandled key: #{key}")
+          state
+      end
+
+    {:ok, state}
+  end
+
   defp handle_selection(selection, query, state, path_transformer) do
     full_path = Path.join(state.current_directory, selection)
 
@@ -220,39 +253,6 @@ defmodule Fub.Source.Filesystem do
             dir_stack: dir_stack
         }
     end
-  end
-
-  defp handle_key(key, state) do
-    state =
-      case key do
-        "ctrl-l" ->
-          cycle_mode(state)
-
-        "ctrl-h" ->
-          state = push_directory(state, Path.expand("~"), state.stored_query)
-          %{state | stored_query: ""}
-
-        "ctrl-o" ->
-          dir_back(state)
-
-        "ctrl-u" ->
-          dir_forward(state)
-
-        sort_toggle when sort_toggle in ["ctrl-s", "ctrl-y"] ->
-          toggle_flag(state, :sort)
-
-        "ctrl-a" ->
-          toggle_flag(state, :show_hidden)
-
-        "\\" ->
-          cycle_rec_level(state)
-
-        _ ->
-          Logger.error("Unhandled key: #{key}")
-          state
-      end
-
-    {:ok, state}
   end
 
   defp list_dir(path, flags) do
