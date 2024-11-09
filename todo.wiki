@@ -1,6 +1,9 @@
 - [ ] Fix crashes when UI aborts during file streaming
+       - Use separate socket connection for the stream
+- [ ] Improve interaction between filesystem and recent source, and sources in general
 - [ ] Error nicely if fd is not installed
   - [ ] Fall back to Elixir file listing implementation, without colors
 - [ ] CLI option: ignore pattern for files/directories
+- [ ] User-configurable key-mappings
 - [X] CLI argument: starting path
 - [X] Accept fzf options in fuzzybrowse client. Starting directory, query etc.
