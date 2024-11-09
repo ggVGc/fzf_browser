@@ -9,5 +9,6 @@
 - [ ] Toggled feature: Switch to mixed mode if there are no results for the current mode when entering a new directory
 - [ ] Make socket user-specific and inaccessible by other users
 - [ ] Configurable socket path
+- [ ] Open terminal at in current dir, then continue from same location
 - [X] CLI argument: starting path
 - [X] Accept fzf options in fuzzybrowse client. Starting directory, query etc.

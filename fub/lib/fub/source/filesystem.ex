@@ -226,10 +226,14 @@ defmodule Fub.Source.Filesystem do
   end
 
   defp enter_path_directory(state, selection, current_query) do
+    directory = Path.join([state.current_directory, selection])
+
     directory =
-      [state.current_directory, selection]
-      |> Path.join()
-      |> Path.dirname()
+      if File.dir?(directory) do
+        directory
+      else
+        Path.dirname(directory)
+      end
 
     push_directory(state, directory, current_query)
   end
