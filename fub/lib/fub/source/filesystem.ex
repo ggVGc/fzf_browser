@@ -9,7 +9,7 @@ defmodule Fub.Source.Filesystem do
     :dir_stack,
     :flags,
     :stored_query,
-    :start_directory,
+    :launch_directory,
     :deepest_dir
   ]
 
@@ -47,11 +47,11 @@ defmodule Fub.Source.Filesystem do
   @modes [:mixed, :directories, :files]
   @recursion_levels [:relative_deepest_dir, :full, :none]
 
-  def new(start_directory, start_query, full_recursive) do
+  def new(launch_directory, start_directory, start_query, full_recursive) do
     %__MODULE__{
       dir_stack: DirStack.new(),
       stored_query: start_query,
-      start_directory: start_directory,
+      launch_directory: launch_directory,
       current_directory: start_directory,
       deepest_dir: start_directory,
       flags: %{
@@ -145,13 +145,13 @@ defmodule Fub.Source.Filesystem do
     case key do
       "" ->
         if query == "." do
-          {:exit, Path.relative_to(state.current_directory, state.start_directory)}
+          {:exit, Path.relative_to(state.current_directory, state.launch_directory)}
         else
           handle_selection(
             selection,
             query,
             state,
-            &Path.relative_to(&1, state.start_directory)
+            &Path.relative_to(&1, state.launch_directory)
           )
         end
 

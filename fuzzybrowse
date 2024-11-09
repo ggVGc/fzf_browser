@@ -47,6 +47,7 @@ def main():
         json.dumps(
             {
                 "tag": "client_init",
+                "launch_directory": os.path.abspath(os.getcwd()),
                 "start_directory": os.path.abspath(cli_options.start_path),
                 "start_query": cli_options.query,
                 "recursive": cli_options.recursive
