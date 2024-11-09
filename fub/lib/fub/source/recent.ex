@@ -23,7 +23,7 @@ defmodule Fub.Source.Recent do
         {:switch_source, :previous}
 
       "" ->
-        {:switch_source, Fub.Source.Filesystem.new(selection)}
+        {:switch_source, Fub.Source.Filesystem.new(selection, "", false)}
     end
   end
 

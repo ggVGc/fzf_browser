@@ -14,6 +14,7 @@ defmodule Fub.Session do
     state = %{
       client_socket: client_socket,
       sources: %{},
+      launch_directory: "",
       previous_source: nil,
       current_source: nil,
       stream_task: nil
@@ -148,9 +149,9 @@ defmodule Fub.Session do
       state
       | current_source: Source.Filesystem,
         previous_source: Source.Filesystem,
+        launch_directory: launch_directory,
         sources: %{
-          Source.Filesystem =>
-            Source.Filesystem.new(launch_directory, start_directory, query, recursive),
+          Source.Filesystem => Source.Filesystem.new(start_directory, query, recursive),
           Source.Recent => Source.Recent.new()
         }
     }
@@ -178,6 +179,7 @@ defmodule Fub.Session do
 
         case result do
           {:exit, output} ->
+            output = Path.relative_to(output, state.launch_directory)
             :ok = respond(state.client_socket, :exit, "#{output}")
             {:ok, state}
 

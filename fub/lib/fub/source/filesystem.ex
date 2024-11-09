@@ -9,7 +9,6 @@ defmodule Fub.Source.Filesystem do
     :dir_stack,
     :flags,
     :stored_query,
-    :launch_directory,
     :deepest_dir
   ]
 
@@ -47,11 +46,10 @@ defmodule Fub.Source.Filesystem do
   @modes [:mixed, :directories, :files]
   @recursion_levels [:relative_deepest_dir, :full, :none]
 
-  def new(launch_directory, start_directory, start_query, full_recursive) do
+  def new(start_directory, start_query, full_recursive) do
     %__MODULE__{
       dir_stack: DirStack.new(),
       stored_query: start_query,
-      launch_directory: launch_directory,
       current_directory: start_directory,
       deepest_dir: start_directory,
       flags: %{
@@ -145,13 +143,13 @@ defmodule Fub.Source.Filesystem do
     case key do
       "" ->
         if query == "." do
-          {:exit, Path.relative_to(state.current_directory, state.launch_directory)}
+          # {:exit, Path.relative_to(state.current_directory, state.launch_directory)}
+          {:exit, state.current_directory}
         else
           handle_selection(
             selection,
             query,
-            state,
-            &Path.relative_to(&1, state.launch_directory)
+            state
           )
         end
 
@@ -159,7 +157,8 @@ defmodule Fub.Source.Filesystem do
         if query == "." do
           {:exit, Path.absname(state.current_directory)}
         else
-          handle_selection(selection, query, state, &Path.absname/1)
+          # handle_selection(selection, query, state, &Path.absname/1)
+          handle_selection(selection, query, state)
         end
 
       "ctrl-z" ->
@@ -227,7 +226,7 @@ defmodule Fub.Source.Filesystem do
     push_directory(state, directory, current_query)
   end
 
-  defp handle_selection(selection, query, state, path_transformer) do
+  defp handle_selection(selection, query, state) do
     full_path =
       [state.current_directory, selection]
       |> Path.join()
@@ -240,10 +239,8 @@ defmodule Fub.Source.Filesystem do
 
       {:continue, state}
     else
-      result = path_transformer.(full_path)
-
-      # Only quote result if selection contains non-alphanumeric/period characters.
-      {:exit, result}
+      # Only quote full_path if selection contains non-alphanumeric/period characters.
+      {:exit, full_path}
     end
   end
 
