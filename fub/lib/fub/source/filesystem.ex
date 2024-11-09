@@ -14,7 +14,7 @@ defmodule Fub.Source.Filesystem do
 
   @key_bindings [
     # Cycle mode
-    "ctrl-p",
+    "ctrl-f",
     "]",
     # Select full path
     "ctrl-x",
@@ -40,11 +40,13 @@ defmodule Fub.Source.Filesystem do
     # Toggle hidden files
     "ctrl-a",
     # Recursive
-    "\\"
+    "\\",
+    # Set deepest dir to current
+    "ctrl-t"
   ]
 
   @modes [:mixed, :directories, :files]
-  @recursion_levels [:relative_deepest_dir, :full, :none]
+  @recursion_levels [:relative_deepest_dir, :full]
 
   def new(start_directory, start_query, full_recursive) do
     %__MODULE__{
@@ -108,7 +110,6 @@ defmodule Fub.Source.Filesystem do
           ["D"]
       end,
       case recursion_level(flags) do
-        :none -> ["^"]
         :relative_deepest_dir -> ["-"]
         :full -> ["r"]
       end
@@ -179,11 +180,14 @@ defmodule Fub.Source.Filesystem do
   defp handle_continue_key(state, key, selection, current_query) do
     state =
       case key do
-        cycle_key when cycle_key in ["ctrl-p", "]"] ->
+        cycle_key when cycle_key in ["ctrl-f", "]"] ->
           cycle_mode(state)
 
+        "ctrl-t" ->
+          set_deepest_dir_to_current(state)
+
         "ctrl-d" ->
-          goto_home(state)
+          goto_home(state, current_query)
 
         "ctrl-g" ->
           enter_path_directory(state, selection, current_query)
@@ -217,6 +221,10 @@ defmodule Fub.Source.Filesystem do
     {:ok, state}
   end
 
+  defp set_deepest_dir_to_current(state) do
+    %{state | deepest_dir: state.current_directory}
+  end
+
   defp enter_path_directory(state, selection, current_query) do
     directory =
       [state.current_directory, selection]
@@ -248,9 +256,10 @@ defmodule Fub.Source.Filesystem do
     %{state | flags: %{state.flags | name => not Map.fetch!(state.flags, name)}}
   end
 
-  defp goto_home(state) do
-    state = push_directory(state, Path.expand("~"), state.stored_query)
-    %{state | stored_query: ""}
+  defp goto_home(state, current_query) do
+    home = Path.expand("~")
+    state = push_directory(state, home, current_query)
+    %{state | stored_query: "", deepest_dir: home}
   end
 
   defp dir_len(path) do
@@ -332,9 +341,6 @@ defmodule Fub.Source.Filesystem do
       List.flatten([
         ["--color=always"],
         case recursion_level(flags) do
-          :none ->
-            ["--max-depth=1"]
-
           :relative_deepest_dir ->
             relative = Path.relative_to(deepest_dir, path)
 
