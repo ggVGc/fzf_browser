@@ -47,16 +47,21 @@ defmodule Fub.Source.Filesystem do
   @modes [:mixed, :directories, :files]
   @recursion_levels [:relative_deepest_dir, :full, :none]
 
-  def new(start_directory) do
+  def new(start_directory, start_query, full_recursive) do
     %__MODULE__{
       dir_stack: DirStack.new(),
-      stored_query: "",
+      stored_query: start_query,
       start_directory: start_directory,
       current_directory: start_directory,
       deepest_dir: start_directory,
       flags: %{
         sort: false,
-        recursion_level_index: 0,
+        recursion_level_index:
+          if full_recursive do
+            1
+          else
+            0
+          end,
         show_hidden: false,
         mode_index: 0
       }
@@ -105,9 +110,9 @@ defmodule Fub.Source.Filesystem do
           ["D"]
       end,
       case recursion_level(flags) do
-        :none -> []
+        :none -> ["^"]
         :relative_deepest_dir -> ["-"]
-        :full -> ["R"]
+        :full -> ["r"]
       end
     ])
   end

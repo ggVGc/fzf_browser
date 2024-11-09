@@ -138,6 +138,9 @@ defmodule Fub.Session do
 
   defp handle_message(%{"tag" => "client_init"} = message, state) do
     start_directory = Map.fetch!(message, "start_directory")
+    query = Map.get(message, "start_query", "")
+    recursive = Map.get(message, "recursive", false)
+
     Logger.debug("Client started in #{start_directory}")
 
     state = %{
@@ -145,7 +148,7 @@ defmodule Fub.Session do
       | current_source: Source.Filesystem,
         previous_source: Source.Filesystem,
         sources: %{
-          Source.Filesystem => Source.Filesystem.new(start_directory),
+          Source.Filesystem => Source.Filesystem.new(start_directory, query, recursive),
           Source.Recent => Source.Recent.new()
         }
     }

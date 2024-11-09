@@ -23,12 +23,14 @@ fun! LaunchFuzzyBrowse(callbackName, ...)
   let l:dirIgnore = " "
   let l:fileIgnore = " "
   if g:fzf_browser_ignore_files != ""
-    let l:fileIgnore = " -i ".g:fzf_browser_ignore_files." "
+    let l:fileIgnore = " -i=".g:fzf_browser_ignore_files." "
   endif
   if g:fzf_browser_ignore_dirs != ""
-    let l:dirIgnore = " -d ".g:fzf_browser_ignore_dirs." "
+    let l:dirIgnore = " -d=".g:fzf_browser_ignore_dirs." "
   endif
   let cmd = "fuzzybrowse ".l:dirIgnore.l:fileIgnore.join(a:000, ' ')
+  " echom "Launching fuzzybrowse"
+  " echom l:cmd
   let s:firstOpen = 0
   let s:termBuf = term_start(l:cmd, {'term_finish': 'close', 'exit_cb': function(a:callbackName)})
 endfun
@@ -114,7 +116,7 @@ fun! FuzzyPathFromHere()
     let l:dir='/'.l:dir
   endif
 
-  call LaunchFuzzyBrowse('s:HandlePathResult', l:extra==''?'': '-q '.l:extra, l:dir)
+  call LaunchFuzzyBrowse('s:HandlePathResult', l:extra==''?'': '-q='.l:extra, l:dir)
 endf
 
 
