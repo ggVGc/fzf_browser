@@ -170,16 +170,19 @@ defmodule Fub.Session do
         key = Map.fetch!(message, "key")
 
         result =
-          state.current_source.handle_result(
-            current_source_state(state),
-            selection,
-            query,
-            key
-          )
+          state.current_source.handle_result(current_source_state(state), selection, query, key)
 
         case result do
           {:exit, output} ->
             output = Path.relative_to(output, state.launch_directory)
+
+            output =
+              if String.starts_with?(output, "/") do
+                output
+              else
+                "./#{output}"
+              end
+
             :ok = respond(state.client_socket, :exit, "#{output}")
             {:ok, state}
 
