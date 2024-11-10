@@ -18,9 +18,12 @@ defmodule Fub.Source.Filesystem do
     "]",
     # Select full path
     "ctrl-x",
+    # Select directory
+    "/",
     # Go up one directory
     "left",
     "ctrl-h",
+    "`",
     # Down one directory
     "right",
     "ctrl-l",
@@ -147,12 +150,17 @@ defmodule Fub.Source.Filesystem do
           # {:exit, Path.relative_to(state.current_directory, state.launch_directory)}
           {:exit, state.current_directory}
         else
-          handle_selection(
-            selection,
-            query,
-            state
-          )
+          handle_selection(selection, query, state)
         end
+
+      "/" ->
+        full_path =
+          [state.current_directory, selection]
+          |> Path.join()
+          |> Path.expand()
+          |> Path.absname()
+
+        {:exit, full_path}
 
       "ctrl-x" ->
         if query == "." do
@@ -204,7 +212,7 @@ defmodule Fub.Source.Filesystem do
         "ctrl-a" ->
           toggle_flag(state, :show_hidden)
 
-        dir_up_key when dir_up_key in ["left", "ctrl-h"] ->
+        dir_up_key when dir_up_key in ["left", "ctrl-h", "`"] ->
           dir_up(state, current_query)
 
         dir_down_key when dir_down_key in ["right", "ctrl-l"] ->
@@ -246,8 +254,7 @@ defmodule Fub.Source.Filesystem do
       |> Path.absname()
 
     if File.dir?(full_path) do
-      state =
-        push_directory(state, full_path, query)
+      state = push_directory(state, full_path, query)
 
       {:continue, state}
     else

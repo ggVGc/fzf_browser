@@ -10,5 +10,6 @@
 - [ ] Make socket user-specific and inaccessible by other users
 - [ ] Configurable socket path
 - [ ] Open terminal at in current dir, then continue from same location
+- [ ] Sort listing based on mtime
 - [X] CLI argument: starting path
 - [X] Accept fzf options in fuzzybrowse client. Starting directory, query etc.
