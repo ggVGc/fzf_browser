@@ -12,5 +12,7 @@
 - [ ] Configurable socket path
 - [ ] Open terminal at in current dir, then continue from same location
 - [ ] Sort listing based on mtime
+- [ ] Persistent mode: Keep track of what settings were used for a directory, and use those next time it is entered.
+        - Useful for file listing within software projects with ignore patterns etc. 
 - [X] CLI argument: starting path
 - [X] Accept fzf options in fuzzybrowse client. Starting directory, query etc.
