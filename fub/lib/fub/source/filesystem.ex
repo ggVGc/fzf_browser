@@ -31,9 +31,6 @@ defmodule Fub.Source.Filesystem do
     "ctrl-o",
     # Dir stack forward
     "ctrl-u",
-    # Toggle sorting
-    "ctrl-y",
-    "ctrl-s",
     # Go to home directory
     "ctrl-d",
     # Launch directory jumper (currently fasd -ld)
@@ -42,6 +39,8 @@ defmodule Fub.Source.Filesystem do
     "ctrl-g",
     # Toggle hidden files
     "ctrl-a",
+    # Toggle no-ignore
+    "ctrl-y",
     # Recursive
     "\\",
     # Set deepest dir to current
@@ -58,7 +57,6 @@ defmodule Fub.Source.Filesystem do
       current_directory: start_directory,
       deepest_dir: start_directory,
       flags: %{
-        sort: false,
         recursion_level_index:
           if full_recursive do
             1
@@ -66,6 +64,7 @@ defmodule Fub.Source.Filesystem do
             0
           end,
         show_hidden: false,
+        no_ignore: false,
         mode_index: 0
       }
     }
@@ -115,6 +114,16 @@ defmodule Fub.Source.Filesystem do
       case recursion_level(flags) do
         :relative_deepest_dir -> ["-"]
         :full -> ["r"]
+      end,
+      if flags.no_ignore do
+        ["I"]
+      else
+        []
+      end,
+      if flags.show_hidden do
+        ["H"]
+      else
+        []
       end
     ])
   end
@@ -206,11 +215,11 @@ defmodule Fub.Source.Filesystem do
         "ctrl-u" ->
           dir_forward(state)
 
-        sort_toggle when sort_toggle in ["ctrl-s", "ctrl-y"] ->
-          toggle_flag(state, :sort)
-
         "ctrl-a" ->
           toggle_flag(state, :show_hidden)
+
+        "ctrl-y" ->
+          toggle_flag(state, :no_ignore)
 
         dir_up_key when dir_up_key in ["left", "ctrl-h", "`"] ->
           dir_up(state, current_query)
@@ -303,7 +312,14 @@ defmodule Fub.Source.Filesystem do
 
   defp dir_up(state, query) do
     new_directory = Path.join([state.current_directory, ".."])
-    push_directory(state, new_directory, query)
+
+    state
+    |> push_directory(new_directory, query)
+    |> put_query(query)
+  end
+
+  defp put_query(state, query) do
+    %{state | stored_query: query}
   end
 
   defp dir_down(state, selection, query) do
@@ -372,6 +388,7 @@ defmodule Fub.Source.Filesystem do
             []
         end,
         if(flags.show_hidden, do: ["-H"], else: []),
+        if(flags.no_ignore, do: ["-I"], else: []),
         case mode(flags) do
           :directories ->
             ["--type", "d"]
@@ -385,13 +402,7 @@ defmodule Fub.Source.Filesystem do
       ])
 
     Logger.debug("fd_args: #{inspect(fd_args)}")
-
     %Porcelain.Process{out: content} = Porcelain.spawn("fd", fd_args, out: :stream, dir: path)
-
-    if flags.sort do
-      Enum.sort(content)
-    else
-      content
-    end
+    content
   end
 end

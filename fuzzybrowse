@@ -17,10 +17,15 @@ def open_fzf(args, cli_options):
     if "with_ansi_colors" in args and args["with_ansi_colors"]:
         command += ["--ansi"]
 
+    if "sort" in args and not args["sort"]:
+        command += ["+s"]
+
     command += [
         "--print-query",
         "--query",
         args["query"],
+        "--extended",
+        "--tiebreak=chunk,length,end,index",
         "--expect",
         ",".join(args["key_bindings"]),
     ]

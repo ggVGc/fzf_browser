@@ -32,7 +32,7 @@ fun! LaunchFuzzyBrowse(callbackName, ...)
   " echom "Launching fuzzybrowse"
   " echom l:cmd
   let s:firstOpen = 0
-  let s:termBuf = term_start(l:cmd, {'term_finish': 'close', 'exit_cb': function(a:callbackName)})
+  let s:termBuf = term_start(l:cmd, {'term_finish': 'close', 'exit_cb': function(a:callbackName), 'term_rows': 1000})
 endfun
 
 

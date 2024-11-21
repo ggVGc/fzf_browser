@@ -4,6 +4,11 @@ defmodule Fub.Session do
   require Logger
   alias Fub.Source
 
+  @key_bindings [
+    # Toggle sorting
+    "ctrl-s"
+  ]
+
   def start_link([client_socket]) do
     Logger.info("Starting session")
     GenServer.start_link(__MODULE__, client_socket, [])
@@ -17,7 +22,10 @@ defmodule Fub.Session do
       launch_directory: "",
       previous_source: nil,
       current_source: nil,
-      stream_task: nil
+      stream_task: nil,
+      flags: %{
+        sort: true
+      }
     }
 
     :inet.setopts(client_socket, [{:active, true}])
@@ -63,13 +71,19 @@ defmodule Fub.Session do
     {:reply, reply, state}
   end
 
-  defp open_finder(socket, query, prompt_prefix, key_bindings) do
+  defp open_finder(socket, query, prompt_prefix, flags, key_bindings) do
     :ok =
       respond(socket, :open_finder, %{
         query: query,
-        key_bindings: key_bindings,
+        key_bindings: key_bindings ++ @key_bindings,
         with_ansi_colors: true,
-        prompt_prefix: prompt_prefix
+        sort: flags.sort,
+        prompt_prefix:
+          if flags.sort do
+            "[s]#{prompt_prefix}"
+          else
+            prompt_prefix
+          end
       })
   end
 
@@ -86,7 +100,7 @@ defmodule Fub.Session do
       key_bindings: key_bindings
     } = state.current_source.get_launch_info(source_state)
 
-    open_finder(state.client_socket, query, prefix, key_bindings)
+    open_finder(state.client_socket, query, prefix, state.flags, key_bindings)
     content = state.current_source.get_content(source_state)
     {:ok, task} = stream_response(self(), content)
     state = %{state | stream_task: task}
@@ -172,44 +186,50 @@ defmodule Fub.Session do
         result =
           state.current_source.handle_result(current_source_state(state), selection, query, key)
 
-        case result do
-          {:exit, output} ->
-            output = Path.relative_to(output, state.launch_directory)
-
-            output =
-              if String.starts_with?(output, "/") do
-                output
-              else
-                "./#{output}"
-              end
-
-            :ok = respond(state.client_socket, :exit, "#{output}")
-            {:ok, state}
-
-          {:switch_source, :previous} ->
-            state = %{state | current_source: state.previous_source}
+        case key do
+          "ctrl-s" ->
+            state = %{state | flags: %{state.flags | sort: not state.flags.sort}}
             run_current_source(state)
 
-          {:switch_source, new_source_state} ->
-            %source_module{} = new_source_state
+          _ ->
+            case result do
+              {:exit, output} ->
+                output = Path.relative_to(output, state.launch_directory)
 
-            state = %{
-              state
-              | current_source: source_module,
-                previous_source: state.previous_source,
-                sources: Map.put(state.sources, source_module, new_source_state)
-            }
+                output =
+                  if String.starts_with?(output, "/") do
+                    output
+                  else
+                    "./#{output}"
+                  end
 
-            run_current_source(state)
+                :ok = respond(state.client_socket, :exit, "#{output}")
+                {:ok, state}
 
-          {:continue, new_source_state} ->
-            {:ok,
-             state =
-               Map.update!(state, :sources, fn states ->
-                 Map.put(states, state.current_source, new_source_state)
-               end)}
+              {:switch_source, :previous} ->
+                state = %{state | current_source: state.previous_source}
+                run_current_source(state)
 
-            run_current_source(state)
+              {:switch_source, new_source_state} ->
+                %source_module{} = new_source_state
+
+                state = %{
+                  state
+                  | current_source: source_module,
+                    previous_source: state.previous_source,
+                    sources: Map.put(state.sources, source_module, new_source_state)
+                }
+
+                run_current_source(state)
+
+              {:continue, new_source_state} ->
+                state =
+                  Map.update!(state, :sources, fn states ->
+                    Map.put(states, state.current_source, new_source_state)
+                  end)
+
+                run_current_source(state)
+            end
         end
     end
   end

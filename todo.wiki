@@ -1,5 +1,6 @@
 - [ ] Fix crashes when UI aborts during file streaming
        - Use separate socket connection for the stream
+- [ ] Send output to file and use it in vim plugin. Prevents issues with long filenames being cut off.
 - [ ] Improve interaction between filesystem and recent source, and sources in general
 - [ ] Multi-select
 - [ ] Error nicely if fd is not installed
