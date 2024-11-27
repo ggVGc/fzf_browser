@@ -91,7 +91,8 @@ defmodule Fub.Source.Filesystem do
   defp cycle_rec_level(state) do
     %{
       state
-      | flags: %{
+      | deepest_dir: state.current_directory,
+        flags: %{
           state.flags
           | recursion_level_index:
               Integer.mod(state.flags.recursion_level_index + 1, length(@recursion_levels))
@@ -99,7 +100,23 @@ defmodule Fub.Source.Filesystem do
     }
   end
 
-  defp build_prefixes(flags) do
+  defp recursion_depth(path, deepest_dir) do
+    relative = Path.relative_to(deepest_dir, path)
+
+    case relative do
+      "." ->
+        0
+
+      _ ->
+        relative
+        |> Path.split()
+        |> length()
+    end
+  end
+
+  defp build_prefixes(state) do
+    flags = state.flags
+
     List.flatten([
       case mode(flags) do
         :mixed ->
@@ -112,8 +129,11 @@ defmodule Fub.Source.Filesystem do
           ["D"]
       end,
       case recursion_level(flags) do
-        :relative_deepest_dir -> ["-"]
-        :full -> ["r"]
+        :relative_deepest_dir ->
+          [to_string(recursion_depth(state.current_directory, state.deepest_dir))]
+
+        :full ->
+          ["r"]
       end,
       if flags.no_ignore do
         ["I"]
@@ -131,7 +151,7 @@ defmodule Fub.Source.Filesystem do
   @impl true
   def get_launch_info(%__MODULE__{} = state) do
     prefix =
-      case build_prefixes(state.flags) do
+      case build_prefixes(state) do
         [] ->
           ""
 
@@ -369,20 +389,8 @@ defmodule Fub.Source.Filesystem do
         ["--color=always"],
         case recursion_level(flags) do
           :relative_deepest_dir ->
-            relative = Path.relative_to(deepest_dir, path)
-
-            count =
-              case relative do
-                "." ->
-                  0
-
-                _ ->
-                  relative
-                  |> Path.split()
-                  |> length()
-              end
-
-            ["--max-depth=#{count + 1}"]
+            depth = recursion_depth(path, deepest_dir)
+            ["--max-depth=#{depth + 1}"]
 
           :full ->
             []
