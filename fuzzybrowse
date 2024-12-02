@@ -67,11 +67,6 @@ def main():
     reading_entries = False
     wait_for_empty = False
 
-    start_dir = ""
-    if len(sys.argv) > 1:
-        start_dir = sys.argv[1]
-
-
     while True:
         if fzf is not None:
             fzf.poll()

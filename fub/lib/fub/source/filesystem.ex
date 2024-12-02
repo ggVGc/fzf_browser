@@ -57,12 +57,7 @@ defmodule Fub.Source.Filesystem do
       current_directory: start_directory,
       deepest_dir: start_directory,
       flags: %{
-        recursion_level_index:
-          if full_recursive do
-            1
-          else
-            0
-          end,
+        recursion_level_index: if(full_recursive, do: 1, else: 0),
         show_hidden: false,
         no_ignore: false,
         mode_index: 0
