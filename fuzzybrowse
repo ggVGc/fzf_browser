@@ -24,6 +24,7 @@ def open_fzf(args, cli_options):
         "--print-query",
         "--query",
         args["query"],
+        "--multi",
         "--extended",
         "--tiebreak=chunk,length,end,index",
         "--expect",
@@ -82,7 +83,7 @@ def main():
                             "tag": "result",
                             "query": output_lines[0],
                             "key": output_lines[1],
-                            "selection": output_lines[2],
+                            "selection": output_lines[2:-1],
                             "code": fzf.returncode,
                         }
                     ).encode()

@@ -17,7 +17,7 @@ defmodule Fub.Source.Recent do
   end
 
   @impl true
-  def handle_result(%__MODULE__{}, selection, _query, key) do
+  def handle_result(%__MODULE__{}, [selection | _], _query, key) do
     case key do
       "ctrl-z" ->
         {:switch_source, :previous}

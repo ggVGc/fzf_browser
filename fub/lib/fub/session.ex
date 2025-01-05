@@ -103,18 +103,20 @@ defmodule Fub.Session do
 
     open_finder(state.client_socket, query, prefix, state.flags, key_bindings)
     content = state.current_source.get_content(source_state)
-    content = if state.flags.sort do
-      content
-      |> Task.async_stream(&String.split(&1, "\n"))
-      |> Stream.flat_map(fn {:ok, line} -> 
-        line
-      end)
-      |> Enum.sort()
-      |> Stream.drop_while(& &1 == "")
-      |> Stream.map(& &1 <> "\n")
-    else
-      content
-    end
+
+    content =
+      if state.flags.sort do
+        content
+        |> Task.async_stream(&String.split(&1, "\n"))
+        |> Stream.flat_map(fn {:ok, line} ->
+          line
+        end)
+        |> Enum.sort()
+        |> Stream.drop_while(&(&1 == ""))
+        |> Stream.map(&(&1 <> "\n"))
+      else
+        content
+      end
 
     {:ok, task} = stream_response(self(), content)
     state = %{state | stream_task: task}
@@ -207,17 +209,17 @@ defmodule Fub.Session do
 
           _ ->
             case result do
-              {:exit, output} ->
-                output = Path.relative_to(output, state.launch_directory)
+              {:exit, entries} when is_list(entries) ->
+                response =
+                  entries
+                  |> Enum.map(&decorate_entry(&1, state))
+                  |> Enum.join(" ")
 
-                output =
-                  if String.starts_with?(output, "/") do
-                    output
-                  else
-                    "./#{output}"
-                  end
+                :ok = respond(state.client_socket, :exit, response)
+                {:ok, state}
 
-                :ok = respond(state.client_socket, :exit, "#{output}")
+              {:exit, entry} ->
+                :ok = respond(state.client_socket, :exit, decorate_entry(entry, state))
                 {:ok, state}
 
               {:switch_source, :previous} ->
@@ -245,6 +247,23 @@ defmodule Fub.Session do
                 run_current_source(state)
             end
         end
+    end
+  end
+
+  defp decorate_entry(entry, state) do
+    entry = Path.relative_to(entry, state.launch_directory)
+
+    entry =
+      if String.starts_with?(entry, "/") do
+        entry
+      else
+        "./#{entry}"
+      end
+
+    if String.match?(entry, ~r|^[[:alnum:]-._/]+$|) do
+      entry
+    else
+      "'#{entry}'"
     end
   end
 

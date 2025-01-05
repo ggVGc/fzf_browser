@@ -270,20 +270,28 @@ defmodule Fub.Source.Filesystem do
     push_directory(state, directory, current_query)
   end
 
-  defp handle_selection(selection, query, state) do
-    full_path =
-      [state.current_directory, selection]
-      |> Path.join()
-      |> Path.expand()
-      |> Path.absname()
+  defp handle_selection(selections, query, state) do
+    full_paths =
+      Enum.map(selections, fn selection ->
+        [state.current_directory, selection]
+        |> Path.join()
+        |> Path.expand()
+        |> Path.absname()
+      end)
 
-    if File.dir?(full_path) do
-      state = push_directory(state, full_path, query)
+    case full_paths do
+      [path] ->
+        if File.dir?(path) do
+          state = push_directory(state, path, query)
 
-      {:continue, state}
-    else
-      # Only quote full_path if selection contains non-alphanumeric/period characters.
-      {:exit, full_path}
+          {:continue, state}
+        else
+          # TODO: Only quote full_path if selection contains non-alphanumeric/period characters.
+          {:exit, [path]}
+        end
+
+      paths ->
+        {:exit, paths}
     end
   end
 
@@ -350,9 +358,6 @@ defmodule Fub.Source.Filesystem do
 
   defp dir_back(state, query) do
     case DirStack.back(state.dir_stack, state.current_directory, query) do
-      :empty ->
-        state
-
       {%{path: new_directory, query: query}, dir_stack} ->
         %{
           state
