@@ -24,7 +24,7 @@ defmodule Fub.Session do
       current_source: nil,
       stream_task: nil,
       flags: %{
-        sort: true
+        sort: false
       }
     }
 
@@ -77,7 +77,8 @@ defmodule Fub.Session do
         query: query,
         key_bindings: key_bindings ++ @key_bindings,
         with_ansi_colors: true,
-        sort: flags.sort,
+        # sort: flags.sort,
+        sort: true,
         prompt_prefix:
           if flags.sort do
             "[s]#{prompt_prefix}"
@@ -102,6 +103,19 @@ defmodule Fub.Session do
 
     open_finder(state.client_socket, query, prefix, state.flags, key_bindings)
     content = state.current_source.get_content(source_state)
+    content = if state.flags.sort do
+      content
+      |> Task.async_stream(&String.split(&1, "\n"))
+      |> Stream.flat_map(fn {:ok, line} -> 
+        line
+      end)
+      |> Enum.sort()
+      |> Stream.drop_while(& &1 == "")
+      |> Stream.map(& &1 <> "\n")
+    else
+      content
+    end
+
     {:ok, task} = stream_response(self(), content)
     state = %{state | stream_task: task}
     {:ok, state}
