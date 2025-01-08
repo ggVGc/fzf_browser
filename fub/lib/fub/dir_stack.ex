@@ -6,20 +6,20 @@ defmodule Fub.DirStack do
     %__MODULE__{stack: [], position: 0}
   end
 
-  def push(state, path, query) do
-    %{state | position: 0, stack: [%{path: path, query: query} | state.stack]}
+  def push(state, entry) do
+    %{state | position: 0, stack: [entry | state.stack]}
   end
 
   def back(%__MODULE__{stack: []}) do
     :empty
   end
 
-  def back(%__MODULE__{position: position} = state, from_directory, query) do
+  def back(%__MODULE__{position: position} = state, entry) do
     state =
       if position == 0 do
         state
-        |> push(from_directory, query)
-        |> dedup_stack()
+        |> push(entry)
+        |> dedup()
       else
         state
       end
@@ -45,7 +45,7 @@ defmodule Fub.DirStack do
     }
   end
 
-  defp dedup_stack(%__MODULE__{} = state) do
+  defp dedup(%__MODULE__{} = state) do
     %{state | stack: Enum.dedup(state.stack)}
   end
 end

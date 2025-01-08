@@ -47,7 +47,7 @@ defmodule Fub.Source.Filesystem do
     "ctrl-t"
   ]
 
-  @modes [:mixed, :directories, :files]
+  @modes [:mixed, :files, :directories]
   @recursion_levels [:relative_deepest_dir, :full]
 
   def new(start_directory, start_query, full_recursive) do
@@ -312,6 +312,8 @@ defmodule Fub.Source.Filesystem do
   defp push_directory(state, new_directory, current_query) do
     new_directory = Path.expand(new_directory)
 
+    old_deepest_dir = state.deepest_dir
+
     state =
       if dir_len(new_directory) > dir_len(state.deepest_dir) do
         %{state | deepest_dir: new_directory}
@@ -320,7 +322,15 @@ defmodule Fub.Source.Filesystem do
       end
 
     if File.dir?(new_directory) do
-      dir_stack = DirStack.push(state.dir_stack, state.current_directory, current_query)
+      dir_stack =
+        DirStack.push(
+          state.dir_stack,
+          %{
+            path: state.current_directory,
+            query: current_query,
+            deepest_dir: old_deepest_dir
+          }
+        )
 
       %{
         state
@@ -357,13 +367,18 @@ defmodule Fub.Source.Filesystem do
   end
 
   defp dir_back(state, query) do
-    case DirStack.back(state.dir_stack, state.current_directory, query) do
-      {%{path: new_directory, query: query}, dir_stack} ->
+    case DirStack.back(state.dir_stack, %{
+           path: state.current_directory,
+           query: query,
+           deepest_dir: state.deepest_dir
+         }) do
+      {%{path: new_directory, query: _query, deepest_dir: deepest_dir}, dir_stack} ->
         %{
           state
           | current_directory: new_directory,
-            stored_query: query,
-            dir_stack: dir_stack
+            # stored_query: query,
+            dir_stack: dir_stack,
+            deepest_dir: deepest_dir
         }
     end
   end
@@ -386,7 +401,7 @@ defmodule Fub.Source.Filesystem do
   defp list_dir(path, deepest_dir, flags) do
     fd_args =
       List.flatten([
-        ["--color=always"],
+        ["--color=always", "--follow"],
         case recursion_level(flags) do
           :relative_deepest_dir ->
             depth = recursion_depth(path, deepest_dir)

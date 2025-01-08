@@ -1,4 +1,4 @@
-defmodule Fub.Session do
+  defmodule Fub.Session do
   use GenServer
 
   require Logger
@@ -107,12 +107,14 @@ defmodule Fub.Session do
     content =
       if state.flags.sort do
         content
-        |> Task.async_stream(&String.split(&1, "\n"))
-        |> Stream.flat_map(fn {:ok, line} ->
-          line
-        end)
+        # |> Task.async_stream(&String.split(&1, "\n"))
+        # |> Stream.flat_map(fn {:ok, line} ->
+        #   line
+        # end)
+        |> Enum.join()
+        |> String.split("\n")
         |> Enum.sort()
-        |> Stream.drop_while(&(&1 == ""))
+        |> Enum.drop(1) # First element is "" because of line splitting
         |> Stream.map(&(&1 <> "\n"))
       else
         content
