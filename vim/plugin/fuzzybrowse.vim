@@ -10,8 +10,9 @@ let s:firstOpen = 0
 func! s:OpenResult(_job, _st)
   let &autowrite = s:oldAutowrite
   let res = term_getline(s:termBuf, 1)
+  tabclose
   if len(l:res) > 0
-    wincmd q
+    " wincmd q
     exec "edit ".fnameescape(l:res)
   endif
 endfunc
@@ -32,6 +33,7 @@ fun! LaunchFuzzyBrowse(callbackName, ...)
   " echom "Launching fuzzybrowse"
   " echom l:cmd
   let s:firstOpen = 0
+  tabnew
   let s:termBuf = term_start(l:cmd, {'term_finish': 'close', 'exit_cb': function(a:callbackName), 'term_rows': 1000})
 endfun
 
