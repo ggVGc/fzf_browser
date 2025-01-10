@@ -1,4 +1,4 @@
-  defmodule Fub.Session do
+defmodule Fub.Session do
   use GenServer
 
   require Logger
@@ -6,7 +6,9 @@
 
   @key_bindings [
     # Toggle sorting
-    "ctrl-s"
+    "ctrl-s",
+    # Toggle preview
+    "ctrl-p"
   ]
 
   def start_link([client_socket]) do
@@ -24,7 +26,8 @@
       current_source: nil,
       stream_task: nil,
       flags: %{
-        sort: false
+        sort: true,
+        preview: true
       }
     }
 
@@ -56,8 +59,8 @@
     {:noreply, state}
   end
 
-  def handle_info(:delayed_run_current_source, state) do
-    run_current_source(state)
+  def handle_info({:delayed_run_current_source, query}, state) do
+    run_current_source(state, query)
     {:noreply, state}
   end
 
@@ -71,37 +74,58 @@
     {:reply, reply, state}
   end
 
-  defp open_finder(socket, query, prompt_prefix, flags, key_bindings) do
-    :ok =
-      respond(socket, :open_finder, %{
-        query: query,
-        key_bindings: key_bindings ++ @key_bindings,
-        with_ansi_colors: true,
-        # sort: flags.sort,
-        sort: true,
-        prompt_prefix:
-          if flags.sort do
-            "[s]#{prompt_prefix}"
-          else
-            prompt_prefix
-          end
-      })
+  defp open_finder(socket, query, prompt_prefix, flags, key_bindings, preview_command) do
+    args = %{
+      query: query,
+      key_bindings: key_bindings ++ @key_bindings,
+      with_ansi_colors: true,
+      # sort: flags.sort,
+      # If the input list is sorted, we're not interested in the fuzzy browser sorting it
+      sort: not flags.sort,
+      prompt_prefix:
+        if flags.sort do
+          "[s]#{prompt_prefix}"
+        else
+          prompt_prefix
+        end
+    }
+
+    args =
+      if flags.preview and preview_command do
+        Map.put(args, :preview_command, preview_command)
+      else
+        args
+      end
+
+    :ok = respond(socket, :open_finder, args)
   end
 
   defp current_source_state(state) do
     state.sources[state.current_source]
   end
 
-  defp run_current_source(%{stream_task: nil} = state) do
+  defp run_current_source(state, query \\ nil)
+
+  defp run_current_source(%{stream_task: nil} = state, query) do
     source_state = current_source_state(state)
 
     %{
       query_prefix: prefix,
-      query: query,
+      query: source_query,
       key_bindings: key_bindings
     } = state.current_source.get_launch_info(source_state)
 
-    open_finder(state.client_socket, query, prefix, state.flags, key_bindings)
+    query = if(query, do: query, else: source_query)
+
+    open_finder(
+      state.client_socket,
+      query,
+      prefix,
+      state.flags,
+      key_bindings,
+      state.current_source.get_preview_command(source_state)
+    )
+
     content = state.current_source.get_content(source_state)
 
     content =
@@ -114,7 +138,8 @@
         |> Enum.join()
         |> String.split("\n")
         |> Enum.sort()
-        |> Enum.drop(1) # First element is "" because of line splitting
+        # First element is "" because of line splitting
+        |> Enum.drop(1)
         |> Stream.map(&(&1 <> "\n"))
       else
         content
@@ -125,9 +150,9 @@
     {:ok, state}
   end
 
-  defp run_current_source(%{stream_task: task} = state) when not is_nil(task) do
+  defp run_current_source(%{stream_task: task} = state, query) when not is_nil(task) do
     Logger.debug("Waiting for stream exit")
-    Process.send_after(self(), :delayed_run_current_source, 100)
+    Process.send_after(self(), {:delayed_run_current_source, query}, 100)
     {:ok, state}
   end
 
@@ -207,7 +232,11 @@
         case key do
           "ctrl-s" ->
             state = %{state | flags: %{state.flags | sort: not state.flags.sort}}
-            run_current_source(state)
+            run_current_source(state, query)
+
+          "ctrl-p" ->
+            state = %{state | flags: %{state.flags | preview: not state.flags.preview}}
+            run_current_source(state, query)
 
           _ ->
             case result do

@@ -7,4 +7,5 @@ defmodule Fub.Source.Source do
               query :: String.t(),
               key :: String.t()
             ) :: {:continue, map} | {:exit, String.t()}
+  @callback get_preview_command(state :: map) :: {:continue, map} | {:exit, String.t()}
 end

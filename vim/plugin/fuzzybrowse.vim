@@ -11,6 +11,7 @@ func! s:OpenResult(_job, _st)
   let &autowrite = s:oldAutowrite
   let res = term_getline(s:termBuf, 1)
   tabclose
+  call win_gotoid(s:start_window_id)
   if len(l:res) > 0
     " wincmd q
     exec "edit ".fnameescape(l:res)
@@ -20,6 +21,7 @@ endfunc
 
 fun! LaunchFuzzyBrowse(callbackName, ...)
   let s:oldAutowrite = &autowrite
+  let s:start_window_id = win_getid()
   set noautowrite
   let l:dirIgnore = " "
   let l:fileIgnore = " "

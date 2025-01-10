@@ -20,6 +20,9 @@ def open_fzf(args, cli_options):
     if "sort" in args and not args["sort"]:
         command += ["+s"]
 
+    if "preview_command" in args and args["preview_command"]:
+        command += ["--preview", args["preview_command"]]
+
     command += [
         "--print-query",
         "--query",

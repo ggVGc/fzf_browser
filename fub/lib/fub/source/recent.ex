@@ -7,6 +7,11 @@ defmodule Fub.Source.Recent do
   end
 
   @impl true
+  def get_preview_command(_state) do
+    nil
+  end
+
+  @impl true
   def get_launch_info(%__MODULE__{}) do
     %{query_prefix: "", key_bindings: ["ctrl-z"], query: ""}
   end

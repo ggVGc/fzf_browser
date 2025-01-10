@@ -18,8 +18,6 @@ defmodule Fub.Source.Filesystem do
     "]",
     # Select full path
     "ctrl-x",
-    # Select directory
-    "/",
     # Go up one directory
     "left",
     "ctrl-h",
@@ -63,6 +61,12 @@ defmodule Fub.Source.Filesystem do
         mode_index: 0
       }
     }
+  end
+
+  @impl true
+  def get_preview_command(state) do
+    path = "#{state.current_directory}/{}"
+    "fzf-preview.sh #{path}"
   end
 
   defp mode(flags) do
@@ -177,14 +181,15 @@ defmodule Fub.Source.Filesystem do
           handle_selection(selection, query, state)
         end
 
-      "/" ->
-        full_path =
-          [state.current_directory, selection]
-          |> Path.join()
-          |> Path.expand()
-          |> Path.absname()
+      # Select directory
+      # "/" ->
+      #   full_path =
+      #     [state.current_directory, selection]
+      #     |> Path.join()
+      #     |> Path.expand()
+      #     |> Path.absname()
 
-        {:exit, full_path}
+      #   {:exit, full_path}
 
       "ctrl-x" ->
         if query == "." do
@@ -311,7 +316,6 @@ defmodule Fub.Source.Filesystem do
 
   defp push_directory(state, new_directory, current_query) do
     new_directory = Path.expand(new_directory)
-
     old_deepest_dir = state.deepest_dir
 
     state =
@@ -351,16 +355,14 @@ defmodule Fub.Source.Filesystem do
     |> put_query(query)
   end
 
-  defp put_query(state, query) do
-    %{state | stored_query: query}
-  end
-
   defp dir_down(state, selection, query) do
     [first | _] = Path.split(selection)
     new_path = Path.join([state.current_directory, first])
 
     if File.dir?(new_path) do
-      push_directory(state, new_path, query)
+      state
+      |> push_directory(new_path, query)
+      |> put_query(query)
     else
       state
     end
@@ -427,5 +429,9 @@ defmodule Fub.Source.Filesystem do
     Logger.debug("fd_args: #{inspect(fd_args)}")
     %Porcelain.Process{out: content} = Porcelain.spawn("fd", fd_args, out: :stream, dir: path)
     content
+  end
+
+  defp put_query(state, query) do
+    %{state | stored_query: query}
   end
 end
