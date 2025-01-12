@@ -10,12 +10,12 @@ import argparse
 
 
 def open_fzf(args, cli_options):
+    def get_arg(name):
+        return name in args and args[name]
+
     # sys.stderr.write("DEBUG: " + str(args) + "\n")
     sys.stderr.flush()
     command = ["fzf", "--prompt", args["prompt_prefix"] + ": "] + cli_options.fzf_opts.split()
-
-    def get_arg(name):
-        return name in args and args[name]
 
     if get_arg("with_ansi_colors"):
         command += ["--ansi"]
@@ -47,6 +47,7 @@ def main():
     parser.add_argument('-q', '--query', default="")
     parser.add_argument('-r', '--recursive', action="store_true")
     parser.add_argument('-f', '--fzf-opts', help="Pass-through options for fzf", default="")
+    parser.add_argument('-m', '--file_mode', help="File listing mode to start in", default="")
     parser.add_argument('-i', '--ignore-files', help="TODO", default="")
     parser.add_argument('-d', '--ignore-dirs', help="TODO", default="")
     cli_options = parser.parse_args()
@@ -63,7 +64,8 @@ def main():
                 "launch_directory": os.path.abspath(os.getcwd()),
                 "start_directory": os.path.abspath(cli_options.start_path),
                 "start_query": cli_options.query,
-                "recursive": cli_options.recursive
+                "recursive": cli_options.recursive,
+                "file_mode": cli_options.file_mode
             }
         ).encode()
         + b"\n"

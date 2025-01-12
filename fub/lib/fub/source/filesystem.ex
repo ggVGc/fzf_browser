@@ -17,7 +17,7 @@ defmodule Fub.Source.Filesystem do
     "ctrl-f",
     "]",
     # Select full path
-    "ctrl-x",
+    # "ctrl-x",
     # Go up one directory
     "left",
     "ctrl-h",
@@ -48,7 +48,7 @@ defmodule Fub.Source.Filesystem do
   @modes [:mixed, :files, :directories]
   @recursion_levels [:relative_deepest_dir, :full]
 
-  def new(start_directory, start_query, full_recursive) do
+  def new(start_directory, start_query, full_recursive, mode) do
     %__MODULE__{
       dir_stack: DirStack.new(),
       stored_query: start_query,
@@ -58,7 +58,17 @@ defmodule Fub.Source.Filesystem do
         recursion_level_index: if(full_recursive, do: 1, else: 0),
         show_hidden: false,
         no_ignore: false,
-        mode_index: 0
+        mode_index:
+          case mode do
+            "files" ->
+              Enum.find_index(@modes, &(&1 == :files))
+
+            "dir" ->
+              Enum.find_index(@modes, &(&1 == :directories))
+
+            _ ->
+              0
+          end
       }
     }
   end
@@ -191,13 +201,13 @@ defmodule Fub.Source.Filesystem do
 
       #   {:exit, full_path}
 
-      "ctrl-x" ->
-        if query == "." do
-          {:exit, Path.absname(state.current_directory)}
-        else
-          # handle_selection(selection, query, state, &Path.absname/1)
-          handle_selection(selection, query, state)
-        end
+      # "ctrl-x" ->
+      #   if query == "." do
+      #     {:exit, Path.absname(state.current_directory)}
+      #   else
+      #     # handle_selection(selection, query, state, &Path.absname/1)
+      #     handle_selection(selection, query, state)
+      #   end
 
       "ctrl-z" ->
         {:switch_source, Fub.Source.Recent.new()}

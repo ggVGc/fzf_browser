@@ -199,6 +199,7 @@ defmodule Fub.Session do
     launch_directory = Map.fetch!(message, "launch_directory")
     query = Map.get(message, "start_query", "")
     recursive = Map.get(message, "recursive", false)
+    file_mode = Map.get(message, "file_mode")
 
     Logger.debug("Client started in #{start_directory}")
 
@@ -208,7 +209,7 @@ defmodule Fub.Session do
         previous_source: Source.Filesystem,
         launch_directory: launch_directory,
         sources: %{
-          Source.Filesystem => Source.Filesystem.new(start_directory, query, recursive),
+          Source.Filesystem => Source.Filesystem.new(start_directory, query, recursive, file_mode),
           Source.Recent => Source.Recent.new()
         }
     }
