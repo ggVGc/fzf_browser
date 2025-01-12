@@ -1,11 +1,32 @@
 - [ ] Fix crashes when UI aborts during file streaming
       - Use separate socket connection for the stream
-- [ ] Expand single directories, not going into full recursive mode
-- [ ] Send output to file and use it in vim plugin. Prevents issues with long filenames being cut off.
+- [ ] Cache current listing and re-use it when actions are taken which do not modify the listing.
+- [ ] Create new file in current directory.
+- [ ] Smarter previewing:
+  - Delegate preview command to `fub`
+  - Some files need the preview window, others don't.
+- [ ] Filters:
+  - Patterns passed to `fd` or other finder.
+  - Easy way of specifying filetype filters
+  - Stored filters, selectable through fzf menu. For example images, audio, text etc.
+- [ ] Preview mode for images, using `geeqie -r`:
+  - Example: `~/ geeqie -r && fzf --bind 'focus:execute-silent($(geeqie -r {}); bspc node -f older)' && killall geeqie`
+- [ ] Shortcut for opening a file without exiting FZF. For example to play songs or open files in web browser:
+  - Default to some program (probably using `open`)
+  - Menu for using another program
+  - Shortcut for opening in new shell with selection pre-filled in commandline
+- [ ] File buckets:
+  - Essentially virtual directories
+  - Maybe better with tags? Or both.
+  - Example use-case: Selecting music files or images to copy or transfer in some way.
+  - Files can be added "current" file-group, which is empty upon startup.
+  - Buckets can be named and stored, and accessed through menu.
+  - History of previous unnamed buckets is stored, in order to return to one if fzf_browser is accidentally closed.
+- [ ] Send output to temporary file and use it in vim plugin. Prevents issues with long filenames being cut off.
 - [ ] Improve interaction between filesystem and recent source, and sources in general
-- [ ] Multi-select
-- [ ] Error nicely if fd is not installed
-  - [ ] Fall back to Elixir file listing implementation, without colors
+- [ ] Error nicely if `fd` is not installed
+  - Fall back to Elixir file listing implementation, without colors
+- [ ] Expand single directories, showing the contents one level down without going into full recursive mode.
 - [ ] CLI option: ignore pattern for files/directories
 - [ ] User-configurable key-mappings
 - [ ] Toggled feature: Switch to mixed mode if there are no results for the current mode when entering a new directory
@@ -15,5 +36,6 @@
 - [ ] Sort listing based on mtime
 - [ ] Persistent mode: Keep track of what settings were used for a directory, and use those next time it is entered.
       - Useful for file listing within software projects with ignore patterns etc. 
+- [X] Multi-select
 - [X] CLI argument: starting path
 - [X] Accept fzf options in fuzzybrowse client. Starting directory, query etc.
