@@ -9,6 +9,7 @@ use std::{env, fs};
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
 use tokio::process::{ChildStdin, Command};
+use tokio::time::sleep;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -26,6 +27,7 @@ struct Cli {
 
 #[derive(Serialize)]
 #[serde(tag = "tag")]
+#[serde(rename_all = "snake_case")]
 enum Message {
     ClientInit {
         launch_directory: String,
@@ -66,6 +68,7 @@ async fn main() -> Result<ExitCode> {
     let mut u_read = BufReader::new(u_read);
 
     let mut fzf: Option<Fzf> = None;
+    let mut read_content = true;
 
     let mut u_read_buf = Vec::new();
     loop {
@@ -81,10 +84,17 @@ async fn main() -> Result<ExitCode> {
                 )
                 .await?;
 
+                read_content = true;
+
                 let mut fzf = fzf.take().expect("checked above");
                 drop(fzf.stdin.take());
                 fzf.process.wait().await?;
             }
+        }
+
+        if !read_content {
+            sleep(std::time::Duration::from_millis(100)).await;
+            continue;
         }
 
         let cmd = read_line(&mut u_read, &mut u_read_buf).await?;
@@ -97,6 +107,7 @@ async fn main() -> Result<ExitCode> {
                     .stdin
                     .take()
                     .ok_or_else(|| anyhow!("fzf stdin already taken"))?;
+                read_content = false;
             }
             b'x' => {
                 std::io::stdout().write_all(&cmd[1..])?;
