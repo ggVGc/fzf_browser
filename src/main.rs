@@ -252,7 +252,7 @@ async fn consume_output(mut from: impl AsyncRead + Unpin, code: i32) -> Result<M
 
     Ok(Message::Result {
         query: lines.remove(0),
-        key: lines.remove(1),
+        key: lines.remove(0),
         selection: lines,
         code,
     })
