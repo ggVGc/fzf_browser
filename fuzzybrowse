@@ -14,14 +14,18 @@ def open_fzf(args, cli_options):
     sys.stderr.flush()
     command = ["fzf", "--prompt", args["prompt_prefix"] + ": "] + cli_options.fzf_opts.split()
 
-    if "with_ansi_colors" in args and args["with_ansi_colors"]:
+    def get_arg(name):
+        return name in args and args[name]
+
+    if get_arg("with_ansi_colors"):
         command += ["--ansi"]
 
-    if "sort" in args and not args["sort"]:
+    if not get_arg("sort"):
         command += ["+s"]
 
-    if "preview_command" in args and args["preview_command"]:
-        command += ["--preview", args["preview_command"]]
+    preview_command = get_arg("preview_command")
+    if preview_command:
+        command += ["--preview", preview_command]
 
     command += [
         "--print-query",
