@@ -218,8 +218,8 @@ defmodule Fub.Source.Filesystem do
         {:ok, state} = handle_continue_key(state, key, selection, query)
         {:continue, state}
 
-      tag ->
-        Logger.error("Unhandled message tag: #{tag}")
+      key ->
+        Logger.error("Unhandled key: #{key}")
         {:continue, state}
     end
   end
