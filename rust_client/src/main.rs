@@ -1,15 +1,15 @@
-use anyhow::{anyhow, ensure, Context, Result};
+use anyhow::{anyhow, bail, ensure, Context, Result};
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 use std::ffi::{OsStr, OsString};
 use std::io::Write;
 use std::path::PathBuf;
-use std::process::{ExitCode, Stdio};
+use std::process::{ExitCode, ExitStatus, Stdio};
 use std::{env, fs};
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
-use tokio::process::{ChildStdin, Command};
-use tokio::time::sleep;
+use tokio::process::Command;
+use tokio::select;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -36,7 +36,7 @@ enum Message {
         start_directory: String,
         start_query: String,
         recursive: bool,
-        file_mode: String
+        file_mode: String,
     },
     Result {
         query: String,
@@ -71,69 +71,75 @@ async fn main() -> Result<ExitCode> {
     let (u_read, mut u_write) = client.split();
     let mut u_read = BufReader::new(u_read);
 
+    enum Mode {
+        Command,
+        Streaming,
+    }
+
+    let mut mode = Mode::Command;
+
     let mut fzf: Option<Fzf> = None;
-    let mut read_content = true;
 
     let mut u_read_buf = Vec::new();
+
     loop {
-        if let Some(fzf_ref) = fzf.as_mut() {
-            if let Some(exit_code) = fzf_ref.process.try_wait()? {
-                let code = exit_code
-                    .code()
-                    .ok_or_else(|| anyhow!("fzf exited without a code"))?;
+        u_read_buf.clear();
 
-                append_json(
-                    &mut u_write,
-                    &consume_output(&mut fzf_ref.stdout, code).await?,
-                )
-                .await?;
-
-                read_content = true;
-
-                let mut fzf = fzf.take().expect("checked above");
-                drop(fzf.stdin.take());
-                fzf.process.wait().await?;
+        loop {
+            select! {
+                read = u_read.read_until(b'\n', &mut u_read_buf) => {
+                    if read? == 0 {
+                        return Ok(ExitCode::SUCCESS);
+                    }
+                    break;
+                }
+                exit_status = wait_if_set(&mut fzf) => {
+                    handle_shutdown(
+                        &mut u_write,
+                        exit_status?,
+                        fzf.take().expect("was present during wait"),
+                    ).await?;
+                }
             }
         }
 
-        if !read_content {
-            sleep(std::time::Duration::from_millis(100)).await;
-            continue;
-        }
+        match mode {
+            Mode::Streaming => {
+                if u_read_buf.len() <= 1 {
+                    mode = Mode::Command;
+                    continue;
+                }
 
-        let cmd = read_line(&mut u_read, &mut u_read_buf).await?;
-
-        match cmd[0] {
-            b'z' => {
-                let _: ChildStdin = fzf
-                    .as_mut()
+                fzf.as_mut()
                     .ok_or_else(|| anyhow!("fzf not open"))?
                     .stdin
-                    .take()
-                    .ok_or_else(|| anyhow!("fzf stdin already taken"))?;
-                read_content = false;
+                    .as_mut()
+                    .ok_or_else(|| anyhow!("fzf stdin already taken"))?
+                    .write_all(&u_read_buf)
+                    .await?;
+
+                continue;
             }
+
+            Mode::Command => (),
+        }
+
+        let _trailing_newline = u_read_buf.pop();
+        let cmd = &u_read_buf;
+        match cmd[0] {
+            b'z' => (),
             b'x' => {
                 std::io::stdout().write_all(&cmd[1..])?;
                 return Ok(ExitCode::SUCCESS);
             }
             b'e' => {
-                ensure!(cmd.len() == 1, "e command must be empty");
+                ensure!(
+                    cmd.len() == 1,
+                    "e command must be empty, got {:?}",
+                    String::from_utf8_lossy(&cmd)
+                );
 
-                let fzf = fzf.as_mut().ok_or_else(|| anyhow!("fzf not open"))?;
-                let stdin = fzf
-                    .stdin
-                    .as_mut()
-                    .ok_or_else(|| anyhow!("fzf stdin already taken"))?;
-
-                loop {
-                    let entry = read_line(&mut u_read, &mut u_read_buf).await?;
-                    if entry.is_empty() {
-                        break;
-                    }
-                    stdin.write_all(entry).await?;
-                    stdin.write_all(b"\n").await?;
-                }
+                mode = Mode::Streaming;
             }
             b'o' => {
                 let user_args = serde_json::from_slice(&cmd[1..])
@@ -162,16 +168,6 @@ async fn append_json(mut writer: impl AsyncWrite + Unpin, value: &impl Serialize
     vec.push(b'\n');
     writer.write_all(&vec).await?;
     Ok(())
-}
-
-async fn read_line<'b>(
-    reader: &mut BufReader<impl AsyncReadExt + Unpin>,
-    buf: &'b mut Vec<u8>,
-) -> Result<&'b [u8]> {
-    buf.clear();
-    let read = reader.read_until(b'\n', buf).await?;
-    ensure!(read > 0, "EOF");
-    Ok(&buf[..read - 1])
 }
 
 #[derive(Deserialize)]
@@ -241,6 +237,23 @@ struct Fzf {
     stdout: tokio::process::ChildStdout,
 }
 
+async fn handle_shutdown(
+    u_write: impl AsyncWrite + Unpin,
+    exit_status: ExitStatus,
+    mut fzf: Fzf,
+) -> Result<()> {
+    let code = match exit_status.code() {
+        Some(code) => code,
+        None => bail!("fzf exited with signal"),
+    };
+
+    let output = consume_output(&mut fzf.stdout, code).await?;
+
+    append_json(u_write, &output).await?;
+
+    Ok(())
+}
+
 async fn consume_output(mut from: impl AsyncRead + Unpin, code: i32) -> Result<Message> {
     let mut fzf_output = String::new();
     from.read_to_string(&mut fzf_output).await?;
@@ -260,4 +273,12 @@ async fn consume_output(mut from: impl AsyncRead + Unpin, code: i32) -> Result<M
         selection: lines,
         code,
     })
+}
+
+async fn wait_if_set(fzf: &mut Option<Fzf>) -> Result<ExitStatus> {
+    if let Some(fzf) = fzf {
+        fzf.process.wait().await.context("waiting for fzf")
+    } else {
+        std::future::pending().await
+    }
 }
