@@ -81,7 +81,9 @@ defmodule Fub.Source.Filesystem do
   @impl true
   def get_preview_command(state) do
     path = "#{state.current_directory}/{}"
-    "preview_file.sh #{path}"
+    # Assumes fzf_browser repo is in PATH
+    # TODO: Rewrite in Elixir and respond with actual command
+    "fzf-browser-preview.sh #{path}"
   end
 
   defp mode(flags) do
