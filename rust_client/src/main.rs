@@ -127,7 +127,14 @@ async fn main() -> Result<ExitCode> {
         let _trailing_newline = u_read_buf.pop();
         let cmd = &u_read_buf;
         match cmd[0] {
-            b'z' => (),
+            b'z' => {
+                drop(
+                    fzf.as_mut()
+                        .ok_or_else(|| anyhow!("fzf not open"))?
+                        .stdin
+                        .take(),
+                );
+            }
             b'x' => {
                 std::io::stdout().write_all(&cmd[1..])?;
                 return Ok(ExitCode::SUCCESS);
