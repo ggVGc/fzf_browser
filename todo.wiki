@@ -1,5 +1,6 @@
 - [ ] Fix crashes when UI aborts during file streaming
       - Use separate socket connection for the stream
+- [ ] Define proper actions, and separate out key-mappings to configuration
 - [ ] Remember settings for a directory and use them next time, if opened without args
 - [ ] CLI arg: Starting mode (files, dirs, mixed)
 - [ ] Cache current listing and re-use it when actions are taken which do not modify the listing.
@@ -38,6 +39,9 @@
 - [ ] Sort listing based on mtime
 - [ ] Persistent mode: Keep track of what settings were used for a directory, and use those next time it is entered.
       - Useful for file listing within software projects with ignore patterns etc. 
+- [ ] Split window mode based on tmux
+- [ ] Use skim (optionally?):
+  - Allows pre-selection
 - [X] Multi-select
 - [X] CLI argument: starting path
 - [X] Accept fzf options in fuzzybrowse client. Starting directory, query etc.
