@@ -1,4 +1,4 @@
-use anyhow::{anyhow, ensure, Context, Result};
+use anyhow::{anyhow, bail, ensure, Context, Result};
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 use std::ffi::{OsStr, OsString};
@@ -68,46 +68,28 @@ async fn main() -> Result<ExitCode> {
     let mut u_read = BufReader::new(u_read);
 
     let mut fzf: Option<Fzf> = None;
-    let mut read_content = true;
 
     let mut u_read_buf = Vec::new();
     loop {
-        if let Some(fzf_ref) = fzf.as_mut() {
-            if let Some(exit_code) = fzf_ref.process.try_wait()? {
-                let code = exit_code
-                    .code()
-                    .ok_or_else(|| anyhow!("fzf exited without a code"))?;
-
-                append_json(
-                    &mut u_write,
-                    &consume_output(&mut fzf_ref.stdout, code).await?,
-                )
-                .await?;
-
-                read_content = true;
-
-                let mut fzf = fzf.take().expect("checked above");
-                drop(fzf.stdin.take());
-                fzf.process.wait().await?;
-            }
-        }
-
-        if !read_content {
-            sleep(std::time::Duration::from_millis(100)).await;
-            continue;
-        }
-
         let cmd = read_line(&mut u_read, &mut u_read_buf).await?;
 
         match cmd[0] {
             b'z' => {
-                let _: ChildStdin = fzf
-                    .as_mut()
-                    .ok_or_else(|| anyhow!("fzf not open"))?
-                    .stdin
-                    .take()
-                    .ok_or_else(|| anyhow!("fzf stdin already taken"))?;
-                read_content = false;
+                let mut fzf = fzf.take().ok_or_else(|| anyhow!("fzf not open"))?;
+                drop(
+                    fzf.stdin
+                        .take()
+                        .ok_or_else(|| anyhow!("fzf stdin already taken"))?,
+                );
+
+                let exit_status = fzf.process.wait().await?;
+
+                let code = match exit_status.code() {
+                    Some(code) => code,
+                    None => bail!("fzf exited with signal"),
+                };
+
+                append_json(&mut u_write, &consume_output(&mut fzf.stdout, code).await?).await?;
             }
             b'x' => {
                 std::io::stdout().write_all(&cmd[1..])?;
