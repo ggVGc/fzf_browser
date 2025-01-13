@@ -1,5 +1,6 @@
 - [ ] Fix crashes when UI aborts during file streaming
       - Use separate socket connection for the stream
+- [ ] Remember settings for a directory and use them next time, if opened without args
 - [ ] CLI arg: Starting mode (files, dirs, mixed)
 - [ ] Cache current listing and re-use it when actions are taken which do not modify the listing.
 - [ ] Create new file in current directory.

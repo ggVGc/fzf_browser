@@ -46,9 +46,10 @@ defmodule Fub.Source.Filesystem do
   ]
 
   @modes [:mixed, :files, :directories]
-  @recursion_levels [:relative_deepest_dir, :full]
+  # @recursion_levels [:no_recursion, :full, :relative_deepest_dir]
+  @recursion_levels [:no_recursion, :full]
 
-  def new(start_directory, start_query, full_recursive, mode) do
+  def new(start_directory, start_query, full_recursive, mode \\ nil) do
     %__MODULE__{
       dir_stack: DirStack.new(),
       stored_query: start_query,
@@ -67,7 +68,11 @@ defmodule Fub.Source.Filesystem do
               Enum.find_index(@modes, &(&1 == :directories))
 
             _ ->
-              0
+              if full_recursive do
+                Enum.find_index(@modes, &(&1 == :files))
+              else
+                Enum.find_index(@modes, &(&1 == :mixed))
+              end
           end
       }
     }
@@ -76,7 +81,7 @@ defmodule Fub.Source.Filesystem do
   @impl true
   def get_preview_command(state) do
     path = "#{state.current_directory}/{}"
-    "fzf-preview.sh #{path}"
+    "preview_file.sh #{path}"
   end
 
   defp mode(flags) do
@@ -138,6 +143,8 @@ defmodule Fub.Source.Filesystem do
           ["D"]
       end,
       case recursion_level(flags) do
+        :no_recursion ->
+          ["-"]
         :relative_deepest_dir ->
           [to_string(recursion_depth(state.current_directory, state.deepest_dir))]
 
@@ -415,6 +422,8 @@ defmodule Fub.Source.Filesystem do
       List.flatten([
         ["--color=always", "--follow"],
         case recursion_level(flags) do
+          :no_recursion ->
+            ["--max-depth=1"]
           :relative_deepest_dir ->
             depth = recursion_depth(path, deepest_dir)
             ["--max-depth=#{depth + 1}"]

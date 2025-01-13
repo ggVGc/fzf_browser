@@ -20,6 +20,8 @@ struct Cli {
     query: String,
     #[clap(short, long, default_value_t = false)]
     recursive: bool,
+    #[clap(short, long, default_value = "")]
+    mode: String,
     /// Pass-through options for fzf
     #[clap(short, long, default_value = "")]
     fzf_opts: String,
@@ -34,6 +36,7 @@ enum Message {
         start_directory: String,
         start_query: String,
         recursive: bool,
+        file_mode: String
     },
     Result {
         query: String,
@@ -60,6 +63,7 @@ async fn main() -> Result<ExitCode> {
             start_directory: path_str(&start_path)?,
             start_query: cli.query.to_string(),
             recursive: cli.recursive,
+            file_mode: cli.mode.to_string(),
         },
     )
     .await?;
