@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::ffi::{OsStr, OsString};
 use std::io::Write;
 use std::path::PathBuf;
-use std::process::{ExitCode, Stdio};
+use std::process::{exit, ExitCode, Stdio};
 use std::{env, fs};
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
@@ -36,7 +36,7 @@ enum Message {
         start_directory: String,
         start_query: String,
         recursive: bool,
-        file_mode: String
+        file_mode: String,
     },
     Result {
         query: String,
@@ -82,17 +82,17 @@ async fn main() -> Result<ExitCode> {
                     .code()
                     .ok_or_else(|| anyhow!("fzf exited without a code"))?;
 
-                append_json(
-                    &mut u_write,
-                    &consume_output(&mut fzf_ref.stdout, code).await?,
-                )
-                .await?;
+                if let Some(consumed) = consume_output(&mut fzf_ref.stdout, code).await? {
+                    append_json(&mut u_write, &consumed).await?;
 
-                read_content = true;
+                    read_content = true;
 
-                let mut fzf = fzf.take().expect("checked above");
-                drop(fzf.stdin.take());
-                fzf.process.wait().await?;
+                    let mut fzf = fzf.take().expect("checked above");
+                    drop(fzf.stdin.take());
+                    fzf.process.wait().await?;
+                } else {
+                    exit(0);
+                }
             }
         }
 
@@ -241,7 +241,7 @@ struct Fzf {
     stdout: tokio::process::ChildStdout,
 }
 
-async fn consume_output(mut from: impl AsyncRead + Unpin, code: i32) -> Result<Message> {
+async fn consume_output(mut from: impl AsyncRead + Unpin, code: i32) -> Result<Option<Message>> {
     let mut fzf_output = String::new();
     from.read_to_string(&mut fzf_output).await?;
 
@@ -250,14 +250,16 @@ async fn consume_output(mut from: impl AsyncRead + Unpin, code: i32) -> Result<M
         .map(str::to_string)
         .collect::<Vec<_>>();
 
-    ensure!(lines.len() > 3, "no selection made");
+    if lines.len() > 2 {
+        lines.pop();
 
-    lines.pop();
-
-    Ok(Message::Result {
-        query: lines.remove(0),
-        key: lines.remove(0),
-        selection: lines,
-        code,
-    })
+        Ok(Some(Message::Result {
+            query: lines.remove(0),
+            key: lines.remove(0),
+            selection: lines,
+            code,
+        }))
+    } else {
+        Ok(None)
+    }
 }
