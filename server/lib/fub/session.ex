@@ -26,7 +26,7 @@ defmodule Fub.Session do
       current_source: nil,
       stream_task: nil,
       flags: %{
-        sort: true,
+        sort: false,
         preview: true
       }
     }
