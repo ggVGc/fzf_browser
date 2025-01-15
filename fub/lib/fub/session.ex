@@ -22,6 +22,7 @@ defmodule Fub.Session do
       client_socket: client_socket,
       sources: %{},
       launch_directory: "",
+      stream_socket: "",
       previous_source: nil,
       current_source: nil,
       stream_task: nil,
@@ -145,7 +146,7 @@ defmodule Fub.Session do
         content
       end
 
-    {:ok, task} = stream_response(self(), content)
+    {:ok, task} = stream_response(state, content)
     state = %{state | stream_task: task}
     {:ok, state}
   end
@@ -156,20 +157,20 @@ defmodule Fub.Session do
     {:ok, state}
   end
 
-  defp stream_response(parent_pid, content) do
+  defp stream_response(state, content) do
     task =
       Task.Supervisor.async_nolink(Fub.TaskSupervisor, fn ->
-        :ok = send_response(parent_pid, :begin_entries)
         # TODO: Run asynchronously and stop streaming if any command 
         # is received from client.
+        {:ok, socket} = :gen_tcp.connect({:local, state.stream_socket}, 0, [])
+
         result =
           try do
             for chunk <- content do
-              :ok = send_response(parent_pid, :raw, chunk)
+              :ok = :gen_tcp.send(socket, chunk)
             end
 
-            :ok = send_response(parent_pid, :end_entries)
-            :ok = send_response(parent_pid, :end_of_content)
+            :ok = :gen_tcp.close(socket)
           rescue
             _ -> :aborted
           end
@@ -200,6 +201,7 @@ defmodule Fub.Session do
     query = Map.get(message, "start_query", "")
     recursive = Map.get(message, "recursive", false)
     file_mode = Map.get(message, "file_mode")
+    stream_socket = Map.get(message, "stream_socket")
 
     Logger.debug("Client started in #{start_directory}")
 
@@ -208,6 +210,7 @@ defmodule Fub.Session do
       | current_source: Source.Filesystem,
         previous_source: Source.Filesystem,
         launch_directory: launch_directory,
+        stream_socket: stream_socket,
         sources: %{
           Source.Filesystem => Source.Filesystem.new(start_directory, query, recursive, file_mode),
           Source.Recent => Source.Recent.new()

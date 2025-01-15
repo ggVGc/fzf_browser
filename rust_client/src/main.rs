@@ -6,6 +6,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::process::{ExitCode, ExitStatus, Stdio};
 use std::{env, fs};
+use tempfile::TempDir;
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
 use tokio::process::Command;
@@ -35,6 +36,7 @@ enum Message {
         launch_directory: String,
         start_directory: String,
         start_query: String,
+        stream_socket: String,
         recursive: bool,
         file_mode: String,
     },
@@ -52,9 +54,17 @@ async fn main() -> Result<ExitCode> {
 
     let start_path = resolve(&cli.start_path)?;
 
-    let mut client = UnixStream::connect("/tmp/fuba.socket")
-        .await
-        .context("connecting to socket")?;
+    let mut client = UnixStream::connect(
+        dirs::home_dir()
+            .ok_or_else(|| anyhow!("no home directory"))?
+            .join(".fuba.socket"),
+    )
+    .await
+    .context("connecting to socket")?;
+
+    let temp_dir = TempDir::new()?;
+    let socket_path = temp_dir.path().join("stream.socket");
+    let stream_server = tokio::net::UnixListener::bind(&socket_path)?;
 
     append_json(
         &mut client,
@@ -62,6 +72,7 @@ async fn main() -> Result<ExitCode> {
             launch_directory: path_str(resolve(env::current_dir()?)?)?,
             start_directory: path_str(&start_path)?,
             start_query: cli.query.to_string(),
+            stream_socket: path_str(&socket_path)?,
             recursive: cli.recursive,
             file_mode: cli.mode.to_string(),
         },
@@ -70,13 +81,6 @@ async fn main() -> Result<ExitCode> {
 
     let (u_read, mut u_write) = client.split();
     let mut u_read = BufReader::new(u_read);
-
-    enum Mode {
-        Command,
-        Streaming,
-    }
-
-    let mut mode = Mode::Command;
 
     let mut fzf: Option<Fzf> = None;
 
@@ -103,55 +107,27 @@ async fn main() -> Result<ExitCode> {
             }
         }
 
-        match mode {
-            Mode::Streaming => {
-                if u_read_buf.len() <= 1 {
-                    mode = Mode::Command;
-                    continue;
-                }
-
-                fzf.as_mut()
-                    .ok_or_else(|| anyhow!("fzf not open"))?
-                    .stdin
-                    .as_mut()
-                    .ok_or_else(|| anyhow!("fzf stdin already taken"))?
-                    .write_all(&u_read_buf)
-                    .await?;
-
-                continue;
-            }
-
-            Mode::Command => (),
-        }
-
         let _trailing_newline = u_read_buf.pop();
         let cmd = &u_read_buf;
         match cmd[0] {
-            b'z' => {
-                drop(
-                    fzf.as_mut()
-                        .ok_or_else(|| anyhow!("fzf not open"))?
-                        .stdin
-                        .take(),
-                );
-            }
             b'x' => {
                 std::io::stdout().write_all(&cmd[1..])?;
                 return Ok(ExitCode::SUCCESS);
             }
-            b'e' => {
-                ensure!(
-                    cmd.len() == 1,
-                    "e command must be empty, got {:?}",
-                    String::from_utf8_lossy(&cmd)
-                );
-
-                mode = Mode::Streaming;
-            }
             b'o' => {
                 let user_args = serde_json::from_slice(&cmd[1..])
                     .context("parsing user_args from 'o' command")?;
-                fzf = Some(open_fzf(&user_args, &cli).await?);
+                let (new_fzf, mut fzf_stdin) = open_fzf(&user_args, &cli).await?;
+                fzf = Some(new_fzf);
+                let (stream, _) = stream_server.accept().await?;
+
+                tokio::spawn(async move {
+                    let (mut stream, mut stream_write) = stream.into_split();
+                    stream_write.shutdown().await?;
+                    tokio::io::copy(&mut stream, &mut fzf_stdin).await?;
+
+                    Ok::<_, anyhow::Error>(())
+                });
             }
             b'\x1b' => (),
             other => unimplemented!("unknown command: {other:?}"),
@@ -191,7 +167,7 @@ struct UserArgs {
     key_bindings: Vec<String>,
 }
 
-async fn open_fzf(user_args: &UserArgs, cli: &Cli) -> Result<Fzf> {
+async fn open_fzf(user_args: &UserArgs, cli: &Cli) -> Result<(Fzf, tokio::process::ChildStdin)> {
     let mut fzf_args = vec![
         "--prompt".to_string(),
         format!("{}: ", user_args.prompt_prefix),
@@ -231,16 +207,17 @@ async fn open_fzf(user_args: &UserArgs, cli: &Cli) -> Result<Fzf> {
     let f_read = fzf.stdout.take().expect("specified above");
     let f_write = fzf.stdin.take().expect("specified above");
 
-    Ok(Fzf {
-        process: fzf,
-        stdin: Some(f_write),
-        stdout: f_read,
-    })
+    Ok((
+        Fzf {
+            process: fzf,
+            stdout: f_read,
+        },
+        f_write,
+    ))
 }
 
 struct Fzf {
     process: tokio::process::Child,
-    stdin: Option<tokio::process::ChildStdin>,
     stdout: tokio::process::ChildStdout,
 }
 

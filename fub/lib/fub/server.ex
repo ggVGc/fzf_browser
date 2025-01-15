@@ -8,7 +8,7 @@ defmodule Fub.Server do
 
   @impl true
   def init(nil) do
-    socket_name = "/tmp/fuba.socket"
+    socket_name = System.user_home!() <> "/.fuba.socket"
     File.rm(socket_name)
     opts = [:binary, ifaddr: {:local, socket_name}, packet: :line, active: false]
     {:ok, socket} = :gen_tcp.listen(0, opts)
