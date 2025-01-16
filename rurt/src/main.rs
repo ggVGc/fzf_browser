@@ -210,12 +210,8 @@ fn stream_content(
             }
         }
 
-        if read_opts.show_hidden || !f.name.to_string_lossy().starts_with('.') {
-            // err: disconnected
-            tx.send(Arc::new(f)).is_err()
-        } else {
-            false
-        }
+        // err: disconnected
+        tx.send(Arc::new(f)).is_err()
     };
 
     let max_depth = match RECURSION[read_opts.recursion_index] {
