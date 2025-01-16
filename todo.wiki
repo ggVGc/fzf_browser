@@ -1,6 +1,16 @@
 - [ ] Fix crashes when UI aborts during file streaming
       - Use separate socket connection for the stream
+- [ ] Sort files in current view based on recent access:
+  - Initially only based on access through fzf_browser
+  - Later based on access from other sources
+- [ ] Git view:
+  - Filter on changed files based on git status
+  - Show diff in preview
+- [ ] Option: Sort by number instead of text
+- [ ] Browse old versions of file based on snapshots:
+  - Initially assuming snapper hierarchy: $SNAPSHOT_ROOT/<snapshot_number>/snapshot/...
 - [ ] Define proper actions, and separate out key-mappings to configuration
+- [ ] Compact directory paths that contain no intermediate files
 - [ ] Remember settings for a directory and use them next time, if opened without args
 - [ ] CLI arg: Starting mode (files, dirs, mixed)
 - [ ] Cache current listing and re-use it when actions are taken which do not modify the listing.
