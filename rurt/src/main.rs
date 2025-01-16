@@ -1,3 +1,6 @@
+mod file_attrs;
+
+use crate::file_attrs::hidden;
 use anyhow::{anyhow, Context};
 use anyhow::{bail, Result};
 use clap::Parser;
@@ -49,7 +52,7 @@ fn colour_whole(s: String, attr: impl Into<Attr>) -> AnsiString<'static> {
 #[derive(Default, Clone)]
 struct ReadOpts {
     sort: bool,
-    honour_hidden: bool,
+    show_hidden: bool,
 }
 
 fn main() -> Result<ExitCode> {
@@ -67,6 +70,7 @@ fn main() -> Result<ExitCode> {
         Key::Ctrl('l'),
         Key::Ctrl('d'),
         Key::Ctrl('s'),
+        Key::Ctrl('a'),
     ];
 
     for key in handled_keys {
@@ -101,6 +105,10 @@ fn main() -> Result<ExitCode> {
             }
             Key::Ctrl('s') => {
                 read_opts.sort = !read_opts.sort;
+                continue;
+            }
+            Key::Ctrl('a') => {
+                read_opts.show_hidden = !read_opts.show_hidden;
                 continue;
             }
             _ => {
@@ -138,21 +146,33 @@ fn stream_content(
 ) -> Result<()> {
     let src = src.as_ref();
 
+    /* @return true if we should early exit */
+    let maybe_send = |f: FileName| {
+        if !read_opts.show_hidden && hidden(&f.name) {
+            return false;
+        }
+
+        if read_opts.show_hidden || !f.name.to_string_lossy().starts_with('.') {
+            // err: disconnected
+            tx.send(Arc::new(f)).is_err()
+        } else {
+            false
+        }
+    };
+
     if read_opts.sort {
         let mut files = fs::read_dir(src)?
-            .map(|f| FileName::try_from(f?).map(Arc::new))
+            .map(|f| FileName::try_from(f?))
             .collect::<Result<Vec<_>>>()?;
         files.sort_unstable();
         for f in files {
-            // err: disconnected
-            if tx.send(f).is_err() {
+            if maybe_send(f) {
                 break;
             }
         }
     } else {
         for f in fs::read_dir(src)? {
-            // err: disconnected
-            if tx.send(Arc::new(FileName::try_from(f?)?)).is_err() {
+            if maybe_send(FileName::try_from(f?)?) {
                 break;
             }
         }
