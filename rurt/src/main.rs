@@ -28,7 +28,7 @@ impl SkimItem for FileName {
 
     fn display<'a>(&'a self, _context: DisplayContext<'a>) -> AnsiString<'a> {
         let s = self.name.to_string_lossy().to_string();
-        return if self.file_type.is_dir() {
+        if self.file_type.is_dir() {
             colour_whole(s, Color::LIGHT_BLUE)
         } else if self.file_type.is_symlink() {
             colour_whole(s, Color::LIGHT_CYAN)
@@ -58,23 +58,11 @@ fn main() -> Result<ExitCode> {
         let (tx, rx) = unbounded::<Arc<dyn SkimItem>>();
         options.prompt = format!("{} > ", here.to_string_lossy());
         let here_copy = here.clone();
-        let throd = thread::spawn(move || -> Result<()> {
-            for f in fs::read_dir(here_copy)? {
-                let f = f?;
-                let name = f.file_name();
-                let file_type = f
-                    .file_type()
-                    .with_context(|| anyhow!("retrieving type of {:?}", &name))?;
-
-                // err: disconnected
-                if tx.send(Arc::new(FileName { name, file_type })).is_err() {
-                    break;
-                }
-            }
-            Ok(())
-        });
+        let streamer = thread::spawn(move || stream_content(tx, here_copy));
 
         let output = Skim::run_with(&options, Some(rx)).ok_or_else(|| anyhow!("skim said NONE"))?;
+
+        streamer.join().expect("panic")?;
 
         let mut requested_navigation = false;
 
@@ -92,8 +80,6 @@ fn main() -> Result<ExitCode> {
                 }
             }
         }
-
-        throd.join().expect("panic")?;
 
         let item = match output.selected_items.into_iter().next() {
             Some(item) => item,
@@ -114,6 +100,22 @@ fn main() -> Result<ExitCode> {
             return Ok(ExitCode::SUCCESS);
         }
     }
+}
+
+fn stream_content(tx: Sender<Arc<dyn SkimItem>>, src: impl AsRef<Path>) -> Result<()> {
+    for f in fs::read_dir(src)? {
+        let f = f?;
+        let name = f.file_name();
+        let file_type = f
+            .file_type()
+            .with_context(|| anyhow!("retrieving type of {:?}", &name))?;
+
+        // err: disconnected
+        if tx.send(Arc::new(FileName { name, file_type })).is_err() {
+            break;
+        }
+    }
+    Ok(())
 }
 
 fn ensure_directory(p: impl AsRef<Path>) -> Result<PathBuf> {
