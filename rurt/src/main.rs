@@ -1,12 +1,10 @@
-mod file_attrs;
-
-use crate::file_attrs::hidden;
 use anyhow::{anyhow, Context};
 use anyhow::{bail, Result};
 use clap::Parser;
+use ignore::{DirEntry, WalkBuilder};
 use skim::prelude::*;
 use std::ffi::OsString;
-use std::fs::{DirEntry, FileType};
+use std::fs::FileType;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::{fs, thread};
@@ -53,6 +51,7 @@ fn colour_whole(s: String, attr: impl Into<Attr>) -> AnsiString<'static> {
 struct ReadOpts {
     sort: bool,
     show_hidden: bool,
+    show_ignored: bool,
 }
 
 fn main() -> Result<ExitCode> {
@@ -71,6 +70,7 @@ fn main() -> Result<ExitCode> {
         Key::Ctrl('d'),
         Key::Ctrl('s'),
         Key::Ctrl('a'),
+        Key::Ctrl('y'),
     ];
 
     for key in handled_keys {
@@ -111,6 +111,10 @@ fn main() -> Result<ExitCode> {
                 read_opts.show_hidden = !read_opts.show_hidden;
                 continue;
             }
+            Key::Ctrl('y') => {
+                read_opts.show_ignored = !read_opts.show_ignored;
+                continue;
+            }
             _ => {
                 if output.is_abort {
                     return Ok(ExitCode::FAILURE);
@@ -148,10 +152,6 @@ fn stream_content(
 
     /* @return true if we should early exit */
     let maybe_send = |f: FileName| {
-        if !read_opts.show_hidden && hidden(&f.name) {
-            return false;
-        }
-
         if read_opts.show_hidden || !f.name.to_string_lossy().starts_with('.') {
             // err: disconnected
             tx.send(Arc::new(f)).is_err()
@@ -160,8 +160,19 @@ fn stream_content(
         }
     };
 
+    let ignore_files = !read_opts.show_ignored;
+    let walk = WalkBuilder::new(src)
+        .hidden(!read_opts.show_hidden)
+        .ignore(ignore_files)
+        .git_exclude(ignore_files)
+        .git_global(ignore_files)
+        .git_ignore(ignore_files)
+        .max_depth(Some(1))
+        .build();
+
     if read_opts.sort {
-        let mut files = fs::read_dir(src)?
+        let mut files = walk
+            .into_iter()
             .map(|f| FileName::try_from(f?))
             .collect::<Result<Vec<_>>>()?;
         files.sort_unstable();
@@ -171,7 +182,7 @@ fn stream_content(
             }
         }
     } else {
-        for f in fs::read_dir(src)? {
+        for f in walk {
             if maybe_send(FileName::try_from(f?)?) {
                 break;
             }
@@ -201,7 +212,7 @@ impl TryFrom<DirEntry> for FileName {
     type Error = anyhow::Error;
 
     fn try_from(f: DirEntry) -> Result<Self> {
-        let name = f.file_name();
+        let name = f.file_name().to_owned();
         let file_type = f
             .file_type()
             .with_context(|| anyhow!("retrieving type of {:?}", &name))?;

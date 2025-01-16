@@ -7,5 +7,6 @@ edition = "2021"
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
 dirs = "6"
+ignore = "0.4"
 skim = "0.15"
 tuikit= "0.5"
