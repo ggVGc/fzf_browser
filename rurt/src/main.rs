@@ -53,6 +53,8 @@ struct ReadOpts {
     show_hidden: bool,
     show_ignored: bool,
     mode_index: usize,
+    recursion_index: usize,
+    target_dir: PathBuf,
 }
 
 #[derive(Copy, Clone)]
@@ -64,6 +66,15 @@ enum Mode {
 
 const MODES: [Mode; 3] = [Mode::Mixed, Mode::Files, Mode::Dirs];
 
+#[derive(Copy, Clone)]
+enum Recursion {
+    None,
+    Target,
+    All,
+}
+
+const RECURSION: [Recursion; 3] = [Recursion::None, Recursion::Target, Recursion::All];
+
 fn main() -> Result<ExitCode> {
     let cli = Cli::parse();
     let mut here = fs::canonicalize(cli.start_path).context("start path")?;
@@ -71,6 +82,7 @@ fn main() -> Result<ExitCode> {
     options.no_clear = true;
 
     let mut read_opts = ReadOpts::default();
+    read_opts.target_dir = here.clone();
 
     let handled_keys = [
         Key::Left,
@@ -83,6 +95,8 @@ fn main() -> Result<ExitCode> {
         Key::Ctrl('y'),
         Key::Ctrl('f'),
         Key::Char(']'),
+        Key::Char('\\'),
+        Key::Ctrl('t'),
     ];
 
     for key in handled_keys {
@@ -90,6 +104,12 @@ fn main() -> Result<ExitCode> {
     }
 
     loop {
+        if here.as_os_str().as_encoded_bytes().len()
+            < read_opts.target_dir.as_os_str().as_encoded_bytes().len()
+        {
+            read_opts.target_dir = here.clone();
+        }
+
         let (tx, rx) = unbounded::<Arc<dyn SkimItem>>();
         options.prompt = format!("{} > ", here.to_string_lossy());
         let here_copy = here.clone();
@@ -131,6 +151,14 @@ fn main() -> Result<ExitCode> {
                 read_opts.mode_index = (read_opts.mode_index + 1) % MODES.len();
                 continue;
             }
+            Key::Char('\\') => {
+                read_opts.recursion_index = (read_opts.recursion_index + 1) % RECURSION.len();
+                continue;
+            }
+            Key::Ctrl('t') => {
+                read_opts.target_dir = here.clone();
+                continue;
+            }
             _ => {
                 if output.is_abort {
                     return Ok(ExitCode::FAILURE);
@@ -164,7 +192,7 @@ fn stream_content(
     src: impl AsRef<Path>,
     read_opts: &ReadOpts,
 ) -> Result<()> {
-    let src = src.as_ref();
+    let mut src = src.as_ref().to_path_buf();
 
     /* @return true if we should early exit */
     let maybe_send = |f: FileName| {
@@ -190,20 +218,29 @@ fn stream_content(
         }
     };
 
+    let max_depth = match RECURSION[read_opts.recursion_index] {
+        Recursion::None => Some(1),
+        Recursion::Target => {
+            src = read_opts.target_dir.clone();
+            None
+        }
+        Recursion::All => None,
+    };
+
     let ignore_files = !read_opts.show_ignored;
-    let walk = WalkBuilder::new(src)
+    let walk = WalkBuilder::new(&src)
         .hidden(!read_opts.show_hidden)
         .ignore(ignore_files)
         .git_exclude(ignore_files)
         .git_global(ignore_files)
         .git_ignore(ignore_files)
-        .max_depth(Some(1))
+        .max_depth(max_depth)
         .build();
 
     if read_opts.sort {
         let mut files = walk
             .into_iter()
-            .map(|f| FileName::try_from(f?))
+            .map(|f| FileName::convert(&src, f?))
             .collect::<Result<Vec<_>>>()?;
         files.sort_unstable();
         for f in files {
@@ -213,7 +250,7 @@ fn stream_content(
         }
     } else {
         for f in walk {
-            if maybe_send(FileName::try_from(f?)?) {
+            if maybe_send(FileName::convert(&src, f?)?) {
                 break;
             }
         }
@@ -238,11 +275,9 @@ impl Ord for FileName {
     }
 }
 
-impl TryFrom<DirEntry> for FileName {
-    type Error = anyhow::Error;
-
-    fn try_from(f: DirEntry) -> Result<Self> {
-        let name = f.file_name().to_owned();
+impl FileName {
+    fn convert(root: impl AsRef<Path>, f: DirEntry) -> Result<Self> {
+        let name = f.path().strip_prefix(root)?.as_os_str().to_owned();
         let file_type = f
             .file_type()
             .with_context(|| anyhow!("retrieving type of {:?}", &name))?;
