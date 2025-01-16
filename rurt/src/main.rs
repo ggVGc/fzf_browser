@@ -52,7 +52,17 @@ struct ReadOpts {
     sort: bool,
     show_hidden: bool,
     show_ignored: bool,
+    mode_index: usize,
 }
+
+#[derive(Copy, Clone)]
+enum Mode {
+    Mixed,
+    Files,
+    Dirs,
+}
+
+const MODES: [Mode; 3] = [Mode::Mixed, Mode::Files, Mode::Dirs];
 
 fn main() -> Result<ExitCode> {
     let cli = Cli::parse();
@@ -71,6 +81,8 @@ fn main() -> Result<ExitCode> {
         Key::Ctrl('s'),
         Key::Ctrl('a'),
         Key::Ctrl('y'),
+        Key::Ctrl('f'),
+        Key::Char(']'),
     ];
 
     for key in handled_keys {
@@ -115,6 +127,10 @@ fn main() -> Result<ExitCode> {
                 read_opts.show_ignored = !read_opts.show_ignored;
                 continue;
             }
+            Key::Ctrl('f') | Key::Char(']') => {
+                read_opts.mode_index = (read_opts.mode_index + 1) % MODES.len();
+                continue;
+            }
             _ => {
                 if output.is_abort {
                     return Ok(ExitCode::FAILURE);
@@ -152,6 +168,20 @@ fn stream_content(
 
     /* @return true if we should early exit */
     let maybe_send = |f: FileName| {
+        match MODES[read_opts.mode_index] {
+            Mode::Mixed => (),
+            Mode::Files => {
+                if !f.file_type.is_file() {
+                    return false;
+                }
+            }
+            Mode::Dirs => {
+                if !f.file_type.is_dir() {
+                    return false;
+                }
+            }
+        }
+
         if read_opts.show_hidden || !f.name.to_string_lossy().starts_with('.') {
             // err: disconnected
             tx.send(Arc::new(f)).is_err()
@@ -236,6 +266,7 @@ fn render_key(key: Key) -> String {
         Left => "left".to_string(),
         Right => "right".to_string(),
 
+        Char(c) => format!("{c}"),
         Ctrl(c) => format!("ctrl-{c}"),
         other => unimplemented!("no rendering for {other:?}"),
     }
