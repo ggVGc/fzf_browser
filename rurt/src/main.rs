@@ -52,7 +52,13 @@ fn main() -> Result<ExitCode> {
     let mut options = SkimOptions::default();
     options.no_clear = true;
 
-    let handled_keys = [Key::Left, Key::Ctrl('h'), Key::Right, Key::Ctrl('l')];
+    let handled_keys = [
+        Key::Left,
+        Key::Ctrl('h'),
+        Key::Right,
+        Key::Ctrl('l'),
+        Key::Ctrl('d'),
+    ];
 
     for key in handled_keys {
         options.bind.push(format!("{}:abort", render_key(key)));
@@ -77,6 +83,11 @@ fn main() -> Result<ExitCode> {
             }
             Key::Right | Key::Ctrl('l') => {
                 requested_navigation = true;
+            }
+            Key::Ctrl('d') => {
+                here = dirs::home_dir()
+                    .ok_or_else(|| anyhow!("but you don't even have a home dir"))?;
+                continue;
             }
             _ => {
                 if output.is_abort {
