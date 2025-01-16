@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use anyhow::Result;
 use clap::Parser;
 use skim::prelude::*;
@@ -41,6 +42,8 @@ fn main() -> Result<ExitCode> {
 
     let mut options = SkimOptions::default();
     options.no_clear = true;
+    options.bind.push("left:abort".to_string());
+    options.bind.push("right:accept".to_string());
 
     loop {
         let (tx, rx) = unbounded::<Arc<dyn SkimItem>>();
@@ -61,24 +64,44 @@ fn main() -> Result<ExitCode> {
             Ok(())
         });
 
-        let output = Skim::run_with(&options, Some(rx))
-            .map(|out| out.selected_items)
-            .unwrap_or_default();
+        let output = Skim::run_with(&options, Some(rx)).ok_or_else(|| anyhow!("skim said NONE"))?;
+
+        // if output.is_abort {
+        //     return Ok(ExitCode::FAILURE);
+        // }
+
+        let mut requested_directory = false;
+
+        match output.final_key {
+            Key::Left => {
+                here.push("..");
+                continue;
+            }
+            Key::Right => {
+                requested_directory = true;
+            }
+            _ => {
+                if output.is_abort {
+                    return Ok(ExitCode::FAILURE);
+                }
+            }
+        }
 
         throd.join().expect("panic")?;
 
-        if output.is_empty() {
-            return Ok(ExitCode::FAILURE);
-        }
+        let item = match output.selected_items.into_iter().next() {
+            Some(item) => item,
+            None => return Ok(ExitCode::FAILURE),
+        };
 
-        let item = output.into_iter().next().expect("not empty");
         let item = (*item)
             .as_any()
             .downcast_ref::<FileName>()
             .expect("single type");
-        if item.is_dir {
+
+        if requested_directory && item.is_dir {
             here.push(&item.name);
-        } else {
+        } else if !requested_directory {
             println!("{}", here.join(&item.name).to_string_lossy());
             return Ok(ExitCode::SUCCESS);
         }
