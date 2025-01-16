@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Context};
 use anyhow::{bail, Result};
 use clap::Parser;
-use ignore::{DirEntry, WalkBuilder};
+use ignore::{DirEntry, Error, WalkBuilder, WalkState};
 use skim::prelude::*;
 use std::ffi::OsString;
 use std::fs::FileType;
@@ -195,7 +195,7 @@ fn stream_content(
     let mut src = src.as_ref().to_path_buf();
 
     /* @return true if we should early exit */
-    let maybe_send = |f: FileName| {
+    let maybe_send = |tx: &Sender<Arc<dyn SkimItem>>, f: FileName| {
         match MODES[read_opts.mode_index] {
             Mode::Mixed => (),
             Mode::Files => {
@@ -228,32 +228,50 @@ fn stream_content(
     };
 
     let ignore_files = !read_opts.show_ignored;
-    let walk = WalkBuilder::new(&src)
+    let mut walk = WalkBuilder::new(&src);
+    let walk = walk
         .hidden(!read_opts.show_hidden)
         .ignore(ignore_files)
         .git_exclude(ignore_files)
         .git_global(ignore_files)
         .git_ignore(ignore_files)
-        .max_depth(max_depth)
-        .build();
+        .max_depth(max_depth);
 
     if read_opts.sort {
         let mut files = walk
+            .build()
             .into_iter()
             .map(|f| FileName::convert(&src, f?))
             .collect::<Result<Vec<_>>>()?;
         files.sort_unstable();
         for f in files {
-            if maybe_send(f) {
+            if maybe_send(&tx, f) {
                 break;
             }
         }
     } else {
-        for f in walk {
-            if maybe_send(FileName::convert(&src, f?)?) {
-                break;
-            }
-        }
+        walk.build_parallel().run(|| {
+            let tx = tx.clone();
+            let src = src.clone();
+            Box::new(move |f: std::result::Result<DirEntry, Error>| {
+                let f = match f
+                    .context("dir walker")
+                    .and_then(|f| FileName::convert(&src, f))
+                {
+                    Ok(f) => f,
+                    Err(_) => {
+                        // TODO: ... FileItem can be an Error?
+                        return WalkState::Continue;
+                    }
+                };
+
+                if maybe_send(&tx, f) {
+                    WalkState::Quit
+                } else {
+                    WalkState::Continue
+                }
+            })
+        });
     }
     Ok(())
 }
