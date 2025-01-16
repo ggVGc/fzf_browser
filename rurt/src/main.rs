@@ -36,7 +36,7 @@ impl SkimItem for FileName {
             s.into()
         } else {
             colour_whole(s, Color::LIGHT_RED)
-        };
+        }
     }
 }
 
@@ -51,8 +51,12 @@ fn main() -> Result<ExitCode> {
 
     let mut options = SkimOptions::default();
     options.no_clear = true;
-    options.bind.push("left:abort".to_string());
-    options.bind.push("right:abort".to_string());
+
+    let handled_keys = [Key::Left, Key::Ctrl('h'), Key::Right, Key::Ctrl('l')];
+
+    for key in handled_keys {
+        options.bind.push(format!("{}:abort", render_key(key)));
+    }
 
     loop {
         let (tx, rx) = unbounded::<Arc<dyn SkimItem>>();
@@ -67,11 +71,11 @@ fn main() -> Result<ExitCode> {
         let mut requested_navigation = false;
 
         match output.final_key {
-            Key::Left => {
+            Key::Left | Key::Ctrl('h') => {
                 here.pop();
                 continue;
             }
-            Key::Right => {
+            Key::Right | Key::Ctrl('l') => {
                 requested_navigation = true;
             }
             _ => {
@@ -125,4 +129,15 @@ fn ensure_directory(p: impl AsRef<Path>) -> Result<PathBuf> {
     }
 
     Ok(canon)
+}
+
+fn render_key(key: Key) -> String {
+    use Key::*;
+    match key {
+        Left => "left".to_string(),
+        Right => "right".to_string(),
+
+        Ctrl(c) => format!("ctrl-{c}"),
+        other => unimplemented!("no rendering for {other:?}"),
+    }
 }
