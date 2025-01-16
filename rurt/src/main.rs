@@ -3,7 +3,7 @@ use anyhow::{bail, Result};
 use clap::Parser;
 use skim::prelude::*;
 use std::ffi::OsString;
-use std::fs::FileType;
+use std::fs::{DirEntry, FileType};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::{fs, thread};
@@ -16,6 +16,7 @@ struct Cli {
     start_path: OsString,
 }
 
+#[derive(Eq, PartialEq)]
 struct FileName {
     name: OsString,
     file_type: FileType,
@@ -45,12 +46,19 @@ fn colour_whole(s: String, attr: impl Into<Attr>) -> AnsiString<'static> {
     AnsiString::new_string(s, vec![(attr.into(), whole)])
 }
 
+#[derive(Default, Clone)]
+struct ReadOpts {
+    sort: bool,
+    honour_hidden: bool,
+}
+
 fn main() -> Result<ExitCode> {
     let cli = Cli::parse();
     let mut here = fs::canonicalize(cli.start_path).context("start path")?;
-
     let mut options = SkimOptions::default();
     options.no_clear = true;
+
+    let mut read_opts = ReadOpts::default();
 
     let handled_keys = [
         Key::Left,
@@ -58,6 +66,7 @@ fn main() -> Result<ExitCode> {
         Key::Right,
         Key::Ctrl('l'),
         Key::Ctrl('d'),
+        Key::Ctrl('s'),
     ];
 
     for key in handled_keys {
@@ -68,7 +77,8 @@ fn main() -> Result<ExitCode> {
         let (tx, rx) = unbounded::<Arc<dyn SkimItem>>();
         options.prompt = format!("{} > ", here.to_string_lossy());
         let here_copy = here.clone();
-        let streamer = thread::spawn(move || stream_content(tx, here_copy));
+        let read_opts_copy = read_opts.clone();
+        let streamer = thread::spawn(move || stream_content(tx, here_copy, &read_opts_copy));
 
         let output = Skim::run_with(&options, Some(rx)).ok_or_else(|| anyhow!("skim said NONE"))?;
 
@@ -87,6 +97,10 @@ fn main() -> Result<ExitCode> {
             Key::Ctrl('d') => {
                 here = dirs::home_dir()
                     .ok_or_else(|| anyhow!("but you don't even have a home dir"))?;
+                continue;
+            }
+            Key::Ctrl('s') => {
+                read_opts.sort = !read_opts.sort;
                 continue;
             }
             _ => {
@@ -117,20 +131,63 @@ fn main() -> Result<ExitCode> {
     }
 }
 
-fn stream_content(tx: Sender<Arc<dyn SkimItem>>, src: impl AsRef<Path>) -> Result<()> {
-    for f in fs::read_dir(src)? {
-        let f = f?;
+fn stream_content(
+    tx: Sender<Arc<dyn SkimItem>>,
+    src: impl AsRef<Path>,
+    read_opts: &ReadOpts,
+) -> Result<()> {
+    let src = src.as_ref();
+
+    if read_opts.sort {
+        let mut files = fs::read_dir(src)?
+            .map(|f| FileName::try_from(f?).map(Arc::new))
+            .collect::<Result<Vec<_>>>()?;
+        files.sort_unstable();
+        for f in files {
+            // err: disconnected
+            if tx.send(f).is_err() {
+                break;
+            }
+        }
+    } else {
+        for f in fs::read_dir(src)? {
+            // err: disconnected
+            if tx.send(Arc::new(FileName::try_from(f?)?)).is_err() {
+                break;
+            }
+        }
+    }
+    Ok(())
+}
+
+impl PartialOrd for FileName {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for FileName {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        let a = self.file_type.is_dir();
+        let b = other.file_type.is_dir();
+        if a != b {
+            return a.cmp(&b);
+        }
+        self.name.cmp(&other.name)
+    }
+}
+
+impl TryFrom<DirEntry> for FileName {
+    type Error = anyhow::Error;
+
+    fn try_from(f: DirEntry) -> Result<Self> {
         let name = f.file_name();
         let file_type = f
             .file_type()
             .with_context(|| anyhow!("retrieving type of {:?}", &name))?;
 
-        // err: disconnected
-        if tx.send(Arc::new(FileName { name, file_type })).is_err() {
-            break;
-        }
+        Ok(FileName { name, file_type })
     }
-    Ok(())
 }
 
 fn ensure_directory(p: impl AsRef<Path>) -> Result<PathBuf> {
