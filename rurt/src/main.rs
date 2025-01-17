@@ -122,6 +122,7 @@ fn main() -> Result<ExitCode> {
         Key::Char(']'),
         Key::Char('\\'),
         Key::Ctrl('t'),
+        Key::Ctrl('g'),
     ];
 
     for key in handled_keys {
@@ -147,69 +148,63 @@ fn main() -> Result<ExitCode> {
 
         options.query = Some(output.query);
 
-        let mut requested_navigation = false;
+        let item = output.selected_items.into_iter().next();
+
+        let item = item.as_ref().map(|item| {
+            (**item)
+                .as_any()
+                .downcast_ref::<FileName>()
+                .expect("single type")
+        });
 
         match output.final_key {
             Key::Left | Key::Ctrl('h') => {
                 here.pop();
-                continue;
             }
             Key::Right | Key::Ctrl('l') => {
-                requested_navigation = true;
+                if let Some(item) = item {
+                    if let Ok(cand) = ensure_directory(here.join(&item.name)) {
+                        here = cand;
+                    }
+                }
             }
             Key::Ctrl('d') => {
                 here = dirs::home_dir()
                     .ok_or_else(|| anyhow!("but you don't even have a home dir"))?;
-                continue;
             }
             Key::Ctrl('s') => {
                 read_opts.sort = !read_opts.sort;
-                continue;
             }
             Key::Ctrl('a') => {
                 read_opts.show_hidden = !read_opts.show_hidden;
-                continue;
             }
             Key::Ctrl('y') => {
                 read_opts.show_ignored = !read_opts.show_ignored;
-                continue;
             }
             Key::Ctrl('f') | Key::Char(']') => {
                 read_opts.mode_index = (read_opts.mode_index + 1) % MODES.len();
-                continue;
             }
             Key::Char('\\') => {
                 read_opts.recursion_index = (read_opts.recursion_index + 1) % RECURSION.len();
-                continue;
             }
             Key::Ctrl('t') => {
                 read_opts.target_dir = here.clone();
-                continue;
             }
-            _ => {
-                if output.is_abort {
-                    return Ok(ExitCode::FAILURE);
+            Key::Ctrl('g') => {
+                if let Some(item) = item {
+                    open::that_detached(here.join(&item.name))?;
                 }
             }
-        }
-
-        let item = match output.selected_items.into_iter().next() {
-            Some(item) => item,
-            None => return Ok(ExitCode::FAILURE),
-        };
-
-        let item = (*item)
-            .as_any()
-            .downcast_ref::<FileName>()
-            .expect("single type");
-
-        if requested_navigation {
-            if let Ok(cand) = ensure_directory(here.join(&item.name)) {
-                here = cand;
+            _ => {
+                return if output.is_abort {
+                    Ok(ExitCode::FAILURE)
+                } else if let Some(item) = item {
+                    println!("{}", here.join(&item.name).to_string_lossy());
+                    Ok(ExitCode::SUCCESS)
+                } else {
+                    Ok(ExitCode::FAILURE)
+                }
             }
-        } else {
-            println!("{}", here.join(&item.name).to_string_lossy());
-            return Ok(ExitCode::SUCCESS);
         }
     }
 }
