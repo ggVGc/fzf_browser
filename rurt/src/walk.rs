@@ -6,7 +6,7 @@ use ignore::{DirEntry, Error, WalkBuilder, WalkState};
 use skim::prelude::Sender;
 use skim::SkimItem;
 
-use crate::item::FileName;
+use crate::item::{convert, Item};
 
 #[derive(Default, Clone)]
 pub struct ReadOpts {
@@ -36,25 +36,23 @@ pub enum Recursion {
 
 pub const RECURSION: [Recursion; 3] = [Recursion::None, Recursion::Target, Recursion::All];
 
-pub fn stream_content(
-    tx: Sender<Arc<dyn SkimItem>>,
-    src: impl AsRef<Path>,
-    read_opts: &ReadOpts,
-) -> anyhow::Result<()> {
+pub fn stream_content(tx: Sender<Arc<dyn SkimItem>>, src: impl AsRef<Path>, read_opts: &ReadOpts) {
     let mut src = src.as_ref().to_path_buf();
 
     /* @return true if we should early exit */
-    let maybe_send = |tx: &Sender<Arc<dyn SkimItem>>, f: FileName| {
-        match MODES[read_opts.mode_index] {
-            Mode::Mixed => (),
-            Mode::Files => {
-                if !f.file_type.is_file() {
-                    return false;
+    let maybe_send = |tx: &Sender<Arc<dyn SkimItem>>, f: Item| {
+        if let Item::FileEntry { file_type, .. } = &f {
+            match MODES[read_opts.mode_index] {
+                Mode::Mixed => (),
+                Mode::Files => {
+                    if !file_type.is_file() {
+                        return false;
+                    }
                 }
-            }
-            Mode::Dirs => {
-                if !f.file_type.is_dir() {
-                    return false;
+                Mode::Dirs => {
+                    if !file_type.is_dir() {
+                        return false;
+                    }
                 }
             }
         }
@@ -86,8 +84,8 @@ pub fn stream_content(
         let mut files = walk
             .build()
             .into_iter()
-            .map(|f| FileName::convert(&src, f?))
-            .collect::<anyhow::Result<Vec<_>>>()?;
+            .map(|f| convert(&src, f.context("dir walker")))
+            .collect::<Vec<_>>();
         files.sort_unstable();
         for f in files {
             if maybe_send(&tx, f) {
@@ -98,19 +96,8 @@ pub fn stream_content(
         walk.build_parallel().run(|| {
             let tx = tx.clone();
             let src = src.clone();
-            Box::new(move |f: std::result::Result<DirEntry, Error>| {
-                let f = match f
-                    .context("dir walker")
-                    .and_then(|f| FileName::convert(&src, f))
-                {
-                    Ok(f) => f,
-                    Err(_) => {
-                        // TODO: ... FileItem can be an Error?
-                        return WalkState::Continue;
-                    }
-                };
-
-                if maybe_send(&tx, f) {
+            Box::new(move |f: Result<DirEntry, Error>| {
+                if maybe_send(&tx, convert(&src, f.context("parallel walker"))) {
                     WalkState::Quit
                 } else {
                     WalkState::Continue
@@ -118,5 +105,4 @@ pub fn stream_content(
             })
         });
     }
-    Ok(())
 }

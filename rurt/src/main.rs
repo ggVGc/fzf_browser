@@ -11,7 +11,7 @@ use anyhow::{bail, Result};
 use clap::Parser;
 use skim::prelude::*;
 
-use crate::item::FileName;
+use crate::item::Item;
 use crate::walk::{stream_content, Mode, ReadOpts, Recursion, MODES, RECURSION};
 
 #[derive(Parser)]
@@ -104,7 +104,7 @@ fn main() -> Result<ExitCode> {
 
         let output = Skim::run_with(&options, Some(rx)).ok_or_else(|| anyhow!("skim said NONE"))?;
 
-        streamer.join().expect("panic")?;
+        streamer.join().expect("panic");
 
         options.query = Some(output.query);
 
@@ -113,7 +113,7 @@ fn main() -> Result<ExitCode> {
         let item = item.as_ref().map(|item| {
             (**item)
                 .as_any()
-                .downcast_ref::<FileName>()
+                .downcast_ref::<Item>()
                 .expect("single type")
         });
 
@@ -132,8 +132,8 @@ fn main() -> Result<ExitCode> {
                 here.pop();
             }
             Action::Down => {
-                if let Some(item) = item {
-                    if let Ok(cand) = ensure_directory(here.join(&item.name)) {
+                if let Some(Item::FileEntry { name, .. }) = item {
+                    if let Ok(cand) = ensure_directory(here.join(name)) {
                         here = cand;
                     }
                 }
@@ -161,15 +161,15 @@ fn main() -> Result<ExitCode> {
                 read_opts.target_dir = here.clone();
             }
             Action::Open => {
-                if let Some(item) = item {
-                    open::that_detached(here.join(&item.name))?;
+                if let Some(Item::FileEntry { name, .. }) = item {
+                    open::that_detached(here.join(name))?;
                 }
             }
             Action::Return => {
                 return if output.is_abort {
                     Ok(ExitCode::FAILURE)
-                } else if let Some(item) = item {
-                    println!("{}", here.join(&item.name).to_string_lossy());
+                } else if let Some(Item::FileEntry { name, .. }) = item {
+                    println!("{}", here.join(name).to_string_lossy());
                     Ok(ExitCode::SUCCESS)
                 } else {
                     Ok(ExitCode::FAILURE)

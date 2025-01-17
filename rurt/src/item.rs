@@ -3,29 +3,38 @@ use std::ffi::OsString;
 use std::fs::FileType;
 use std::path::Path;
 
-use anyhow::{anyhow, Context};
+use anyhow::{anyhow, Context, Result};
 use ignore::DirEntry;
 use skim::{AnsiString, DisplayContext, SkimItem};
 use tuikit::attr::{Attr, Color};
 
-#[derive(Eq, PartialEq)]
-pub struct FileName {
-    pub name: OsString,
-    pub file_type: FileType,
+#[derive(PartialEq, Eq)]
+pub enum Item {
+    FileEntry { name: OsString, file_type: FileType },
+    WalkError { msg: String },
 }
 
-impl SkimItem for FileName {
+impl SkimItem for Item {
     fn text(&self) -> Cow<str> {
-        self.name.to_string_lossy()
+        match self {
+            Item::FileEntry { name, .. } => name.to_string_lossy(),
+            Item::WalkError { msg } => msg.into(),
+        }
     }
 
     fn display<'a>(&'a self, _context: DisplayContext<'a>) -> AnsiString<'a> {
-        let s = self.name.to_string_lossy().to_string();
-        if self.file_type.is_dir() {
+        let (name, file_type) = match self {
+            Item::WalkError { msg } => {
+                return colour_whole(format!("error walking: {msg}"), Color::RED)
+            }
+            Item::FileEntry { name, file_type } => (name, file_type),
+        };
+        let s = name.to_string_lossy().to_string();
+        if file_type.is_dir() {
             colour_whole(s, Color::LIGHT_BLUE)
-        } else if self.file_type.is_symlink() {
+        } else if file_type.is_symlink() {
             colour_whole(s, Color::LIGHT_CYAN)
-        } else if self.file_type.is_file() {
+        } else if file_type.is_file() {
             s.into()
         } else {
             colour_whole(s, Color::LIGHT_RED)
@@ -33,32 +42,61 @@ impl SkimItem for FileName {
     }
 }
 
-impl PartialOrd for FileName {
+impl PartialOrd for Item {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Ord for FileName {
+impl Ord for Item {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        let a = self.file_type.is_dir();
-        let b = other.file_type.is_dir();
-        if a != b {
-            return a.cmp(&b);
+        match (self, other) {
+            (
+                Item::FileEntry {
+                    name: an,
+                    file_type: at,
+                },
+                Item::FileEntry {
+                    name: bn,
+                    file_type: bt,
+                },
+            ) => {
+                let a = at.is_dir();
+                let b = bt.is_dir();
+                if a != b {
+                    return a.cmp(&b);
+                }
+                an.cmp(bn)
+            }
+            (Item::WalkError { msg: a }, Item::WalkError { msg: b }) => a.cmp(b),
+            (Item::FileEntry { .. }, Item::WalkError { .. }) => std::cmp::Ordering::Less,
+            (Item::WalkError { .. }, Item::FileEntry { .. }) => std::cmp::Ordering::Greater,
         }
-        self.name.cmp(&other.name)
     }
 }
 
-impl FileName {
-    pub fn convert(root: impl AsRef<Path>, f: DirEntry) -> anyhow::Result<Self> {
-        let name = f.path().strip_prefix(root)?.as_os_str().to_owned();
-        let file_type = f
-            .file_type()
-            .with_context(|| anyhow!("retrieving type of {:?}", &name))?;
+pub fn convert(root: impl AsRef<Path>, f: Result<DirEntry>) -> Item {
+    convert_resolution(root, f).unwrap_or_else(|e| Item::WalkError {
+        msg: cerialise_error(e),
+    })
+}
 
-        Ok(FileName { name, file_type })
+fn cerialise_error(e: anyhow::Error) -> String {
+    let mut msg = String::new();
+    for cause in e.chain() {
+        msg.push_str(&format!("{} -- ", cause));
     }
+    msg
+}
+
+fn convert_resolution(root: impl AsRef<Path>, f: Result<DirEntry>) -> Result<Item> {
+    let f = f?;
+    let name = f.path().strip_prefix(root)?.as_os_str().to_owned();
+    let file_type = f
+        .file_type()
+        .with_context(|| anyhow!("retrieving type of {:?}", &name))?;
+
+    Ok(Item::FileEntry { name, file_type })
 }
 
 fn colour_whole(s: String, attr: impl Into<Attr>) -> AnsiString<'static> {
