@@ -42,6 +42,7 @@ enum Action {
     CycleMode,
     CycleRecursion,
     SetTarget,
+    Expand,
     Open,
     Return,
 }
@@ -80,6 +81,7 @@ fn main() -> Result<ExitCode> {
         (Key::Ctrl('a'), Action::CycleHidden),
         (Key::Ctrl('y'), Action::CycleIgnored),
         (Key::Ctrl('f'), Action::CycleMode),
+        (Key::Ctrl('e'), Action::Expand),
         (Key::Char('\\'), Action::CycleRecursion),
         (Key::Ctrl('t'), Action::SetTarget),
         (Key::Ctrl('g'), Action::Open),
@@ -117,6 +119,10 @@ fn main() -> Result<ExitCode> {
                 .expect("single type")
         });
 
+        let navigated = |read_opts: &mut ReadOpts| {
+            read_opts.expansions.clear();
+        };
+
         match bindings
             .iter()
             .find_map(|(key, action)| {
@@ -130,17 +136,20 @@ fn main() -> Result<ExitCode> {
         {
             Action::Up => {
                 here.pop();
+                navigated(&mut read_opts);
             }
             Action::Down => {
                 if let Some(Item::FileEntry { name, .. }) = item {
                     if let Ok(cand) = ensure_directory(here.join(name)) {
                         here = cand;
+                        navigated(&mut read_opts);
                     }
                 }
             }
             Action::Home => {
                 here = dirs::home_dir()
                     .ok_or_else(|| anyhow!("but you don't even have a home dir"))?;
+                navigated(&mut read_opts);
             }
             Action::CycleSort => {
                 read_opts.sort = !read_opts.sort;
@@ -163,6 +172,11 @@ fn main() -> Result<ExitCode> {
             Action::Open => {
                 if let Some(Item::FileEntry { name, .. }) = item {
                     open::that_detached(here.join(name))?;
+                }
+            }
+            Action::Expand => {
+                if let Some(Item::FileEntry { name, .. }) = item {
+                    read_opts.expansions.push(here.join(name));
                 }
             }
             Action::Return => {

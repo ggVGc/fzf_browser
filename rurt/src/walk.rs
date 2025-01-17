@@ -16,6 +16,7 @@ pub struct ReadOpts {
     pub mode_index: usize,
     pub recursion_index: usize,
     pub target_dir: PathBuf,
+    pub expansions: Vec<PathBuf>,
 }
 
 #[derive(Copy, Clone, clap::ValueEnum, PartialEq, Eq)]
@@ -37,7 +38,23 @@ pub enum Recursion {
 pub const RECURSION: [Recursion; 3] = [Recursion::None, Recursion::Target, Recursion::All];
 
 pub fn stream_content(tx: Sender<Arc<dyn SkimItem>>, src: impl AsRef<Path>, read_opts: &ReadOpts) {
+    let src = src.as_ref();
+    if RECURSION[read_opts.recursion_index] == Recursion::None {
+        for exp in &read_opts.expansions {
+            stream_rel_content(tx.clone(), src, exp, read_opts);
+        }
+    }
+    stream_rel_content(tx.clone(), src, src, read_opts);
+}
+
+pub fn stream_rel_content(
+    tx: Sender<Arc<dyn SkimItem>>,
+    root: impl AsRef<Path>,
+    src: impl AsRef<Path>,
+    read_opts: &ReadOpts,
+) {
     let mut src = src.as_ref().to_path_buf();
+    let root = root.as_ref().to_path_buf();
 
     /* @return true if we should early exit */
     let maybe_send = |tx: &Sender<Arc<dyn SkimItem>>, f: Item| {
@@ -84,7 +101,7 @@ pub fn stream_content(tx: Sender<Arc<dyn SkimItem>>, src: impl AsRef<Path>, read
         let mut files = walk
             .build()
             .into_iter()
-            .map(|f| convert(&src, f.context("dir walker")))
+            .map(|f| convert(&root, f.context("dir walker")))
             .collect::<Vec<_>>();
         files.sort_unstable();
         for f in files {
@@ -95,9 +112,9 @@ pub fn stream_content(tx: Sender<Arc<dyn SkimItem>>, src: impl AsRef<Path>, read
     } else {
         walk.build_parallel().run(|| {
             let tx = tx.clone();
-            let src = src.clone();
+            let root = root.clone();
             Box::new(move |f: Result<DirEntry, Error>| {
-                if maybe_send(&tx, convert(&src, f.context("parallel walker"))) {
+                if maybe_send(&tx, convert(&root, f.context("parallel walker"))) {
                     WalkState::Quit
                 } else {
                     WalkState::Continue
