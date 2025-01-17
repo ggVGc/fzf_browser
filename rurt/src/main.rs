@@ -85,6 +85,21 @@ enum Recursion {
 
 const RECURSION: [Recursion; 3] = [Recursion::None, Recursion::Target, Recursion::All];
 
+#[derive(Copy, Clone, PartialEq, Eq)]
+enum Action {
+    Up,
+    Down,
+    Home,
+    CycleSort,
+    CycleHidden,
+    CycleIgnored,
+    CycleMode,
+    CycleRecursion,
+    SetTarget,
+    Open,
+    Return,
+}
+
 fn main() -> Result<ExitCode> {
     let cli = Cli::parse();
     let mut here = fs::canonicalize(cli.start_path).context("start path")?;
@@ -109,24 +124,23 @@ fn main() -> Result<ExitCode> {
         read_opts.recursion_index = Recursion::All as usize;
     }
 
-    let handled_keys = [
-        Key::Left,
-        Key::Ctrl('h'),
-        Key::Right,
-        Key::Ctrl('l'),
-        Key::Ctrl('d'),
-        Key::Ctrl('s'),
-        Key::Ctrl('a'),
-        Key::Ctrl('y'),
-        Key::Ctrl('f'),
-        Key::Char(']'),
-        Key::Char('\\'),
-        Key::Ctrl('t'),
-        Key::Ctrl('g'),
+    let bindings = vec![
+        (Key::Left, Action::Up),
+        (Key::Ctrl('h'), Action::Up),
+        (Key::Right, Action::Down),
+        (Key::Ctrl('l'), Action::Down),
+        (Key::Ctrl('d'), Action::Home),
+        (Key::Ctrl('s'), Action::CycleSort),
+        (Key::Ctrl('a'), Action::CycleHidden),
+        (Key::Ctrl('y'), Action::CycleIgnored),
+        (Key::Ctrl('f'), Action::CycleMode),
+        (Key::Char('\\'), Action::CycleRecursion),
+        (Key::Ctrl('t'), Action::SetTarget),
+        (Key::Ctrl('g'), Action::Open),
     ];
 
-    for key in handled_keys {
-        options.bind.push(format!("{}:abort", render_key(key)));
+    for (key, _) in &bindings {
+        options.bind.push(format!("{}:abort", render_key(*key)));
     }
 
     loop {
@@ -157,45 +171,55 @@ fn main() -> Result<ExitCode> {
                 .expect("single type")
         });
 
-        match output.final_key {
-            Key::Left | Key::Ctrl('h') => {
+        match bindings
+            .iter()
+            .find_map(|(key, action)| {
+                if output.final_key == *key {
+                    Some(*action)
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(Action::Return)
+        {
+            Action::Up => {
                 here.pop();
             }
-            Key::Right | Key::Ctrl('l') => {
+            Action::Down => {
                 if let Some(item) = item {
                     if let Ok(cand) = ensure_directory(here.join(&item.name)) {
                         here = cand;
                     }
                 }
             }
-            Key::Ctrl('d') => {
+            Action::Home => {
                 here = dirs::home_dir()
                     .ok_or_else(|| anyhow!("but you don't even have a home dir"))?;
             }
-            Key::Ctrl('s') => {
+            Action::CycleSort => {
                 read_opts.sort = !read_opts.sort;
             }
-            Key::Ctrl('a') => {
+            Action::CycleHidden => {
                 read_opts.show_hidden = !read_opts.show_hidden;
             }
-            Key::Ctrl('y') => {
+            Action::CycleIgnored => {
                 read_opts.show_ignored = !read_opts.show_ignored;
             }
-            Key::Ctrl('f') | Key::Char(']') => {
+            Action::CycleMode => {
                 read_opts.mode_index = (read_opts.mode_index + 1) % MODES.len();
             }
-            Key::Char('\\') => {
+            Action::CycleRecursion => {
                 read_opts.recursion_index = (read_opts.recursion_index + 1) % RECURSION.len();
             }
-            Key::Ctrl('t') => {
+            Action::SetTarget => {
                 read_opts.target_dir = here.clone();
             }
-            Key::Ctrl('g') => {
+            Action::Open => {
                 if let Some(item) = item {
                     open::that_detached(here.join(&item.name))?;
                 }
             }
-            _ => {
+            Action::Return => {
                 return if output.is_abort {
                     Ok(ExitCode::FAILURE)
                 } else if let Some(item) = item {
