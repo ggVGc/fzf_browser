@@ -15,6 +15,16 @@ use tuikit::attr::{Attr, Color};
 struct Cli {
     #[clap(default_value = ".")]
     start_path: OsString,
+
+    #[clap(short, long)]
+    query: Option<String>,
+
+    #[clap(short, long)]
+    recursive: bool,
+
+    /// default: mixed (when non-recursive), files (when recursive)
+    #[clap(short, long)]
+    mode: Option<Mode>,
 }
 
 #[derive(Eq, PartialEq)]
@@ -57,20 +67,20 @@ struct ReadOpts {
     target_dir: PathBuf,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, clap::ValueEnum, PartialEq, Eq)]
 enum Mode {
-    Mixed,
-    Files,
-    Dirs,
+    Mixed = 0,
+    Files = 1,
+    Dirs = 2,
 }
 
 const MODES: [Mode; 3] = [Mode::Mixed, Mode::Files, Mode::Dirs];
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 enum Recursion {
-    None,
-    Target,
-    All,
+    None = 0,
+    Target = 1,
+    All = 2,
 }
 
 const RECURSION: [Recursion; 3] = [Recursion::None, Recursion::Target, Recursion::All];
@@ -80,9 +90,24 @@ fn main() -> Result<ExitCode> {
     let mut here = fs::canonicalize(cli.start_path).context("start path")?;
     let mut options = SkimOptions::default();
     options.no_clear = true;
+    if let Some(query) = cli.query {
+        options.query = Some(query);
+    }
 
     let mut read_opts = ReadOpts::default();
     read_opts.target_dir = here.clone();
+
+    if let Some(mode) = cli.mode {
+        read_opts.mode_index = mode as usize;
+    } else if cli.recursive {
+        read_opts.mode_index = Mode::Files as usize;
+    } else {
+        read_opts.mode_index = Mode::Mixed as usize;
+    }
+
+    if cli.recursive {
+        read_opts.recursion_index = Recursion::All as usize;
+    }
 
     let handled_keys = [
         Key::Left,
@@ -119,6 +144,8 @@ fn main() -> Result<ExitCode> {
         let output = Skim::run_with(&options, Some(rx)).ok_or_else(|| anyhow!("skim said NONE"))?;
 
         streamer.join().expect("panic")?;
+
+        options.query = Some(output.query);
 
         let mut requested_navigation = false;
 
