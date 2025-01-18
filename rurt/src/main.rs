@@ -55,14 +55,17 @@ fn main() -> Result<ExitCode> {
     let mut here = fs::canonicalize(cli.start_path).context("start path")?;
     let mut dir_stack = DirStack::<PathBuf>::default();
 
-    let mut options = SkimOptions::default();
-    options.no_clear = true;
-    if let Some(query) = cli.query {
-        options.query = Some(query);
-    }
+    let mut options = SkimOptionsBuilder::default()
+        .reverse(true)
+        .no_clear(true)
+        .query(cli.query)
+        .build()
+        .unwrap();
 
-    let mut read_opts = ReadOpts::default();
-    read_opts.target_dir = here.clone();
+    let mut read_opts = ReadOpts {
+        target_dir: here.clone(),
+        ..Default::default()
+    };
 
     if let Some(mode) = cli.mode {
         read_opts.mode_index = mode as usize;
