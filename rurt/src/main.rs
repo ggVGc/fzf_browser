@@ -1,16 +1,17 @@
+mod dir_stack;
 mod item;
 mod walk;
-
-use std::ffi::OsString;
-use std::path::{Path, PathBuf};
-use std::process::ExitCode;
-use std::{fs, thread};
 
 use anyhow::{anyhow, Context};
 use anyhow::{bail, Result};
 use clap::Parser;
 use skim::prelude::*;
+use std::ffi::OsString;
+use std::path::{Path, PathBuf};
+use std::process::ExitCode;
+use std::{fs, thread};
 
+use crate::dir_stack::DirStack;
 use crate::item::Item;
 use crate::walk::{stream_content, Mode, ReadOpts, Recursion, MODES, RECURSION};
 
@@ -44,12 +45,16 @@ enum Action {
     SetTarget,
     Expand,
     Open,
+    DirBack,
+    DirForward,
     Return,
 }
 
 fn main() -> Result<ExitCode> {
     let cli = Cli::parse();
     let mut here = fs::canonicalize(cli.start_path).context("start path")?;
+    let mut dir_stack = DirStack::<PathBuf>::default();
+
     let mut options = SkimOptions::default();
     options.no_clear = true;
     if let Some(query) = cli.query {
@@ -85,6 +90,8 @@ fn main() -> Result<ExitCode> {
         (Key::Char('\\'), Action::CycleRecursion),
         (Key::Ctrl('t'), Action::SetTarget),
         (Key::Ctrl('g'), Action::Open),
+        (Key::Ctrl('o'), Action::DirBack),
+        (Key::Ctrl('u'), Action::DirForward),
     ];
 
     for (key, _) in &bindings {
@@ -97,6 +104,8 @@ fn main() -> Result<ExitCode> {
         {
             read_opts.target_dir = here.clone();
         }
+
+        dir_stack.push(here.clone());
 
         let (tx, rx) = unbounded::<Arc<dyn SkimItem>>();
         options.prompt = format!("{} > ", here.to_string_lossy());
@@ -177,6 +186,18 @@ fn main() -> Result<ExitCode> {
             Action::Expand => {
                 if let Some(Item::FileEntry { name, .. }) = item {
                     read_opts.expansions.push(here.join(name));
+                }
+            }
+            Action::DirBack => {
+                if let Some(dir) = dir_stack.back(here.clone()) {
+                    here = dir;
+                    navigated(&mut read_opts);
+                }
+            }
+            Action::DirForward => {
+                if let Some(buf) = dir_stack.forward() {
+                    here = buf;
+                    navigated(&mut read_opts);
                 }
             }
             Action::Return => {
