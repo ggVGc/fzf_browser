@@ -8,7 +8,7 @@ defmodule Fub.Server do
 
   @impl true
   def init(nil) do
-    cache_home = System.get_env("XDG_CACHE_HOME")
+    cache_home = System.get_env("XDG_RUNTIME_DIR")
 
     if is_binary(cache_home) do
       socket_dir = cache_home <> "/fzf_browser"
