@@ -54,7 +54,7 @@ async fn main() -> Result<ExitCode> {
     let cli = Cli::parse();
     let start_path = resolve(&cli.start_path)?;
     let mut client =
-        UnixStream::connect(env::var("XDG_CACHE_HOME").unwrap() + "/fzf_browser/socket")
+        UnixStream::connect(env::var("XDG_RUNTIME_DIR").unwrap() + "/fzf_browser/socket")
             .await
             .context("connecting to socket")?;
 
