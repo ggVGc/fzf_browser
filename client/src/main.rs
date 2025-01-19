@@ -1,14 +1,17 @@
+mod fzf;
+
+use crate::fzf::*;
 use anyhow::{anyhow, ensure, Context, Result};
 use clap::Parser;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::ffi::{OsStr, OsString};
 use std::io::Write;
 use std::path::PathBuf;
-use std::process::{exit, ExitCode, Stdio};
+use std::process::{exit, ExitCode};
 use std::{env, fs};
-use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::net::UnixStream;
-use tokio::process::{ChildStdin, Command};
+use tokio::process::ChildStdin;
 use tokio::time::sleep;
 
 #[derive(Parser)]
@@ -138,7 +141,8 @@ async fn main() -> Result<ExitCode> {
             b'o' => {
                 let user_args = serde_json::from_slice(&cmd[1..])
                     .context("parsing user_args from 'o' command")?;
-                fzf = Some(open_fzf(&user_args, &cli).await?);
+                let fzf_options = cli.fzf_opts.split_whitespace().map(str::to_string);
+                fzf = Some(open_fzf(&user_args, fzf_options).await?);
             }
             b'\x1b' => (),
             other => unimplemented!("unknown command: {other:?}"),
@@ -172,94 +176,4 @@ async fn read_line<'b>(
     let read = reader.read_until(b'\n', buf).await?;
     ensure!(read > 0, "EOF");
     Ok(&buf[..read - 1])
-}
-
-#[derive(Deserialize)]
-struct UserArgs {
-    prompt_prefix: String,
-    query: String,
-
-    #[serde(default)]
-    with_ansi_colors: bool,
-    #[serde(default)]
-    sort: bool,
-    preview_command: Option<String>,
-    #[serde(default)]
-    key_bindings: Vec<String>,
-}
-
-async fn open_fzf(user_args: &UserArgs, cli: &Cli) -> Result<Fzf> {
-    let mut fzf_args = vec![
-        "--prompt".to_string(),
-        format!("{}: ", user_args.prompt_prefix),
-    ];
-
-    fzf_args.extend(cli.fzf_opts.split_whitespace().map(str::to_string));
-
-    if user_args.with_ansi_colors {
-        fzf_args.push("--ansi".to_string());
-    }
-
-    if !user_args.sort {
-        fzf_args.push("+s".to_string());
-    }
-
-    if let Some(preview_command) = &user_args.preview_command {
-        fzf_args.push("--preview".to_string());
-        fzf_args.push(preview_command.to_string());
-    }
-
-    fzf_args.push("--print-query".to_string());
-    fzf_args.push("--query".to_string());
-    fzf_args.push(user_args.query.to_string());
-    fzf_args.push("--multi".to_string());
-    fzf_args.push("--extended".to_string());
-    fzf_args.push("--tiebreak=chunk,length,end,index".to_string());
-    fzf_args.push("--expect".to_string());
-    fzf_args.push(user_args.key_bindings.join(","));
-
-    let mut fzf = Command::new("fzf")
-        .args(fzf_args)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .spawn()
-        .context("spawning fzf")?;
-
-    let f_read = fzf.stdout.take().expect("specified above");
-    let f_write = fzf.stdin.take().expect("specified above");
-
-    Ok(Fzf {
-        process: fzf,
-        stdin: Some(f_write),
-        stdout: f_read,
-    })
-}
-
-struct Fzf {
-    process: tokio::process::Child,
-    stdin: Option<tokio::process::ChildStdin>,
-    stdout: tokio::process::ChildStdout,
-}
-
-async fn consume_output(mut from: impl AsyncRead + Unpin, code: i32) -> Result<Option<Message>> {
-    let mut fzf_output = String::new();
-    from.read_to_string(&mut fzf_output).await?;
-
-    let mut lines = fzf_output
-        .split('\n')
-        .map(str::to_string)
-        .collect::<Vec<_>>();
-
-    if lines.len() > 2 {
-        lines.pop();
-
-        Ok(Some(Message::Result {
-            query: lines.remove(0),
-            key: lines.remove(0),
-            selection: lines,
-            code,
-        }))
-    } else {
-        Ok(None)
-    }
 }
