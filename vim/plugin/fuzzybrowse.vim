@@ -7,9 +7,11 @@ let s:oldAutowrite = 0
 let s:termBuf = 0
 let s:firstOpen = 0
 
-func! s:OpenResult(_job, _st)
+func! s:OpenResult(_channel)
+  " echom "OPEN RESULT"
   let &autowrite = s:oldAutowrite
-  let res = term_getline(s:termBuf, 1)
+  let l:res = term_getline(s:termBuf, 1)
+  " echom "Result:".l:res
   call win_gotoid(s:start_window_id)
   if len(l:res) > 0
     " wincmd q
@@ -37,7 +39,8 @@ fun! LaunchFuzzyBrowse(callbackName, ...)
   let s:firstOpen = 0
   tabnew
   let s:tmp_buffer_number = bufnr('%')
-  let s:termBuf = term_start(l:cmd, {'term_finish': 'close', 'exit_cb': function(a:callbackName), 'term_rows': 1000})
+  let s:termBuf = term_start(l:cmd, {'term_finish': 'close', 'close_cb': function(a:callbackName), 'term_rows': 1000})
+  " echom "termbuf: ". s:termBuf
 endfun
 
 

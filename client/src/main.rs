@@ -137,6 +137,7 @@ async fn main() -> Result<ExitCode> {
             }
             b'x' => {
                 std::io::stdout().write_all(&cmd[1..])?;
+                std::io::stdout().flush()?;
                 return Ok(ExitCode::SUCCESS);
             }
             b'e' => {
