@@ -3,6 +3,7 @@ mod fzf;
 use crate::fzf::*;
 use anyhow::{anyhow, ensure, Context, Result};
 use clap::Parser;
+use log::info;
 use serde::Serialize;
 use std::ffi::{OsStr, OsString};
 use std::io::Write;
@@ -51,6 +52,8 @@ enum Message {
 
 #[tokio::main]
 async fn main() -> Result<ExitCode> {
+    env_logger::init();
+
     let cli = Cli::parse();
 
     let start_path = resolve(&cli.start_path)?;
@@ -108,6 +111,7 @@ async fn main() -> Result<ExitCode> {
 
         match cmd[0] {
             b'z' => {
+                info!("z");
                 let _: ChildStdin = fzf
                     .as_mut()
                     .ok_or_else(|| anyhow!("fzf not open"))?
@@ -117,10 +121,12 @@ async fn main() -> Result<ExitCode> {
                 read_content = false;
             }
             b'x' => {
+                info!("x");
                 std::io::stdout().write_all(&cmd[1..])?;
                 return Ok(ExitCode::SUCCESS);
             }
             b'e' => {
+                info!("e");
                 ensure!(cmd.len() == 1, "e command must be empty");
 
                 let fzf = fzf.as_mut().ok_or_else(|| anyhow!("fzf not open"))?;
@@ -139,6 +145,7 @@ async fn main() -> Result<ExitCode> {
                 }
             }
             b'o' => {
+                info!("o");
                 let user_args = serde_json::from_slice(&cmd[1..])
                     .context("parsing user_args from 'o' command")?;
                 let fzf_options = cli.fzf_opts.split_whitespace().map(str::to_string);
