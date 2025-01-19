@@ -8,12 +8,23 @@ defmodule Fub.Server do
 
   @impl true
   def init(nil) do
-    socket_name = "/tmp/fuba.socket"
-    File.rm(socket_name)
-    opts = [:binary, ifaddr: {:local, socket_name}, packet: :line, active: false]
-    {:ok, socket} = :gen_tcp.listen(0, opts)
-    send(self(), :start_loop)
-    {:ok, %{socket: socket}}
+    cache_home = System.get_env("XDG_CACHE_HOME")
+
+    if is_binary(cache_home) do
+      socket_dir = cache_home <> "/fzf_browser"
+      socket_path = socket_dir <> "/socket"
+
+      if not File.dir?(socket_dir) do
+        File.mkdir!(socket_dir)
+      else
+        File.rm(socket_path)
+      end
+
+      opts = [:binary, ifaddr: {:local, socket_path}, packet: :line, active: false]
+      {:ok, socket} = :gen_tcp.listen(0, opts)
+      send(self(), :start_loop)
+      {:ok, %{socket: socket}}
+    end
   end
 
   def loop(%{socket: socket} = state) do
