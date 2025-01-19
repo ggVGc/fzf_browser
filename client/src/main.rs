@@ -1,8 +1,10 @@
+mod comms;
 mod fzf;
 
 use crate::fzf::*;
 use anyhow::{anyhow, bail, ensure, Context, Result};
 use clap::Parser;
+use comms::Message;
 // use log::info;
 use serde::Serialize;
 use std::ffi::{OsStr, OsString};
@@ -28,25 +30,6 @@ struct Cli {
     /// Pass-through options for fzf
     #[clap(short, long, default_value = "")]
     fzf_opts: String,
-}
-
-#[derive(Serialize)]
-#[serde(tag = "tag")]
-#[serde(rename_all = "snake_case")]
-enum Message {
-    ClientInit {
-        launch_directory: String,
-        start_directory: String,
-        start_query: String,
-        recursive: bool,
-        file_mode: String,
-    },
-    Result {
-        query: String,
-        key: String,
-        selection: Vec<String>,
-        code: i32,
-    },
 }
 
 #[tokio::main]
