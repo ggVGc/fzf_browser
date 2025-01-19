@@ -52,9 +52,7 @@ enum Message {
 #[tokio::main]
 async fn main() -> Result<ExitCode> {
     let cli = Cli::parse();
-
     let start_path = resolve(&cli.start_path)?;
-
     let mut client = UnixStream::connect("/tmp/fuba.socket")
         .await
         .context("connecting to socket")?;
@@ -80,9 +78,7 @@ async fn main() -> Result<ExitCode> {
     }
 
     let mut mode = Mode::Command;
-
     let mut fzf: Option<Fzf> = None;
-
     let mut u_read_buf = Vec::new();
 
     loop {
@@ -192,9 +188,7 @@ async fn handle_shutdown(
     };
 
     let output = consume_output(&mut fzf.stdout, code).await?;
-
     append_json(u_write, &output).await?;
-
     Ok(())
 }
 
