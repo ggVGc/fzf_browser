@@ -1,5 +1,5 @@
 use crate::Message;
-use anyhow::{ensure, Context, Result};
+use anyhow::{Context, Result};
 use serde::Deserialize;
 use std::process::Stdio;
 use tokio::io::{AsyncRead, AsyncReadExt};
@@ -75,7 +75,10 @@ pub async fn open_fzf<I: IntoIterator<Item = String>>(
     })
 }
 
-pub async fn consume_output(mut from: impl AsyncRead + Unpin, code: i32) -> Result<Message> {
+pub async fn consume_output(
+    mut from: impl AsyncRead + Unpin,
+    code: i32,
+) -> Result<Option<Message>> {
     let mut fzf_output = String::new();
     from.read_to_string(&mut fzf_output).await?;
 
@@ -84,14 +87,16 @@ pub async fn consume_output(mut from: impl AsyncRead + Unpin, code: i32) -> Resu
         .map(str::to_string)
         .collect::<Vec<_>>();
 
-    ensure!(lines.len() > 3, "no selection made");
+    if lines.len() > 2 {
+        lines.pop();
 
-    lines.pop();
-
-    Ok(Message::Result {
-        query: lines.remove(0),
-        key: lines.remove(0),
-        selection: lines,
-        code,
-    })
+        Ok(Some(Message::Result {
+            query: lines.remove(0),
+            key: lines.remove(0),
+            selection: lines,
+            code,
+        }))
+    } else {
+        Ok(None)
+    }
 }
