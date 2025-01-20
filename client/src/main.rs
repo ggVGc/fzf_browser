@@ -110,13 +110,13 @@ async fn main() -> Result<ExitCode> {
                     continue;
                 }
 
-                fzf.as_mut()
+                let _ = fzf.as_mut()
                     .ok_or_else(|| anyhow!("fzf not open"))?
                     .stdin
                     .as_mut()
                     .ok_or_else(|| anyhow!("fzf stdin already taken"))?
                     .write_all(&u_read_buf)
-                    .await?;
+                    .await;
 
                 continue;
             }
