@@ -3,6 +3,7 @@ mod fzf;
 use crate::fzf::*;
 use anyhow::{anyhow, bail, ensure, Context, Result};
 use clap::Parser;
+use log::{debug, error};
 // use log::info;
 use serde::Serialize;
 use std::ffi::{OsStr, OsString};
@@ -51,6 +52,8 @@ enum Message {
 
 #[tokio::main]
 async fn main() -> Result<ExitCode> {
+    env_logger::init();
+
     let cli = Cli::parse();
     let start_path = resolve(&cli.start_path)?;
     let mut client =
@@ -73,6 +76,7 @@ async fn main() -> Result<ExitCode> {
     let (u_read, mut u_write) = client.split();
     let mut u_read = BufReader::new(u_read);
 
+    #[derive(Debug)]
     enum Mode {
         Command,
         Streaming,
@@ -86,13 +90,16 @@ async fn main() -> Result<ExitCode> {
         u_read_buf.clear();
 
         loop {
+            debug!("select!");
             select! {
                 read = u_read.read_until(b'\n', &mut u_read_buf) => {
                     if read? == 0 {
+                        debug!("Exiting for some reason");
                         return Ok(ExitCode::SUCCESS);
                     }
                     break;
                 }
+
                 exit_status = wait_if_set(&mut fzf) => {
                     handle_shutdown(
                         &mut u_write,
@@ -110,14 +117,16 @@ async fn main() -> Result<ExitCode> {
                     continue;
                 }
 
-                let _broken_pipe = fzf
-                    .as_mut()
-                    .ok_or_else(|| anyhow!("fzf not open"))?
-                    .stdin
-                    .as_mut()
-                    .ok_or_else(|| anyhow!("fzf stdin already taken"))?
-                    .write_all(&u_read_buf)
-                    .await;
+                if let Some(fzf) = fzf.as_mut() {
+                    let _ = fzf
+                        .stdin
+                        .as_mut()
+                        .ok_or_else(|| anyhow!("fzf stdin already taken"))?
+                        .write_all(&u_read_buf)
+                        .await;
+                } else {
+                    mode = Mode::Command;
+                }
 
                 continue;
             }
@@ -127,21 +136,29 @@ async fn main() -> Result<ExitCode> {
 
         let _trailing_newline = u_read_buf.pop();
         let cmd = &u_read_buf;
+
+        if cmd.is_empty() {
+            continue;
+        }
+
+        debug!("Processing command");
         match cmd[0] {
             b'z' => {
-                drop(
-                    fzf.as_mut()
-                        .ok_or_else(|| anyhow!("fzf not open"))?
-                        .stdin
-                        .take(),
-                );
+                debug!("z");
+                if let Some(fzf) = fzf.as_mut() {
+                    drop(fzf.stdin.take());
+                } else {
+                    error!("fzf already closed");
+                }
             }
             b'x' => {
+                debug!("x");
                 std::io::stdout().write_all(&cmd[1..])?;
                 std::io::stdout().flush()?;
                 return Ok(ExitCode::SUCCESS);
             }
             b'e' => {
+                debug!("e");
                 ensure!(
                     cmd.len() == 1,
                     "e command must be empty, got {:?}",
@@ -151,6 +168,7 @@ async fn main() -> Result<ExitCode> {
                 mode = Mode::Streaming;
             }
             b'o' => {
+                debug!("o");
                 let user_args = serde_json::from_slice(&cmd[1..])
                     .context("parsing user_args from 'o' command")?;
                 let fzf_options = cli.fzf_opts.split_whitespace().map(str::to_string);
