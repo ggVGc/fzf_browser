@@ -110,7 +110,8 @@ async fn main() -> Result<ExitCode> {
                     continue;
                 }
 
-                let _ = fzf.as_mut()
+                let _broken_pipe = fzf
+                    .as_mut()
                     .ok_or_else(|| anyhow!("fzf not open"))?
                     .stdin
                     .as_mut()
