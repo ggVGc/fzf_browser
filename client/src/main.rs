@@ -54,10 +54,13 @@ enum Message {
 async fn main() -> Result<ExitCode> {
     env_logger::init();
 
+    // let socket_name = "socket";
+    let socket_name = "socket_dev";
+
     let cli = Cli::parse();
     let start_path = resolve(&cli.start_path)?;
     let mut client =
-        UnixStream::connect(env::var("XDG_RUNTIME_DIR").unwrap() + "/fzf_browser/socket")
+        UnixStream::connect(env::var("XDG_RUNTIME_DIR").unwrap() + "/fzf_browser/" + socket_name)
             .await
             .context("connecting to socket")?;
 
