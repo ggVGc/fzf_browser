@@ -98,6 +98,8 @@ fn main() -> Result<ExitCode> {
     }
 
     loop {
+        options.preview = Some(get_preview_command(&here));
+
         if here.as_os_str().as_encoded_bytes().len()
             < read_opts.target_dir.as_os_str().as_encoded_bytes().len()
         {
@@ -211,6 +213,14 @@ fn main() -> Result<ExitCode> {
             }
         }
     }
+}
+
+fn get_preview_command(current_dir: &Path) -> String {
+    format!(
+        "fzf-browser-preview.sh {}/{}",
+        current_dir.to_string_lossy(),
+        "{}"
+    )
 }
 
 fn ensure_directory(p: impl AsRef<Path>) -> Result<PathBuf> {
