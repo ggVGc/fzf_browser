@@ -81,7 +81,7 @@ pub fn stream_rel_content(
     let max_depth = match RECURSION[read_opts.recursion_index] {
         Recursion::None => Some(1),
         Recursion::Target => {
-            src = read_opts.target_dir.clone();
+            src.clone_from(&read_opts.target_dir);
             None
         }
         Recursion::All => None,
@@ -100,7 +100,6 @@ pub fn stream_rel_content(
     if read_opts.sort {
         let mut files = walk
             .build()
-            .into_iter()
             .map(|f| convert(&root, f.context("dir walker")))
             .collect::<Vec<_>>();
         files.sort_unstable();

@@ -101,7 +101,7 @@ fn main() -> Result<ExitCode> {
         if here.as_os_str().as_encoded_bytes().len()
             < read_opts.target_dir.as_os_str().as_encoded_bytes().len()
         {
-            read_opts.target_dir = here.clone();
+            read_opts.target_dir.clone_from(&here);
         }
 
         dir_stack.push(here.clone());
@@ -175,7 +175,7 @@ fn main() -> Result<ExitCode> {
                 read_opts.recursion_index = (read_opts.recursion_index + 1) % RECURSION.len();
             }
             Action::SetTarget => {
-                read_opts.target_dir = here.clone();
+                read_opts.target_dir.clone_from(&here);
             }
             Action::Open => {
                 if let Some(Item::FileEntry { name, .. }) = item {
