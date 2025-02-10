@@ -75,9 +75,11 @@ impl Ord for Item {
     }
 }
 
-pub fn convert(root: impl AsRef<Path>, f: Result<DirEntry>) -> Item {
-    convert_resolution(root, f).unwrap_or_else(|e| Item::WalkError {
-        msg: cerialise_error(e),
+pub fn convert(root: impl AsRef<Path>, f: Result<DirEntry>) -> Option<Item> {
+    convert_resolution(root, f).unwrap_or_else(|e| {
+        Some(Item::WalkError {
+            msg: cerialise_error(e),
+        })
     })
 }
 
@@ -89,14 +91,19 @@ fn cerialise_error(e: anyhow::Error) -> String {
     msg
 }
 
-fn convert_resolution(root: impl AsRef<Path>, f: Result<DirEntry>) -> Result<Item> {
+fn convert_resolution(root: impl AsRef<Path>, f: Result<DirEntry>) -> Result<Option<Item>> {
     let f = f?;
     let name = f.path().strip_prefix(root)?.as_os_str().to_owned();
     let file_type = f
         .file_type()
         .with_context(|| anyhow!("retrieving type of {:?}", &name))?;
 
-    Ok(Item::FileEntry { name, file_type })
+    // Skip root directory
+    if f.depth() != 0 {
+        Ok(Some(Item::FileEntry { name, file_type }))
+    } else {
+        Ok(None)
+    }
 }
 
 fn colour_whole(s: String, attr: impl Into<Attr>) -> AnsiString<'static> {

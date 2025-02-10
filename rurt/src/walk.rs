@@ -100,11 +100,11 @@ pub fn stream_rel_content(
     if read_opts.sort {
         let mut files = walk
             .build()
-            .map(|f| convert(&root, f.context("dir walker")))
+            .filter_map(|item| convert(&root, item.context("dir walker")))
             .collect::<Vec<_>>();
         files.sort_unstable();
-        for f in files {
-            if maybe_send(&tx, f) {
+        for item in files {
+            if maybe_send(&tx, item) {
                 break;
             }
         }
@@ -113,8 +113,12 @@ pub fn stream_rel_content(
             let tx = tx.clone();
             let root = root.clone();
             Box::new(move |f: Result<DirEntry, Error>| {
-                if maybe_send(&tx, convert(&root, f.context("parallel walker"))) {
-                    WalkState::Quit
+                if let Some(item) = convert(&root, f.context("parallel walker")) {
+                    if maybe_send(&tx, item) {
+                        WalkState::Quit
+                    } else {
+                        WalkState::Continue
+                    }
                 } else {
                     WalkState::Continue
                 }
