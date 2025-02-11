@@ -15,12 +15,11 @@ static LS_COLORS: Lazy<Mutex<LsColors>> = Lazy::new(|| {
     Mutex::new(colors)
 });
 
-// #[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq)]
 pub enum Item {
     FileEntry {
         name: OsString,
         info: ItemInfo,
-        file_type: FileType,
     },
     WalkError {
         msg: String,
@@ -28,24 +27,35 @@ pub enum Item {
 }
 
 pub struct ItemInfo {
-    entry: DirEntry,
+    pub file_type: FileType,
+    path: std::path::PathBuf,
+    filename: OsString,
+    metadata: Option<std::fs::Metadata>
 }
+
+impl PartialEq for ItemInfo {
+    fn eq(&self, other: &Self) -> bool {
+        self.path.eq(&other.path)
+    }
+}
+
+impl Eq for ItemInfo {}
 
 impl Colorable for ItemInfo {
     fn path(&self) -> std::path::PathBuf {
-        self.entry.path().to_path_buf()
+        self.path.to_path_buf()
     }
 
     fn file_name(&self) -> OsString {
-        self.entry.file_name().to_os_string()
+        self.filename.to_os_string()
     }
 
     fn file_type(&self) -> Option<FileType> {
-        self.entry.file_type()
+        Some(self.file_type)
     }
 
     fn metadata(&self) -> Option<std::fs::Metadata> {
-        self.entry.metadata().ok()
+        self.metadata.clone()
     }
 }
 
@@ -76,20 +86,6 @@ impl SkimItem for Item {
     }
 }
 
-impl PartialEq for Item {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::FileEntry { name: l_name, .. }, Self::FileEntry { name: r_name, .. }) => {
-                l_name == r_name
-            }
-            (Self::WalkError { msg: l_msg }, Self::WalkError { msg: r_msg }) => l_msg == r_msg,
-            _ => false,
-        }
-    }
-}
-
-impl Eq for Item {}
-
 impl PartialOrd for Item {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
@@ -102,17 +98,17 @@ impl Ord for Item {
             (
                 Item::FileEntry {
                     name: an,
-                    file_type: at,
+                    info: at,
                     ..
                 },
                 Item::FileEntry {
                     name: bn,
-                    file_type: bt,
+                    info: bt,
                     ..
                 },
             ) => {
-                let a = at.is_dir();
-                let b = bt.is_dir();
+                let a = at.file_type.is_dir();
+                let b = bt.file_type.is_dir();
                 if a != b {
                     return a.cmp(&b);
                 }
@@ -152,8 +148,12 @@ fn convert_resolution(root: impl AsRef<Path>, f: Result<DirEntry>) -> Result<Opt
     if f.depth() != 0 {
         Ok(Some(Item::FileEntry {
             name,
-            file_type,
-            info: ItemInfo { entry: f },
+            info: ItemInfo {
+                path: f.path().to_path_buf(),
+                filename: f.file_name().to_os_string(),
+                metadata: f.metadata().ok(),
+                file_type,
+            },
         }))
     } else {
         Ok(None)

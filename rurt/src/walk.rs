@@ -58,16 +58,16 @@ pub fn stream_rel_content(
 
     /* @return true if we should early exit */
     let maybe_send = |tx: &Sender<Arc<dyn SkimItem>>, f: Item| {
-        if let Item::FileEntry { file_type, .. } = &f {
+        if let Item::FileEntry { info, .. } = &f {
             match MODES[read_opts.mode_index] {
                 Mode::Mixed => (),
                 Mode::Files => {
-                    if !file_type.is_file() {
+                    if !info.file_type.is_file() {
                         return false;
                     }
                 }
                 Mode::Dirs => {
-                    if !file_type.is_dir() {
+                    if !info.file_type.is_dir() {
                         return false;
                     }
                 }
