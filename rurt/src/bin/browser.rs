@@ -30,6 +30,7 @@ struct Cli {
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 enum Action {
+    Default,
     Up,
     Down,
     Home,
@@ -43,7 +44,6 @@ enum Action {
     Open,
     DirBack,
     DirForward,
-    Return,
 }
 
 fn main() -> Result<ExitCode> {
@@ -141,7 +141,7 @@ fn main() -> Result<ExitCode> {
                     None
                 }
             })
-            .unwrap_or(Action::Return)
+            .unwrap_or(Action::Default)
         {
             Action::Up => {
                 here.pop();
@@ -200,7 +200,7 @@ fn main() -> Result<ExitCode> {
                     navigated(&mut read_opts);
                 }
             }
-            Action::Return => {
+            Action::Default => {
                 if output.is_abort {
                     return Ok(ExitCode::FAILURE);
                 } else if let Some(Item::FileEntry { name, .. }) = item {
