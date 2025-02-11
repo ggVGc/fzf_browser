@@ -108,7 +108,7 @@ fn main() -> Result<ExitCode> {
         dir_stack.push(here.clone());
 
         let (tx, rx) = unbounded::<Arc<dyn SkimItem>>();
-        options.prompt = format!("{} > ", here.to_string_lossy());
+        options.prompt = format!("{}> ", here.to_string_lossy());
         let here_copy = here.clone();
         let read_opts_copy = read_opts.clone();
         let streamer = thread::spawn(move || stream_content(tx, here_copy, &read_opts_copy));
