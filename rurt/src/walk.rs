@@ -90,6 +90,7 @@ pub fn stream_rel_content(
     let ignore_files = !read_opts.show_ignored;
     let mut walk = WalkBuilder::new(&src);
     let walk = walk
+        .follow_links(true)
         .hidden(!read_opts.show_hidden)
         .ignore(ignore_files)
         .git_exclude(ignore_files)
