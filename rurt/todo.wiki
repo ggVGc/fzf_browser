@@ -1,0 +1,3 @@
+- Filter files/dirs using ignore crate
+- Remove dumb Target recursion mode
+- Colorize directory and file part separately, as fd does
