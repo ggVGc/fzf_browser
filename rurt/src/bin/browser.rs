@@ -201,13 +201,18 @@ fn main() -> Result<ExitCode> {
                 }
             }
             Action::Return => {
-                return if output.is_abort {
-                    Ok(ExitCode::FAILURE)
+                if output.is_abort {
+                    return Ok(ExitCode::FAILURE);
                 } else if let Some(Item::FileEntry { name, .. }) = item {
-                    println!("{}", here.join(name).to_string_lossy());
-                    Ok(ExitCode::SUCCESS)
+                    if let Ok(cand) = ensure_directory(here.join(name)) {
+                        here = cand;
+                        navigated(&mut read_opts);
+                    } else {
+                        println!("{}", here.join(name).to_string_lossy());
+                        return Ok(ExitCode::SUCCESS);
+                    }
                 } else {
-                    Ok(ExitCode::FAILURE)
+                    return Ok(ExitCode::FAILURE);
                 }
             }
         }
