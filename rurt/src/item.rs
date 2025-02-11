@@ -1,17 +1,52 @@
-use std::borrow::Cow;
 use std::ffi::OsString;
 use std::fs::FileType;
 use std::path::Path;
+use std::{borrow::Cow, sync::Mutex};
 
 use anyhow::{anyhow, Context, Result};
 use ignore::DirEntry;
+use lscolors::{Colorable, LsColors, Style};
+use once_cell::sync::Lazy;
 use skim::{AnsiString, DisplayContext, SkimItem};
 use tuikit::attr::{Attr, Color};
 
-#[derive(PartialEq, Eq)]
+static LS_COLORS: Lazy<Mutex<LsColors>> = Lazy::new(|| {
+    let colors = LsColors::from_env().unwrap_or_default();
+    Mutex::new(colors)
+});
+
+// #[derive(PartialEq, Eq)]
 pub enum Item {
-    FileEntry { name: OsString, file_type: FileType },
-    WalkError { msg: String },
+    FileEntry {
+        name: OsString,
+        info: ItemInfo,
+        file_type: FileType,
+    },
+    WalkError {
+        msg: String,
+    },
+}
+
+pub struct ItemInfo {
+    entry: DirEntry,
+}
+
+impl Colorable for ItemInfo {
+    fn path(&self) -> std::path::PathBuf {
+        self.entry.path().to_path_buf()
+    }
+
+    fn file_name(&self) -> OsString {
+        self.entry.file_name().to_os_string()
+    }
+
+    fn file_type(&self) -> Option<FileType> {
+        self.entry.file_type()
+    }
+
+    fn metadata(&self) -> Option<std::fs::Metadata> {
+        self.entry.metadata().ok()
+    }
 }
 
 impl SkimItem for Item {
@@ -23,24 +58,37 @@ impl SkimItem for Item {
     }
 
     fn display<'a>(&'a self, _context: DisplayContext<'a>) -> AnsiString<'a> {
-        let (name, file_type) = match self {
+        let (name, info) = match self {
             Item::WalkError { msg } => {
                 return colour_whole(format!("error walking: {msg}"), Color::RED)
             }
-            Item::FileEntry { name, file_type } => (name, file_type),
+            Item::FileEntry { name, info, .. } => (name, info),
         };
-        let s = name.to_string_lossy().to_string();
-        if file_type.is_dir() {
-            colour_whole(s, Color::LIGHT_BLUE)
-        } else if file_type.is_symlink() {
-            colour_whole(s, Color::LIGHT_CYAN)
-        } else if file_type.is_file() {
-            s.into()
+
+        let name = name.to_string_lossy();
+        let lscolors = LS_COLORS.lock().unwrap();
+        if let Some(style) = lscolors.style_for(info) {
+            let style = Style::to_ansi_term_style(style);
+            AnsiString::parse(style.paint(name).to_string().as_str())
         } else {
-            colour_whole(s, Color::LIGHT_RED)
+            AnsiString::parse(name.to_string().as_str())
         }
     }
 }
+
+impl PartialEq for Item {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::FileEntry { name: l_name, .. }, Self::FileEntry { name: r_name, .. }) => {
+                l_name == r_name
+            }
+            (Self::WalkError { msg: l_msg }, Self::WalkError { msg: r_msg }) => l_msg == r_msg,
+            _ => false,
+        }
+    }
+}
+
+impl Eq for Item {}
 
 impl PartialOrd for Item {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
@@ -55,10 +103,12 @@ impl Ord for Item {
                 Item::FileEntry {
                     name: an,
                     file_type: at,
+                    ..
                 },
                 Item::FileEntry {
                     name: bn,
                     file_type: bt,
+                    ..
                 },
             ) => {
                 let a = at.is_dir();
@@ -100,7 +150,11 @@ fn convert_resolution(root: impl AsRef<Path>, f: Result<DirEntry>) -> Result<Opt
 
     // Skip root directory
     if f.depth() != 0 {
-        Ok(Some(Item::FileEntry { name, file_type }))
+        Ok(Some(Item::FileEntry {
+            name,
+            file_type,
+            info: ItemInfo { entry: f },
+        }))
     } else {
         Ok(None)
     }

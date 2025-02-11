@@ -53,7 +53,6 @@ fn main() -> Result<ExitCode> {
 
     let mut options = SkimOptionsBuilder::default()
         .reverse(true)
-        .no_clear(true)
         .query(cli.query)
         .build()
         .unwrap();
