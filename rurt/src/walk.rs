@@ -31,11 +31,10 @@ pub const MODES: [Mode; 3] = [Mode::Mixed, Mode::Files, Mode::Dirs];
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum Recursion {
     None = 0,
-    Target = 1,
-    All = 2,
+    All = 1,
 }
 
-pub const RECURSION: [Recursion; 3] = [Recursion::None, Recursion::Target, Recursion::All];
+pub const RECURSION: [Recursion; 2] = [Recursion::None, Recursion::All];
 
 pub fn stream_content(tx: Sender<Arc<dyn SkimItem>>, src: impl AsRef<Path>, read_opts: &ReadOpts) {
     let src = src.as_ref();
@@ -53,7 +52,6 @@ pub fn stream_rel_content(
     src: impl AsRef<Path>,
     read_opts: &ReadOpts,
 ) {
-    let mut src = src.as_ref().to_path_buf();
     let root = root.as_ref().to_path_buf();
 
     /* @return true if we should early exit */
@@ -80,15 +78,12 @@ pub fn stream_rel_content(
 
     let max_depth = match RECURSION[read_opts.recursion_index] {
         Recursion::None => Some(1),
-        Recursion::Target => {
-            src.clone_from(&read_opts.target_dir);
-            None
-        }
         Recursion::All => None,
     };
 
     let ignore_files = !read_opts.show_ignored;
-    let mut walk = WalkBuilder::new(&src);
+    let src = src.as_ref().to_path_buf();
+    let mut walk = WalkBuilder::new(src);
     let walk = walk
         .follow_links(true)
         .hidden(!read_opts.show_hidden)
