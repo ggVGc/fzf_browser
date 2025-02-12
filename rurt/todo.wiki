@@ -1,5 +1,3 @@
-- Filter files/dirs using ignore crate:
-  - Fixes issues with symlinks to files
-- Fix dir stack
+- Render symlink targets (optionally?)
 - Remove dumb Target recursion mode
 - Colorize directory and file part separately, as fd does

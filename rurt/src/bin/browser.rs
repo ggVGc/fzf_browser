@@ -47,6 +47,7 @@ enum Action {
 }
 
 fn main() -> Result<ExitCode> {
+    env_logger::init();
     let cli = Cli::parse();
     let mut here = fs::canonicalize(cli.start_path).context("start path")?;
     let mut dir_stack = DirStack::<PathBuf>::default();
@@ -105,8 +106,6 @@ fn main() -> Result<ExitCode> {
             read_opts.target_dir.clone_from(&here);
         }
 
-        dir_stack.push(here.clone());
-
         let (tx, rx) = unbounded::<Arc<dyn SkimItem>>();
         options.prompt = format!("{}> ", here.to_string_lossy());
         let here_copy = here.clone();
@@ -144,18 +143,21 @@ fn main() -> Result<ExitCode> {
             .unwrap_or(Action::Default)
         {
             Action::Up => {
+                dir_stack.push(here.clone());
                 here.pop();
                 navigated(&mut read_opts);
             }
             Action::Down => {
                 if let Some(Item::FileEntry { name, .. }) = item {
                     if let Ok(cand) = ensure_directory(here.join(name)) {
+                        dir_stack.push(here.clone());
                         here = cand;
                         navigated(&mut read_opts);
                     }
                 }
             }
             Action::Home => {
+                dir_stack.push(here.clone());
                 here = dirs::home_dir()
                     .ok_or_else(|| anyhow!("but you don't even have a home dir"))?;
                 navigated(&mut read_opts);
@@ -205,8 +207,10 @@ fn main() -> Result<ExitCode> {
                     return Ok(ExitCode::FAILURE);
                 } else if let Some(Item::FileEntry { name, .. }) = item {
                     if let Ok(cand) = ensure_directory(here.join(name)) {
+                        dir_stack.push(here);
                         here = cand;
                         navigated(&mut read_opts);
+                        options.query = None;
                     } else {
                         println!("{}", here.join(name).to_string_lossy());
                         return Ok(ExitCode::SUCCESS);

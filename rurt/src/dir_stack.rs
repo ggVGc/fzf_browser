@@ -7,7 +7,7 @@ pub struct DirStack<T> {
     position: usize,
 }
 
-impl<T: Clone + Eq + Hash> DirStack<T> {
+impl<T: Clone + Eq + Hash + std::fmt::Debug> DirStack<T> {
     pub fn push(&mut self, entry: T) {
         if self.stack.front() == Some(&entry) {
             return;
@@ -22,13 +22,13 @@ impl<T: Clone + Eq + Hash> DirStack<T> {
             return None;
         }
 
+
         if self.position == 0 {
-            self.push(entry);
+            self.stack.push_front(entry);
             self.dedup();
         }
 
         self.position = (self.position + 1).min(self.stack.len() - 1);
-
         self.stack.get(self.position).cloned()
     }
 
