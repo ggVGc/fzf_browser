@@ -17,20 +17,15 @@ static LS_COLORS: Lazy<Mutex<LsColors>> = Lazy::new(|| {
 
 #[derive(PartialEq, Eq)]
 pub enum Item {
-    FileEntry {
-        name: OsString,
-        info: ItemInfo,
-    },
-    WalkError {
-        msg: String,
-    },
+    FileEntry { name: OsString, info: ItemInfo },
+    WalkError { msg: String },
 }
 
 pub struct ItemInfo {
     pub file_type: FileType,
     path: std::path::PathBuf,
     filename: OsString,
-    metadata: Option<std::fs::Metadata>
+    metadata: Option<std::fs::Metadata>,
 }
 
 impl PartialEq for ItemInfo {
@@ -68,20 +63,24 @@ impl SkimItem for Item {
     }
 
     fn display<'a>(&'a self, _context: DisplayContext<'a>) -> AnsiString<'a> {
-        let (name, info) = match self {
+        match self {
             Item::WalkError { msg } => {
-                return colour_whole(format!("error walking: {msg}"), Color::RED)
+                colour_whole(format!("error walking: {msg}"), Color::RED)
             }
-            Item::FileEntry { name, info, .. } => (name, info),
-        };
+            Item::FileEntry { name, info, .. } => {
+                let mut name = name.to_string_lossy();
+                if info.file_type.is_dir() {
+                    name += "/"
+                }
 
-        let name = name.to_string_lossy();
-        let lscolors = LS_COLORS.lock().unwrap();
-        if let Some(style) = lscolors.style_for(info) {
-            let style = Style::to_ansi_term_style(style);
-            AnsiString::parse(style.paint(name).to_string().as_str())
-        } else {
-            AnsiString::parse(name.to_string().as_str())
+                let lscolors = LS_COLORS.lock().unwrap();
+                if let Some(style) = lscolors.style_for(info) {
+                    let style = Style::to_ansi_term_style(style);
+                    AnsiString::parse(style.paint(name).to_string().as_str())
+                } else {
+                    AnsiString::parse(name.to_string().as_str())
+                }
+            }
         }
     }
 }
@@ -97,22 +96,19 @@ impl Ord for Item {
         match (self, other) {
             (
                 Item::FileEntry {
-                    name: an,
-                    info: at,
-                    ..
+                    name: an, info: at, ..
                 },
                 Item::FileEntry {
-                    name: bn,
-                    info: bt,
-                    ..
+                    name: bn, info: bt, ..
                 },
             ) => {
                 let a = at.file_type.is_dir();
                 let b = bt.file_type.is_dir();
                 if a != b {
-                    return a.cmp(&b);
+                    b.cmp(&a)
+                } else {
+                    an.cmp(bn)
                 }
-                an.cmp(bn)
             }
             (Item::WalkError { msg: a }, Item::WalkError { msg: b }) => a.cmp(b),
             (Item::FileEntry { .. }, Item::WalkError { .. }) => std::cmp::Ordering::Less,
