@@ -64,9 +64,7 @@ impl SkimItem for Item {
 
     fn display<'a>(&'a self, _context: DisplayContext<'a>) -> AnsiString<'a> {
         match self {
-            Item::WalkError { msg } => {
-                colour_whole(format!("error walking: {msg}"), Color::RED)
-            }
+            Item::WalkError { msg } => colour_whole(format!("error walking: {msg}"), Color::RED),
             Item::FileEntry { name, info, .. } => {
                 let mut name = name.to_string_lossy();
                 if info.file_type.is_dir() {
@@ -76,7 +74,28 @@ impl SkimItem for Item {
                 let lscolors = LS_COLORS.lock().unwrap();
                 if let Some(style) = lscolors.style_for(info) {
                     let style = Style::to_ansi_term_style(style);
-                    AnsiString::parse(style.paint(name).to_string().as_str())
+                    if info.file_type.is_file() {
+                        match name.rfind("/") {
+                            Some(index) => {
+                                let dir_style = lscolors
+                                    .style_for_indicator(lscolors::Indicator::Directory)
+                                    .map(Style::to_ansi_term_style)
+                                    .unwrap();
+                                let (dir_name, file_name) = name.split_at(index + 1);
+                                AnsiString::parse(
+                                    format!(
+                                        "{}{}",
+                                        dir_style.paint(dir_name),
+                                        style.paint(file_name)
+                                    )
+                                    .as_str(),
+                                )
+                            }
+                            None => AnsiString::parse(style.paint(name).to_string().as_str()),
+                        }
+                    } else {
+                        AnsiString::parse(style.paint(name).to_string().as_str())
+                    }
                 } else {
                     AnsiString::parse(name.to_string().as_str())
                 }
