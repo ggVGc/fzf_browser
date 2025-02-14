@@ -39,6 +39,7 @@ enum Action {
     CycleIgnored,
     CycleMode,
     CycleRecursion,
+    TogglePreview,
     SetTarget,
     Expand,
     Open,
@@ -77,6 +78,7 @@ fn main() -> Result<ExitCode> {
 
     let bindings = vec![
         (Key::Left, Action::Up),
+        (Key::Char('`'), Action::Up),
         (Key::Ctrl('h'), Action::Up),
         (Key::Right, Action::Down),
         (Key::Ctrl('l'), Action::Down),
@@ -85,6 +87,7 @@ fn main() -> Result<ExitCode> {
         (Key::Ctrl('a'), Action::CycleHidden),
         (Key::Ctrl('y'), Action::CycleIgnored),
         (Key::Ctrl('f'), Action::CycleMode),
+        (Key::Ctrl('p'), Action::TogglePreview),
         (Key::Ctrl('e'), Action::Expand),
         (Key::Char('\\'), Action::CycleRecursion),
         (Key::Ctrl('t'), Action::SetTarget),
@@ -98,8 +101,6 @@ fn main() -> Result<ExitCode> {
     }
 
     loop {
-        options.preview = Some(get_preview_command(&here));
-
         if here.as_os_str().as_encoded_bytes().len()
             < read_opts.target_dir.as_os_str().as_encoded_bytes().len()
         {
@@ -113,8 +114,6 @@ fn main() -> Result<ExitCode> {
         let streamer = thread::spawn(move || stream_content(tx, here_copy, &read_opts_copy));
 
         let output = Skim::run_with(&options, Some(rx)).ok_or_else(|| anyhow!("skim said NONE"))?;
-
-        streamer.join().expect("panic");
 
         options.query = Some(output.query);
 
@@ -177,6 +176,12 @@ fn main() -> Result<ExitCode> {
             Action::CycleRecursion => {
                 read_opts.recursion_index = (read_opts.recursion_index + 1) % RECURSION.len();
             }
+            Action::TogglePreview => {
+                options.preview = match options.preview {
+                    None => Some(get_preview_command(&here)),
+                    Some(_) => None,
+                }
+            }
             Action::SetTarget => {
                 read_opts.target_dir.clone_from(&here);
             }
@@ -220,6 +225,8 @@ fn main() -> Result<ExitCode> {
                 }
             }
         }
+
+        streamer.join().expect("panic");
     }
 }
 
