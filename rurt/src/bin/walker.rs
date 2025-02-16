@@ -2,7 +2,7 @@ use anyhow::Context;
 use anyhow::Result;
 use clap::Parser;
 use crossbeam_channel::unbounded;
-use rurt::item::SkimItem;
+use rurt::item::Item;
 use rurt::walk::{stream_content, Mode, ReadOpts, Recursion};
 use std::ffi::OsString;
 use std::process::ExitCode;
@@ -55,7 +55,7 @@ fn main() -> Result<ExitCode> {
         read_opts.target_dir.clone_from(&here);
     }
 
-    let (tx, rx) = unbounded::<Arc<dyn SkimItem>>();
+    let (tx, rx) = unbounded::<Arc<Item>>();
     // options.prompt = format!("{} > ", here.to_string_lossy());
     let here_copy = here.clone();
     let read_opts_copy = read_opts.clone();

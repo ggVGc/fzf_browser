@@ -4,12 +4,13 @@ use clap::Parser;
 use crossbeam_channel::unbounded;
 use cursive::event::{Event, Key};
 use rurt::dir_stack::DirStack;
-use rurt::item::{Item, SkimItem};
+use rurt::item::Item;
+use rurt::ui::run_ui;
 use rurt::walk::{stream_content, Mode, ReadOpts, Recursion, MODES, RECURSION};
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::{fs, thread};
 
 #[derive(Parser)]
@@ -97,26 +98,19 @@ fn main() -> Result<ExitCode> {
             read_opts.target_dir.clone_from(&here);
         }
 
-        let (tx, rx) = unbounded::<Arc<dyn SkimItem>>();
+        let (tx, rx) = unbounded::<Arc<Item>>();
         // options.prompt = format!("{}> ", here.to_string_lossy());
         let here_copy = here.clone();
         let read_opts_copy = read_opts.clone();
         let streamer = thread::spawn(move || stream_content(tx, here_copy, &read_opts_copy));
 
-        // let output = Skim::run_with(&options, Some(rx)).ok_or_else(|| anyhow!("skim said NONE"))?;
+        let (item, final_key) = run_ui(rx);
 
         streamer.join().expect("panic");
 
         // options.query = Some(output.query);
 
-        let item = Vec::<Arc<dyn SkimItem>>::new().into_iter().next();
-
-        let item = item.as_ref().map(|item| {
-            (**item)
-                .as_any()
-                .downcast_ref::<Item>()
-                .expect("single type")
-        });
+        let item = item.as_ref().map(|item| item.as_ref());
 
         let navigated = |read_opts: &mut ReadOpts| {
             read_opts.expansions.clear();
@@ -125,7 +119,7 @@ fn main() -> Result<ExitCode> {
         match bindings
             .iter()
             .find_map(|(key, action)| {
-                if unimplemented!("output.final_key == *key") {
+                if final_key == Some(key.clone()) {
                     Some(*action)
                 } else {
                     None
@@ -194,7 +188,7 @@ fn main() -> Result<ExitCode> {
                 }
             }
             Action::Default => {
-                if unimplemented!("is_abort") {
+                if final_key.is_none() {
                     return Ok(ExitCode::FAILURE);
                 } else if let Some(Item::FileEntry { name, .. }) = item {
                     if let Ok(cand) = ensure_directory(here.join(name)) {

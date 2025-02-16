@@ -2,7 +2,6 @@ use anyhow::{anyhow, Context, Result};
 use ignore::DirEntry;
 use lscolors::{Colorable, LsColors, Style};
 use once_cell::sync::Lazy;
-use std::any::Any;
 use std::ffi::OsString;
 use std::fs::FileType;
 use std::path::Path;
@@ -52,26 +51,8 @@ impl Colorable for ItemInfo {
     }
 }
 
-pub trait SkimItem: AsAny + Send + Sync + 'static {}
-
-pub trait AsAny {
-    fn as_any(&self) -> &dyn Any;
-    fn as_any_mut(&mut self) -> &mut dyn Any;
-}
-
-impl<T: Any> AsAny for T {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-}
-
-impl SkimItem for Item {
-    #[cfg(never)]
-    fn text(&self) -> Cow<str> {
+impl Item {
+    pub fn text(&self) -> Cow<str> {
         match self {
             Item::FileEntry { name, .. } => name.to_string_lossy(),
             Item::WalkError { msg } => msg.into(),
