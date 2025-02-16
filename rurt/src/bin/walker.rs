@@ -1,12 +1,13 @@
-use anyhow::Result;
 use anyhow::Context;
+use anyhow::Result;
 use clap::Parser;
-use skim::prelude::*;
+use crossbeam_channel::unbounded;
+use rurt::item::SkimItem;
+use rurt::walk::{stream_content, Mode, ReadOpts, Recursion};
 use std::ffi::OsString;
 use std::process::ExitCode;
+use std::sync::Arc;
 use std::{fs, thread};
-
-use rurt::walk::{stream_content, Mode, ReadOpts, Recursion};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -28,13 +29,6 @@ struct Cli {
 fn main() -> Result<ExitCode> {
     let cli = Cli::parse();
     let here = fs::canonicalize(cli.start_path).context("start path")?;
-
-    let mut options = SkimOptionsBuilder::default()
-        .reverse(true)
-        .no_clear(true)
-        .query(cli.query)
-        .build()
-        .unwrap();
 
     let mut read_opts = ReadOpts {
         target_dir: here.clone(),
@@ -62,13 +56,13 @@ fn main() -> Result<ExitCode> {
     }
 
     let (tx, rx) = unbounded::<Arc<dyn SkimItem>>();
-    options.prompt = format!("{} > ", here.to_string_lossy());
+    // options.prompt = format!("{} > ", here.to_string_lossy());
     let here_copy = here.clone();
     let read_opts_copy = read_opts.clone();
     let streamer = thread::spawn(move || stream_content(tx, here_copy, &read_opts_copy));
 
     while let Ok(entry) = rx.recv() {
-        println!("|{}|", entry.text());
+        // println!("|{}|", entry.text());
     }
 
     streamer.join().expect("panic");

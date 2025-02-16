@@ -2,11 +2,10 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use anyhow::Context;
+use crossbeam_channel::Sender;
 use ignore::{DirEntry, Error, WalkBuilder, WalkState};
-use skim::prelude::Sender;
-use skim::SkimItem;
 
-use crate::item::{convert, Item};
+use crate::item::{convert, Item, SkimItem};
 
 #[derive(Default, Clone)]
 pub struct ReadOpts {

@@ -1,14 +1,12 @@
-use std::ffi::OsString;
-use std::fs::FileType;
-use std::path::Path;
-use std::{borrow::Cow, sync::Mutex};
-
 use anyhow::{anyhow, Context, Result};
 use ignore::DirEntry;
 use lscolors::{Colorable, LsColors, Style};
 use once_cell::sync::Lazy;
-use skim::{AnsiString, DisplayContext, SkimItem};
-use tuikit::attr::{Attr, Color};
+use std::any::Any;
+use std::ffi::OsString;
+use std::fs::FileType;
+use std::path::Path;
+use std::{borrow::Cow, sync::Mutex};
 
 static LS_COLORS: Lazy<Mutex<LsColors>> = Lazy::new(|| {
     let colors = LsColors::from_env().unwrap_or_default();
@@ -17,20 +15,15 @@ static LS_COLORS: Lazy<Mutex<LsColors>> = Lazy::new(|| {
 
 #[derive(PartialEq, Eq)]
 pub enum Item {
-    FileEntry {
-        name: OsString,
-        info: ItemInfo,
-    },
-    WalkError {
-        msg: String,
-    },
+    FileEntry { name: OsString, info: ItemInfo },
+    WalkError { msg: String },
 }
 
 pub struct ItemInfo {
     pub file_type: FileType,
     path: std::path::PathBuf,
     filename: OsString,
-    metadata: Option<std::fs::Metadata>
+    metadata: Option<std::fs::Metadata>,
 }
 
 impl PartialEq for ItemInfo {
@@ -59,7 +52,25 @@ impl Colorable for ItemInfo {
     }
 }
 
+pub trait SkimItem: AsAny + Send + Sync + 'static {}
+
+pub trait AsAny {
+    fn as_any(&self) -> &dyn Any;
+    fn as_any_mut(&mut self) -> &mut dyn Any;
+}
+
+impl<T: Any> AsAny for T {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+}
+
 impl SkimItem for Item {
+    #[cfg(never)]
     fn text(&self) -> Cow<str> {
         match self {
             Item::FileEntry { name, .. } => name.to_string_lossy(),
@@ -67,6 +78,7 @@ impl SkimItem for Item {
         }
     }
 
+    #[cfg(never)]
     fn display<'a>(&'a self, _context: DisplayContext<'a>) -> AnsiString<'a> {
         let (name, info) = match self {
             Item::WalkError { msg } => {
@@ -97,14 +109,10 @@ impl Ord for Item {
         match (self, other) {
             (
                 Item::FileEntry {
-                    name: an,
-                    info: at,
-                    ..
+                    name: an, info: at, ..
                 },
                 Item::FileEntry {
-                    name: bn,
-                    info: bt,
-                    ..
+                    name: bn, info: bt, ..
                 },
             ) => {
                 let a = at.file_type.is_dir();
@@ -160,6 +168,7 @@ fn convert_resolution(root: impl AsRef<Path>, f: Result<DirEntry>) -> Result<Opt
     }
 }
 
+#[cfg(never)]
 fn colour_whole(s: String, attr: impl Into<Attr>) -> AnsiString<'static> {
     let whole = (0, s.len() as u32);
     AnsiString::new_string(s, vec![(attr.into(), whole)])
