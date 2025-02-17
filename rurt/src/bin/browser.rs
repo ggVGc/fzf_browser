@@ -1,10 +1,11 @@
 use anyhow::{anyhow, Context};
 use anyhow::{bail, Result};
 use clap::Parser;
-use crossbeam_channel::unbounded;
-use cursive::event::{Event, Key};
+use crossterm::event::{KeyCode, KeyModifiers};
+use nucleo::Nucleo;
 use rurt::dir_stack::DirStack;
-use rurt::item::{Item, SkimItem};
+use rurt::item::Item;
+use rurt::ratui::run;
 use rurt::walk::{stream_content, Mode, ReadOpts, Recursion, MODES, RECURSION};
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
@@ -45,6 +46,7 @@ enum Action {
     Open,
     DirBack,
     DirForward,
+    Abort,
 }
 
 fn main() -> Result<ExitCode> {
@@ -71,22 +73,41 @@ fn main() -> Result<ExitCode> {
     }
 
     let bindings = vec![
-        (Event::Key(Key::Left), Action::Up),
-        (Event::CtrlChar('h'), Action::Up),
-        (Event::Key(Key::Right), Action::Down),
-        (Event::CtrlChar('l'), Action::Down),
-        (Event::CtrlChar('d'), Action::Home),
-        (Event::CtrlChar('s'), Action::CycleSort),
-        (Event::CtrlChar('a'), Action::CycleHidden),
-        (Event::CtrlChar('y'), Action::CycleIgnored),
-        (Event::CtrlChar('f'), Action::CycleMode),
-        (Event::CtrlChar('e'), Action::Expand),
-        (Event::Char('\\'), Action::CycleRecursion),
-        (Event::CtrlChar('t'), Action::SetTarget),
-        (Event::CtrlChar('g'), Action::Open),
-        (Event::CtrlChar('o'), Action::DirBack),
-        (Event::CtrlChar('u'), Action::DirForward),
+        (KeyModifiers::NONE, KeyCode::Left, Action::Up),
+        (KeyModifiers::CONTROL, KeyCode::Char('h'), Action::Up),
+        (KeyModifiers::NONE, KeyCode::Right, Action::Down),
+        (KeyModifiers::CONTROL, KeyCode::Char('l'), Action::Down),
+        (KeyModifiers::CONTROL, KeyCode::Char('d'), Action::Home),
+        (KeyModifiers::CONTROL, KeyCode::Char('s'), Action::CycleSort),
+        (
+            KeyModifiers::CONTROL,
+            KeyCode::Char('a'),
+            Action::CycleHidden,
+        ),
+        (
+            KeyModifiers::CONTROL,
+            KeyCode::Char('y'),
+            Action::CycleIgnored,
+        ),
+        (KeyModifiers::CONTROL, KeyCode::Char('f'), Action::CycleMode),
+        (KeyModifiers::CONTROL, KeyCode::Char('e'), Action::Expand),
+        (
+            KeyModifiers::NONE,
+            KeyCode::Char('\\'),
+            Action::CycleRecursion,
+        ),
+        (KeyModifiers::CONTROL, KeyCode::Char('t'), Action::SetTarget),
+        (KeyModifiers::CONTROL, KeyCode::Char('g'), Action::Open),
+        (KeyModifiers::CONTROL, KeyCode::Char('o'), Action::DirBack),
+        (
+            KeyModifiers::CONTROL,
+            KeyCode::Char('u'),
+            Action::DirForward,
+        ),
     ];
+
+    let config = nucleo::Config::DEFAULT;
+    let mut nucleo = Nucleo::<Item>::new(config, Arc::new(|| {}), None, 1);
 
     loop {
         // options.preview = Some(get_preview_command(&here));
@@ -97,26 +118,14 @@ fn main() -> Result<ExitCode> {
             read_opts.target_dir.clone_from(&here);
         }
 
-        let (tx, rx) = unbounded::<Arc<dyn SkimItem>>();
-        // options.prompt = format!("{}> ", here.to_string_lossy());
+        let tx = nucleo.injector();
         let here_copy = here.clone();
         let read_opts_copy = read_opts.clone();
         let streamer = thread::spawn(move || stream_content(tx, here_copy, &read_opts_copy));
 
-        // let output = Skim::run_with(&options, Some(rx)).ok_or_else(|| anyhow!("skim said NONE"))?;
+        let (final_key, item) = run(&mut nucleo)?;
 
         streamer.join().expect("panic");
-
-        // options.query = Some(output.query);
-
-        let item = Vec::<Arc<dyn SkimItem>>::new().into_iter().next();
-
-        let item = item.as_ref().map(|item| {
-            (**item)
-                .as_any()
-                .downcast_ref::<Item>()
-                .expect("single type")
-        });
 
         let navigated = |read_opts: &mut ReadOpts| {
             read_opts.expansions.clear();
@@ -124,8 +133,8 @@ fn main() -> Result<ExitCode> {
 
         match bindings
             .iter()
-            .find_map(|(key, action)| {
-                if unimplemented!("output.final_key == *key") {
+            .find_map(|(modifier, key, action)| {
+                if final_key.code == *key && final_key.modifiers == *modifier {
                     Some(*action)
                 } else {
                     None
@@ -193,10 +202,9 @@ fn main() -> Result<ExitCode> {
                     navigated(&mut read_opts);
                 }
             }
+            Action::Abort => return Ok(ExitCode::FAILURE),
             Action::Default => {
-                if unimplemented!("is_abort") {
-                    return Ok(ExitCode::FAILURE);
-                } else if let Some(Item::FileEntry { name, .. }) = item {
+                if let Some(Item::FileEntry { name, .. }) = item {
                     if let Ok(cand) = ensure_directory(here.join(name)) {
                         dir_stack.push(here);
                         here = cand;

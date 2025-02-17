@@ -2,6 +2,8 @@ use anyhow::{anyhow, Context, Result};
 use ignore::DirEntry;
 use lscolors::{Colorable, LsColors, Style};
 use once_cell::sync::Lazy;
+use ratatui::prelude::Style as RStyle;
+use ratatui::prelude::*;
 use std::any::Any;
 use std::ffi::OsString;
 use std::fs::FileType;
@@ -52,37 +54,21 @@ impl Colorable for ItemInfo {
     }
 }
 
-pub trait SkimItem: AsAny + Send + Sync + 'static {}
-
-pub trait AsAny {
-    fn as_any(&self) -> &dyn Any;
-    fn as_any_mut(&mut self) -> &mut dyn Any;
-}
-
-impl<T: Any> AsAny for T {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-}
-
-impl SkimItem for Item {
-    #[cfg(never)]
-    fn text(&self) -> Cow<str> {
+impl Item {
+    pub fn text(&self) -> Cow<str> {
         match self {
             Item::FileEntry { name, .. } => name.to_string_lossy(),
             Item::WalkError { msg } => msg.into(),
         }
     }
 
-    #[cfg(never)]
-    fn display<'a>(&'a self, _context: DisplayContext<'a>) -> AnsiString<'a> {
+    pub fn as_span(&self) -> Span {
         let (name, info) = match self {
             Item::WalkError { msg } => {
-                return colour_whole(format!("error walking: {msg}"), Color::RED)
+                return Span::styled(
+                    format!("error walking: {msg}"),
+                    RStyle::default().light_red(),
+                )
             }
             Item::FileEntry { name, info, .. } => (name, info),
         };
@@ -90,10 +76,10 @@ impl SkimItem for Item {
         let name = name.to_string_lossy();
         let lscolors = LS_COLORS.lock().unwrap();
         if let Some(style) = lscolors.style_for(info) {
-            let style = Style::to_ansi_term_style(style);
-            AnsiString::parse(style.paint(name).to_string().as_str())
+            let style = Style::to_crossterm_style(style);
+            Span::styled(name, style)
         } else {
-            AnsiString::parse(name.to_string().as_str())
+            Span::from(name)
         }
     }
 }
