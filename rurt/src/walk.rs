@@ -1,12 +1,9 @@
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
-
-use anyhow::Context;
-use ignore::WalkBuilder;
-use skim::prelude::Sender;
-use skim::SkimItem;
 
 use crate::item::{convert, Item};
+use anyhow::Context;
+use ignore::{DirEntry, Error, WalkBuilder, WalkState};
+use nucleo::Injector;
 
 #[derive(Default, Clone)]
 pub struct ReadOpts {
@@ -36,7 +33,7 @@ pub enum Recursion {
 
 pub const RECURSION: [Recursion; 2] = [Recursion::None, Recursion::All];
 
-pub fn stream_content(tx: Sender<Arc<dyn SkimItem>>, src: impl AsRef<Path>, read_opts: &ReadOpts) {
+pub fn stream_content(tx: Injector<Item>, src: impl AsRef<Path>, read_opts: &ReadOpts) {
     let src = src.as_ref();
     if RECURSION[read_opts.recursion_index] == Recursion::None {
         for exp in &read_opts.expansions {
@@ -47,7 +44,7 @@ pub fn stream_content(tx: Sender<Arc<dyn SkimItem>>, src: impl AsRef<Path>, read
 }
 
 pub fn stream_rel_content(
-    tx: Sender<Arc<dyn SkimItem>>,
+    tx: Injector<Item>,
     root: impl AsRef<Path>,
     src: impl AsRef<Path>,
     read_opts: &ReadOpts,
@@ -55,7 +52,7 @@ pub fn stream_rel_content(
     let root = root.as_ref().to_path_buf();
 
     /* @return true if we should early exit */
-    let maybe_send = |tx: &Sender<Arc<dyn SkimItem>>, f: Item| {
+    let maybe_send = |tx: &Injector<Item>, f: Item| {
         if let Item::FileEntry { info, .. } = &f {
             match MODES[read_opts.mode_index] {
                 Mode::Mixed => (),
@@ -72,8 +69,8 @@ pub fn stream_rel_content(
             }
         }
 
-        // err: disconnected
-        tx.send(Arc::new(f)).is_err()
+        tx.push(f, |t, u| u[0] = t.text().into());
+        false
     };
 
     let max_depth = match RECURSION[read_opts.recursion_index] {

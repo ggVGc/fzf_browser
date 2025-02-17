@@ -1,14 +1,14 @@
-use std::ffi::OsString;
-use std::fs::FileType;
-use std::path::Path;
-use std::{borrow::Cow, sync::Mutex};
-
 use anyhow::{anyhow, Context, Result};
 use ignore::DirEntry;
 use lscolors::{Colorable, LsColors, Style};
 use once_cell::sync::Lazy;
-use skim::{AnsiString, DisplayContext, SkimItem};
-use tuikit::attr::{Attr, Color};
+use ratatui::prelude::Style as RStyle;
+use ratatui::prelude::*;
+use std::any::Any;
+use std::ffi::OsString;
+use std::fs::FileType;
+use std::path::Path;
+use std::{borrow::Cow, sync::Mutex};
 
 static LS_COLORS: Lazy<Mutex<LsColors>> = Lazy::new(|| {
     let colors = LsColors::from_env().unwrap_or_default();
@@ -54,52 +54,32 @@ impl Colorable for ItemInfo {
     }
 }
 
-impl SkimItem for Item {
-    fn text(&self) -> Cow<str> {
+impl Item {
+    pub fn text(&self) -> Cow<str> {
         match self {
             Item::FileEntry { name, .. } => name.to_string_lossy(),
             Item::WalkError { msg } => msg.into(),
         }
     }
-
-    fn display<'a>(&'a self, _context: DisplayContext<'a>) -> AnsiString<'a> {
-        match self {
-            Item::WalkError { msg } => colour_whole(format!("error walking: {msg}"), Color::RED),
-            Item::FileEntry { name, info, .. } => {
-                let mut name = name.to_string_lossy();
-                if info.file_type.is_dir() {
-                    name += "/"
-                }
-
-                let lscolors = LS_COLORS.lock().unwrap();
-                if let Some(style) = lscolors.style_for(info) {
-                    let style = Style::to_ansi_term_style(style);
-                    if info.file_type.is_file() {
-                        match name.rfind("/") {
-                            Some(index) => {
-                                let dir_style = lscolors
-                                    .style_for_indicator(lscolors::Indicator::Directory)
-                                    .map(Style::to_ansi_term_style)
-                                    .unwrap();
-                                let (dir_name, file_name) = name.split_at(index + 1);
-                                AnsiString::parse(
-                                    format!(
-                                        "{}{}",
-                                        dir_style.paint(dir_name),
-                                        style.paint(file_name)
-                                    )
-                                    .as_str(),
-                                )
-                            }
-                            None => AnsiString::parse(style.paint(name).to_string().as_str()),
-                        }
-                    } else {
-                        AnsiString::parse(style.paint(name).to_string().as_str())
-                    }
-                } else {
-                    AnsiString::parse(name.to_string().as_str())
-                }
+  
+    pub fn as_span(&self) -> Span {
+        let (name, info) = match self {
+            Item::WalkError { msg } => {
+                return Span::styled(
+                    format!("error walking: {msg}"),
+                    RStyle::default().light_red(),
+                )
             }
+            Item::FileEntry { name, info, .. } => (name, info),
+        };
+
+        let name = name.to_string_lossy();
+        let lscolors = LS_COLORS.lock().unwrap();
+        if let Some(style) = lscolors.style_for(info) {
+            let style = Style::to_crossterm_style(style);
+            Span::styled(name, style)
+        } else {
+            Span::from(name)
         }
     }
 }
@@ -175,6 +155,7 @@ fn convert_resolution(root: impl AsRef<Path>, f: Result<DirEntry>) -> Result<Opt
     }
 }
 
+#[cfg(never)]
 fn colour_whole(s: String, attr: impl Into<Attr>) -> AnsiString<'static> {
     let whole = (0, s.len() as u32);
     AnsiString::new_string(s, vec![(attr.into(), whole)])

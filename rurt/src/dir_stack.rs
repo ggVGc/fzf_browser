@@ -22,7 +22,6 @@ impl<T: Clone + Eq + Hash + std::fmt::Debug> DirStack<T> {
             return None;
         }
 
-
         if self.position == 0 {
             self.stack.push_front(entry);
             self.dedup();

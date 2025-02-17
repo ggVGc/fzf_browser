@@ -1,15 +1,17 @@
 use anyhow::{anyhow, Context};
 use anyhow::{bail, Result};
 use clap::Parser;
-use skim::prelude::*;
+use crossterm::event::{KeyCode, KeyModifiers};
+use nucleo::Nucleo;
+use rurt::dir_stack::DirStack;
+use rurt::item::Item;
+use rurt::ratui::run;
+use rurt::walk::{stream_content, Mode, ReadOpts, Recursion, MODES, RECURSION};
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+use std::sync::Arc;
 use std::{fs, thread};
-
-use rurt::dir_stack::DirStack;
-use rurt::item::Item;
-use rurt::walk::{stream_content, Mode, ReadOpts, Recursion, MODES, RECURSION};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -31,6 +33,7 @@ struct Cli {
 #[derive(Copy, Clone, PartialEq, Eq)]
 enum Action {
     Default,
+    Ignore,
     Up,
     Down,
     Home,
@@ -45,6 +48,7 @@ enum Action {
     Open,
     DirBack,
     DirForward,
+    Abort,
 }
 
 fn main() -> Result<ExitCode> {
@@ -52,12 +56,6 @@ fn main() -> Result<ExitCode> {
     let cli = Cli::parse();
     let mut here = fs::canonicalize(cli.start_path).context("start path")?;
     let mut dir_stack = DirStack::<PathBuf>::default();
-
-    let mut options = SkimOptionsBuilder::default()
-        .reverse(true)
-        .query(cli.query)
-        .build()
-        .unwrap();
 
     let mut read_opts = ReadOpts {
         target_dir: here.clone(),
@@ -76,55 +74,66 @@ fn main() -> Result<ExitCode> {
         read_opts.recursion_index = Recursion::All as usize;
     }
 
-    let bindings = vec![
-        (Key::Left, Action::Up),
-        (Key::Char('`'), Action::Up),
-        (Key::Ctrl('h'), Action::Up),
-        (Key::Right, Action::Down),
-        (Key::Ctrl('l'), Action::Down),
-        (Key::Ctrl('d'), Action::Home),
-        (Key::Ctrl('s'), Action::CycleSort),
-        (Key::Ctrl('a'), Action::CycleHidden),
-        (Key::Ctrl('y'), Action::CycleIgnored),
-        (Key::Ctrl('f'), Action::CycleMode),
-        (Key::Ctrl('p'), Action::TogglePreview),
-        (Key::Ctrl('e'), Action::Expand),
-        (Key::Char('\\'), Action::CycleRecursion),
-        (Key::Ctrl('t'), Action::SetTarget),
-        (Key::Ctrl('g'), Action::Open),
-        (Key::Ctrl('o'), Action::DirBack),
-        (Key::Ctrl('u'), Action::DirForward),
+    let bindings = [
+        (KeyModifiers::NONE, KeyCode::Enter, Action::Default),
+        (KeyModifiers::NONE, KeyCode::Esc, Action::Abort),
+        (KeyModifiers::CONTROL, KeyCode::Char('c'), Action::Abort),
+        (KeyModifiers::NONE, KeyCode::Left, Action::Up),
+        (KeyModifiers::CONTROL, KeyCode::Char('h'), Action::Up),
+        (KeyModifiers::NONE, KeyCode::Right, Action::Down),
+        (KeyModifiers::CONTROL, KeyCode::Char('l'), Action::Down),
+        (KeyModifiers::CONTROL, KeyCode::Char('d'), Action::Home),
+        (KeyModifiers::CONTROL, KeyCode::Char('s'), Action::CycleSort),
+        (
+            KeyModifiers::CONTROL,
+            KeyCode::Char('a'),
+            Action::CycleHidden,
+        ),
+        (
+            KeyModifiers::CONTROL,
+            KeyCode::Char('y'),
+            Action::CycleIgnored,
+        ),
+        (KeyModifiers::CONTROL, KeyCode::Char('f'), Action::CycleMode),
+        (KeyModifiers::CONTROL, KeyCode::Char('e'), Action::Expand),
+        (
+            KeyModifiers::NONE,
+            KeyCode::Char('\\'),
+            Action::CycleRecursion,
+        ),
+        (
+            KeyModifiers::CONTROL,
+            KeyCode::Char('r'),
+            Action::CycleRecursion,
+        ),
+        (KeyModifiers::CONTROL, KeyCode::Char('t'), Action::SetTarget),
+        (KeyModifiers::CONTROL, KeyCode::Char('g'), Action::Open),
+        (KeyModifiers::CONTROL, KeyCode::Char('o'), Action::DirBack),
+        (
+            KeyModifiers::CONTROL,
+            KeyCode::Char('u'),
+            Action::DirForward,
+        ),
     ];
 
-    for (key, _) in &bindings {
-        options.bind.push(format!("{}:abort", render_key(*key)));
-    }
-
     loop {
+        // options.preview = Some(get_preview_command(&here));
         if here.as_os_str().as_encoded_bytes().len()
             < read_opts.target_dir.as_os_str().as_encoded_bytes().len()
         {
             read_opts.target_dir.clone_from(&here);
         }
 
-        let (tx, rx) = unbounded::<Arc<dyn SkimItem>>();
-        options.prompt = format!("{}> ", here.to_string_lossy());
+        let config = nucleo::Config::DEFAULT;
+        let mut nucleo = Nucleo::<Item>::new(config, Arc::new(|| {}), None, 1);
+        let tx = nucleo.injector();
         let here_copy = here.clone();
         let read_opts_copy = read_opts.clone();
         let streamer = thread::spawn(move || stream_content(tx, here_copy, &read_opts_copy));
 
-        let output = Skim::run_with(&options, Some(rx)).ok_or_else(|| anyhow!("skim said NONE"))?;
+        let (final_key, item) = run(&mut nucleo)?;
 
-        options.query = Some(output.query);
-
-        let item = output.selected_items.into_iter().next();
-
-        let item = item.as_ref().map(|item| {
-            (**item)
-                .as_any()
-                .downcast_ref::<Item>()
-                .expect("single type")
-        });
+        streamer.join().expect("panic");
 
         let navigated = |read_opts: &mut ReadOpts| {
             read_opts.expansions.clear();
@@ -132,14 +141,14 @@ fn main() -> Result<ExitCode> {
 
         match bindings
             .iter()
-            .find_map(|(key, action)| {
-                if output.final_key == *key {
+            .find_map(|(modifier, key, action)| {
+                if final_key.code == *key && final_key.modifiers == *modifier {
                     Some(*action)
                 } else {
                     None
                 }
             })
-            .unwrap_or(Action::Default)
+            .unwrap_or(Action::Ignore)
         {
             Action::Up => {
                 dir_stack.push(here.clone());
@@ -177,10 +186,12 @@ fn main() -> Result<ExitCode> {
                 read_opts.recursion_index = (read_opts.recursion_index + 1) % RECURSION.len();
             }
             Action::TogglePreview => {
+              /*
                 options.preview = match options.preview {
                     None => Some(get_preview_command(&here)),
                     Some(_) => None,
                 }
+              */
             }
             Action::SetTarget => {
                 read_opts.target_dir.clone_from(&here);
@@ -207,15 +218,14 @@ fn main() -> Result<ExitCode> {
                     navigated(&mut read_opts);
                 }
             }
+            Action::Abort => return Ok(ExitCode::FAILURE),
             Action::Default => {
-                if output.is_abort {
-                    return Ok(ExitCode::FAILURE);
-                } else if let Some(Item::FileEntry { name, .. }) = item {
+                if let Some(Item::FileEntry { name, .. }) = item {
                     if let Ok(cand) = ensure_directory(here.join(name)) {
                         dir_stack.push(here);
                         here = cand;
                         navigated(&mut read_opts);
-                        options.query = None;
+                        // options.query = None;
                     } else {
                         println!("{}", here.join(name).to_string_lossy());
                         return Ok(ExitCode::SUCCESS);
@@ -224,9 +234,8 @@ fn main() -> Result<ExitCode> {
                     return Ok(ExitCode::FAILURE);
                 }
             }
+            Action::Ignore => (),
         }
-
-        streamer.join().expect("panic");
     }
 }
 
@@ -247,6 +256,7 @@ fn ensure_directory(p: impl AsRef<Path>) -> Result<PathBuf> {
     Ok(canon)
 }
 
+#[cfg(never)]
 fn render_key(key: Key) -> String {
     use Key::*;
     match key {
