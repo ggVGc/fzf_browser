@@ -33,6 +33,7 @@ struct Cli {
 #[derive(Copy, Clone, PartialEq, Eq)]
 enum Action {
     Default,
+    Ignore,
     Up,
     Down,
     Home,
@@ -73,7 +74,10 @@ fn main() -> Result<ExitCode> {
         read_opts.recursion_index = Recursion::All as usize;
     }
 
-    let bindings = vec![
+    let bindings = [
+        (KeyModifiers::NONE, KeyCode::Enter, Action::Default),
+        (KeyModifiers::NONE, KeyCode::Esc, Action::Abort),
+        (KeyModifiers::CONTROL, KeyCode::Char('c'), Action::Abort),
         (KeyModifiers::NONE, KeyCode::Left, Action::Up),
         (KeyModifiers::CONTROL, KeyCode::Char('h'), Action::Up),
         (KeyModifiers::NONE, KeyCode::Right, Action::Down),
@@ -97,6 +101,11 @@ fn main() -> Result<ExitCode> {
             KeyCode::Char('\\'),
             Action::CycleRecursion,
         ),
+        (
+            KeyModifiers::CONTROL,
+            KeyCode::Char('r'),
+            Action::CycleRecursion,
+        ),
         (KeyModifiers::CONTROL, KeyCode::Char('t'), Action::SetTarget),
         (KeyModifiers::CONTROL, KeyCode::Char('g'), Action::Open),
         (KeyModifiers::CONTROL, KeyCode::Char('o'), Action::DirBack),
@@ -107,9 +116,6 @@ fn main() -> Result<ExitCode> {
         ),
     ];
 
-    let config = nucleo::Config::DEFAULT;
-    let mut nucleo = Nucleo::<Item>::new(config, Arc::new(|| {}), None, 1);
-
     loop {
         // options.preview = Some(get_preview_command(&here));
         if here.as_os_str().as_encoded_bytes().len()
@@ -118,6 +124,8 @@ fn main() -> Result<ExitCode> {
             read_opts.target_dir.clone_from(&here);
         }
 
+        let config = nucleo::Config::DEFAULT;
+        let mut nucleo = Nucleo::<Item>::new(config, Arc::new(|| {}), None, 1);
         let tx = nucleo.injector();
         let here_copy = here.clone();
         let read_opts_copy = read_opts.clone();
@@ -140,7 +148,7 @@ fn main() -> Result<ExitCode> {
                     None
                 }
             })
-            .unwrap_or(Action::Default)
+            .unwrap_or(Action::Ignore)
         {
             Action::Up => {
                 dir_stack.push(here.clone());
@@ -226,6 +234,7 @@ fn main() -> Result<ExitCode> {
                     return Ok(ExitCode::FAILURE);
                 }
             }
+            Action::Ignore => (),
         }
     }
 }
