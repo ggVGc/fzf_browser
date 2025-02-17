@@ -61,7 +61,7 @@ impl Item {
             Item::WalkError { msg } => msg.into(),
         }
     }
-
+  
     pub fn as_span(&self) -> Span {
         let (name, info) = match self {
             Item::WalkError { msg } => {
@@ -104,9 +104,10 @@ impl Ord for Item {
                 let a = at.file_type.is_dir();
                 let b = bt.file_type.is_dir();
                 if a != b {
-                    return a.cmp(&b);
+                    b.cmp(&a)
+                } else {
+                    an.cmp(bn)
                 }
-                an.cmp(bn)
             }
             (Item::WalkError { msg: a }, Item::WalkError { msg: b }) => a.cmp(b),
             (Item::FileEntry { .. }, Item::WalkError { .. }) => std::cmp::Ordering::Less,

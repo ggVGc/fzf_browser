@@ -1,3 +1,4 @@
+- Preview window is not async. Blocks/hangs on exit if preview rendering takes long:
+  - fzf does async loading in preview window, with a little progress bar.
 - Render symlink targets (optionally?)
-- Remove dumb Target recursion mode
 - Colorize directory and file part separately, as fd does
