@@ -61,7 +61,7 @@ impl Item {
             Item::WalkError { msg } => msg.into(),
         }
     }
-  
+
     pub fn as_span(&self) -> Span {
         let (name, info) = match self {
             Item::WalkError { msg } => {

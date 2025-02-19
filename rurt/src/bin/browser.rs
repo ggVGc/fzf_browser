@@ -186,12 +186,12 @@ fn main() -> Result<ExitCode> {
                 read_opts.recursion_index = (read_opts.recursion_index + 1) % RECURSION.len();
             }
             Action::TogglePreview => {
-              /*
-                options.preview = match options.preview {
-                    None => Some(get_preview_command(&here)),
-                    Some(_) => None,
-                }
-              */
+                /*
+                  options.preview = match options.preview {
+                      None => Some(get_preview_command(&here)),
+                      Some(_) => None,
+                  }
+                */
             }
             Action::SetTarget => {
                 read_opts.target_dir.clone_from(&here);
