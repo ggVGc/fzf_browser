@@ -152,15 +152,7 @@ fn main() -> Result<ExitCode> {
 
         streamer.join().expect("panic");
 
-        let navigated = |read_opts: &mut ReadOpts| {
-            read_opts.expansions.clear();
-        };
-
-        let here = &mut app.here;
-        let read_opts = &mut app.read_opts;
-        let dir_stack = &mut app.dir_stack;
-
-        match bindings
+        let picked_action = bindings
             .iter()
             .find_map(|(modifier, key, action)| {
                 if final_key.code == *key && final_key.modifiers == *modifier {
@@ -169,95 +161,133 @@ fn main() -> Result<ExitCode> {
                     None
                 }
             })
-            .unwrap_or(Action::Ignore)
-        {
-            Action::Up => {
-                dir_stack.push(here.clone());
-                here.pop();
-                navigated(read_opts);
+            .unwrap_or(Action::Ignore);
+
+        match handle_action(picked_action, &mut app, item)? {
+            ActionResult::Ignored => (),
+            ActionResult::Configured => (),
+            ActionResult::Navigated => {
+                app.read_opts.expansions.clear();
             }
-            Action::Down => {
-                if let Some(Item::FileEntry { name, .. }) = item {
-                    if let Ok(cand) = ensure_directory(here.join(name)) {
-                        dir_stack.push(here.clone());
-                        *here = cand;
-                        navigated(read_opts);
-                    }
-                }
-            }
-            Action::Home => {
-                dir_stack.push(here.clone());
-                *here = dirs::home_dir()
-                    .ok_or_else(|| anyhow!("but you don't even have a home dir"))?;
-                navigated(read_opts);
-            }
-            Action::CycleSort => {
-                read_opts.sort = !read_opts.sort;
-            }
-            Action::CycleHidden => {
-                read_opts.show_hidden = !read_opts.show_hidden;
-            }
-            Action::CycleIgnored => {
-                read_opts.show_ignored = !read_opts.show_ignored;
-            }
-            Action::CycleMode => {
-                read_opts.mode_index = (read_opts.mode_index + 1) % MODES.len();
-            }
-            Action::CycleRecursion => {
-                read_opts.recursion_index = (read_opts.recursion_index + 1) % RECURSION.len();
-            }
-            Action::TogglePreview => {
-                /*
-                  options.preview = match options.preview {
-                      None => Some(get_preview_command(&here)),
-                      Some(_) => None,
-                  }
-                */
-            }
-            Action::SetTarget => {
-                read_opts.target_dir.clone_from(&here);
-            }
-            Action::Open => {
-                if let Some(Item::FileEntry { name, .. }) = item {
-                    open::that_detached(here.join(name))?;
-                }
-            }
-            Action::Expand => {
-                if let Some(Item::FileEntry { name, .. }) = item {
-                    read_opts.expansions.push(here.join(name));
-                }
-            }
-            Action::DirBack => {
-                if let Some(dir) = dir_stack.back(here.clone()) {
-                    *here = dir;
-                    navigated(read_opts);
-                }
-            }
-            Action::DirForward => {
-                if let Some(buf) = dir_stack.forward() {
-                    *here = buf;
-                    navigated(read_opts);
-                }
-            }
-            Action::Abort => return Ok(ExitCode::FAILURE),
-            Action::Default => {
-                if let Some(Item::FileEntry { name, .. }) = item {
-                    if let Ok(cand) = ensure_directory(here.join(name)) {
-                        dir_stack.push(here.to_path_buf());
-                        *here = cand;
-                        navigated(read_opts);
-                        // options.query = None;
-                    } else {
-                        println!("{}", here.join(name).to_string_lossy());
-                        return Ok(ExitCode::SUCCESS);
-                    }
-                } else {
-                    return Ok(ExitCode::FAILURE);
-                }
-            }
-            Action::Ignore => (),
+            ActionResult::Exit(code) => return Ok(code),
         }
     }
+}
+
+enum ActionResult {
+    Ignored,
+    Navigated,
+    Configured,
+    Exit(ExitCode),
+}
+
+fn handle_action(axion: Action, app: &mut App, item: Option<&Item>) -> Result<ActionResult> {
+    let here = &mut app.here;
+    let read_opts = &mut app.read_opts;
+    let dir_stack = &mut app.dir_stack;
+
+    Ok(match axion {
+        Action::Up => {
+            dir_stack.push(here.clone());
+            here.pop();
+            ActionResult::Navigated
+        }
+        Action::Down => {
+            if let Some(Item::FileEntry { name, .. }) = item {
+                if let Ok(cand) = ensure_directory(here.join(name)) {
+                    dir_stack.push(here.clone());
+                    *here = cand;
+                    return Ok(ActionResult::Navigated);
+                }
+            }
+            ActionResult::Ignored
+        }
+        Action::Home => {
+            dir_stack.push(here.clone());
+            *here =
+                dirs::home_dir().ok_or_else(|| anyhow!("but you don't even have a home dir"))?;
+            ActionResult::Navigated
+        }
+        Action::CycleSort => {
+            read_opts.sort = !read_opts.sort;
+            ActionResult::Configured
+        }
+        Action::CycleHidden => {
+            read_opts.show_hidden = !read_opts.show_hidden;
+            ActionResult::Configured
+        }
+        Action::CycleIgnored => {
+            read_opts.show_ignored = !read_opts.show_ignored;
+            ActionResult::Configured
+        }
+        Action::CycleMode => {
+            read_opts.mode_index = (read_opts.mode_index + 1) % MODES.len();
+            ActionResult::Configured
+        }
+        Action::CycleRecursion => {
+            read_opts.recursion_index = (read_opts.recursion_index + 1) % RECURSION.len();
+            ActionResult::Configured
+        }
+        Action::TogglePreview => {
+            /*
+              options.preview = match options.preview {
+                  None => Some(get_preview_command(&here)),
+                  Some(_) => None,
+              }
+            */
+            ActionResult::Configured
+        }
+        Action::SetTarget => {
+            read_opts.target_dir.clone_from(&here);
+            ActionResult::Configured
+        }
+        Action::Open => {
+            if let Some(Item::FileEntry { name, .. }) = item {
+                open::that_detached(here.join(name))?;
+            }
+            ActionResult::Ignored
+        }
+        Action::Expand => {
+            if let Some(Item::FileEntry { name, .. }) = item {
+                read_opts.expansions.push(here.join(name));
+                ActionResult::Navigated
+            } else {
+                ActionResult::Ignored
+            }
+        }
+        Action::DirBack => {
+            if let Some(dir) = dir_stack.back(here.clone()) {
+                *here = dir;
+                ActionResult::Navigated
+            } else {
+                ActionResult::Ignored
+            }
+        }
+        Action::DirForward => {
+            if let Some(buf) = dir_stack.forward() {
+                *here = buf;
+                ActionResult::Navigated
+            } else {
+                ActionResult::Ignored
+            }
+        }
+        Action::Abort => ActionResult::Exit(ExitCode::FAILURE),
+        Action::Default => {
+            if let Some(Item::FileEntry { name, .. }) = item {
+                if let Ok(cand) = ensure_directory(here.join(name)) {
+                    dir_stack.push(here.to_path_buf());
+                    *here = cand;
+                    ActionResult::Navigated
+                } else {
+                    println!("{}", here.join(name).to_string_lossy());
+                    ActionResult::Exit(ExitCode::SUCCESS)
+                }
+            } else {
+                ActionResult::Exit(ExitCode::FAILURE)
+            }
+        }
+        Action::Ignore => ActionResult::Ignored,
+    })
 }
 
 fn get_preview_command(current_dir: &Path) -> String {
