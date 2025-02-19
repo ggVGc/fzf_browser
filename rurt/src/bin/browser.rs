@@ -4,6 +4,7 @@ use clap::Parser;
 use crossterm::event::{KeyCode, KeyModifiers};
 use nucleo::Nucleo;
 use rurt::dir_stack::DirStack;
+use rurt::fuzz::AddItem;
 use rurt::item::Item;
 use rurt::ratui::run;
 use rurt::walk::{stream_content, Mode, ReadOpts, Recursion, MODES, RECURSION};
@@ -126,12 +127,14 @@ fn main() -> Result<ExitCode> {
 
         let config = nucleo::Config::DEFAULT;
         let mut nucleo = Nucleo::<Item>::new(config, Arc::new(|| {}), None, 1);
-        let tx = nucleo.injector();
+        let tx = AddItem::new(nucleo.injector());
+        let tx_copy = tx.clone();
         let here_copy = here.clone();
         let read_opts_copy = read_opts.clone();
-        let streamer = thread::spawn(move || stream_content(tx, here_copy, &read_opts_copy));
+        let streamer = thread::spawn(move || stream_content(tx_copy, here_copy, &read_opts_copy));
 
         let (final_key, item) = run(&mut nucleo)?;
+        tx.cancel();
 
         streamer.join().expect("panic");
 

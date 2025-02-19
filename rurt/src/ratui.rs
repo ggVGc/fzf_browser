@@ -57,10 +57,18 @@ pub fn run(nucleo: &mut Nucleo<Item>) -> Result<(KeyEvent, Option<&Item>)> {
                 snap.item_count()
             )));
             let to_show = u32::from(left_pane_area.height).min(snap.matched_item_count());
-            for (i, item) in snap.matched_items(0..to_show).enumerate() {
+            let mut items = snap
+                .matched_items(0..to_show)
+                .map(|item| item.data)
+                .collect::<Vec<_>>();
+            if input.value().is_empty() {
+                items.sort_unstable();
+            }
+
+            for (i, item) in items.into_iter().enumerate() {
                 lines.push(Line::from(vec![
                     Span::from(if cursor as usize == i { "> " } else { "  " }),
-                    item.data.as_span(),
+                    item.as_span(),
                 ]));
             }
             f.render_widget(Text::from(lines), left_pane_area);
