@@ -306,16 +306,3 @@ fn ensure_directory(p: impl AsRef<Path>) -> Result<PathBuf> {
 
     Ok(canon)
 }
-
-#[cfg(never)]
-fn render_key(key: Key) -> String {
-    use Key::*;
-    match key {
-        Left => "left".to_string(),
-        Right => "right".to_string(),
-
-        Char(c) => format!("{c}"),
-        Ctrl(c) => format!("ctrl-{c}"),
-        other => unimplemented!("no rendering for {other:?}"),
-    }
-}
