@@ -4,7 +4,6 @@ use lscolors::{Colorable, LsColors, Style};
 use once_cell::sync::Lazy;
 use ratatui::prelude::Style as RStyle;
 use ratatui::prelude::*;
-use std::any::Any;
 use std::ffi::OsString;
 use std::fs::FileType;
 use std::path::Path;
@@ -62,7 +61,7 @@ impl Item {
         }
     }
 
-    pub fn as_span(&self) -> Span {
+    pub fn as_span(&self, selected: bool) -> Span {
         let (name, info) = match self {
             Item::WalkError { msg } => {
                 return Span::styled(
@@ -76,8 +75,14 @@ impl Item {
         let name = name.to_string_lossy();
         let lscolors = LS_COLORS.lock().unwrap();
         if let Some(style) = lscolors.style_for(info) {
-            let style = Style::to_crossterm_style(style);
+            let mut style = RStyle::from(Style::to_crossterm_style(style));
+            if selected {
+                use ratatui::prelude::Stylize as _;
+                style = style.on_dark_gray();
+            }
             Span::styled(name, style)
+        } else if selected {
+            Span::styled(name, RStyle::new().on_dark_gray())
         } else {
             Span::from(name)
         }

@@ -133,7 +133,7 @@ fn main() -> Result<ExitCode> {
         let read_opts_copy = read_opts.clone();
         let streamer = thread::spawn(move || stream_content(tx_copy, here_copy, &read_opts_copy));
 
-        let (final_key, item) = run(&mut nucleo)?;
+        let (final_key, item) = run(&mut nucleo, format!("{}> ", here.to_string_lossy()))?;
         tx.cancel();
 
         streamer.join().expect("panic");
