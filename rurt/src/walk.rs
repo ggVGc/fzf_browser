@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use crate::item::{convert, Item};
 use anyhow::Context;
@@ -90,12 +91,11 @@ pub fn stream_rel_content(
         .git_ignore(ignore_files)
         .max_depth(max_depth);
 
-    let files = walk
-        .build()
-        .filter_map(|item| convert(&root, item.context("dir walker")));
-
     if read_opts.sort {
-        let mut files = files.collect::<Vec<_>>();
+        let mut files = walk
+            .build()
+            .filter_map(|item| convert(&root, item.context("dir walker")))
+            .collect::<Vec<_>>();
         files.sort_unstable();
         for item in files {
             if maybe_send(&tx, item) {
@@ -103,10 +103,20 @@ pub fn stream_rel_content(
             }
         }
     } else {
-        for item in files {
-            if maybe_send(&tx, item) {
-                break;
-            }
-        }
+        walk.build_parallel().run(|| {
+            let tx = tx.clone();
+            let root = root.clone();
+            Box::new(move |f: Result<DirEntry, Error>| {
+                if let Some(item) = convert(&root, f.context("parallel walker")) {
+                    if maybe_send(&tx, item) {
+                        WalkState::Quit
+                    } else {
+                        WalkState::Continue
+                    }
+                } else {
+                    WalkState::Continue
+                }
+            })
+        });
     }
 }
