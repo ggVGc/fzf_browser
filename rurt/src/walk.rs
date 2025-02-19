@@ -2,7 +2,8 @@ use std::path::{Path, PathBuf};
 
 use crate::fuzz::AddItem;
 use crate::item::{convert, Item};
-use anyhow::Context;
+
+use anyhow::{Context, Result};
 use ignore::{DirEntry, Error, WalkBuilder, WalkState};
 
 #[derive(Default, Clone)]
@@ -33,7 +34,7 @@ pub enum Recursion {
 
 pub const RECURSION: [Recursion; 2] = [Recursion::None, Recursion::All];
 
-pub fn stream_content(tx: AddItem, src: impl AsRef<Path>, read_opts: &ReadOpts) {
+pub fn stream_content(tx: AddItem, src: impl AsRef<Path>, read_opts: &ReadOpts) -> Result<()> {
     let src = src.as_ref();
     if RECURSION[read_opts.recursion_index] == Recursion::None {
         for exp in &read_opts.expansions {
@@ -41,6 +42,8 @@ pub fn stream_content(tx: AddItem, src: impl AsRef<Path>, read_opts: &ReadOpts) 
         }
     }
     stream_rel_content(tx.clone(), src, src, read_opts);
+
+    Ok(())
 }
 
 pub fn stream_rel_content(

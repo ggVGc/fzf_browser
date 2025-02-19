@@ -2,13 +2,12 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use crate::item::Item;
-use anyhow::Result;
 use nucleo::Injector;
 
 #[derive(Clone)]
 pub struct AddItem {
-    inner: Injector<Item>,
-    cancelled: Arc<AtomicBool>,
+    pub inner: Injector<Item>,
+    pub cancelled: Arc<AtomicBool>,
 }
 
 impl AddItem {

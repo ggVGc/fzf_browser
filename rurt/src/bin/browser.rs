@@ -4,15 +4,16 @@ use clap::Parser;
 use crossterm::event::{KeyCode, KeyModifiers};
 use nucleo::Nucleo;
 use rurt::dir_stack::DirStack;
-use rurt::fuzz::AddItem;
 use rurt::item::Item;
 use rurt::ratui::run;
-use rurt::walk::{stream_content, Mode, ReadOpts, Recursion, MODES, RECURSION};
+use rurt::walk::{Mode, ReadOpts, Recursion, MODES, RECURSION};
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::Arc;
-use std::{fs, thread};
+use std::fs;
+use rurt::App;
+use rurt::store::Store;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -29,12 +30,6 @@ struct Cli {
     /// default: mixed (when non-recursive), files (when recursive)
     #[clap(short, long)]
     mode: Option<Mode>,
-}
-
-struct App {
-    here: PathBuf,
-    dir_stack: DirStack<PathBuf>,
-    read_opts: ReadOpts,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -126,6 +121,10 @@ fn main() -> Result<ExitCode> {
         ),
     ];
 
+    let config = nucleo::Config::DEFAULT;
+    let nucleo = Nucleo::<Item>::new(config, Arc::new(|| {}), None, 1);
+    let mut store = Store::new(nucleo);
+
     loop {
         // options.preview = Some(get_preview_command(&here));
         if app.here.as_os_str().as_encoded_bytes().len()
@@ -139,18 +138,14 @@ fn main() -> Result<ExitCode> {
             app.read_opts.target_dir.clone_from(&app.here);
         }
 
-        let config = nucleo::Config::DEFAULT;
-        let mut nucleo = Nucleo::<Item>::new(config, Arc::new(|| {}), None, 1);
-        let tx = AddItem::new(nucleo.injector());
-        let tx_copy = tx.clone();
-        let here_copy = app.here.clone();
-        let read_opts_copy = app.read_opts.clone();
-        let streamer = thread::spawn(move || stream_content(tx_copy, here_copy, &read_opts_copy));
+        store.start_scan(&app)?;
 
-        let (final_key, item) = run(&mut nucleo, format!("{}> ", app.here.to_string_lossy()))?;
-        tx.cancel();
+        let (final_key, item) = run(&mut store.nucleo, format!("{}> ", app.here.to_string_lossy()))?;
 
-        streamer.join().expect("panic");
+        // as we are just about to blow up the nucleo index uncondintionally
+        let item = item.cloned();
+
+        store.cancel_scan()?;
 
         let picked_action = bindings
             .iter()
@@ -163,7 +158,7 @@ fn main() -> Result<ExitCode> {
             })
             .unwrap_or(Action::Ignore);
 
-        match handle_action(picked_action, &mut app, item)? {
+        match handle_action(picked_action, &mut app, item.as_ref())? {
             ActionResult::Ignored => (),
             ActionResult::Configured => (),
             ActionResult::Navigated => {

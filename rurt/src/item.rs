@@ -14,12 +14,13 @@ static LS_COLORS: Lazy<Mutex<LsColors>> = Lazy::new(|| {
     Mutex::new(colors)
 });
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Clone)]
 pub enum Item {
     FileEntry { name: OsString, info: ItemInfo },
     WalkError { msg: String },
 }
 
+#[derive(Clone)]
 pub struct ItemInfo {
     pub file_type: FileType,
     path: std::path::PathBuf,
