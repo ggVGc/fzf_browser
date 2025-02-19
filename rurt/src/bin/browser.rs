@@ -31,6 +31,12 @@ struct Cli {
     mode: Option<Mode>,
 }
 
+struct App {
+    here: PathBuf,
+    dir_stack: DirStack<PathBuf>,
+    read_opts: ReadOpts,
+}
+
 #[derive(Copy, Clone, PartialEq, Eq)]
 enum Action {
     Default,
@@ -55,24 +61,27 @@ enum Action {
 fn main() -> Result<ExitCode> {
     env_logger::init();
     let cli = Cli::parse();
-    let mut here = fs::canonicalize(cli.start_path).context("start path")?;
-    let mut dir_stack = DirStack::<PathBuf>::default();
+    let here = fs::canonicalize(cli.start_path).context("start path")?;
 
-    let mut read_opts = ReadOpts {
-        target_dir: here.clone(),
-        ..Default::default()
+    let mut app = App {
+        dir_stack: DirStack::default(),
+        read_opts: ReadOpts {
+            target_dir: here.clone(),
+            ..Default::default()
+        },
+        here,
     };
 
     if let Some(mode) = cli.mode {
-        read_opts.mode_index = mode as usize;
+        app.read_opts.mode_index = mode as usize;
     } else if cli.recursive {
-        read_opts.mode_index = Mode::Files as usize;
+        app.read_opts.mode_index = Mode::Files as usize;
     } else {
-        read_opts.mode_index = Mode::Mixed as usize;
+        app.read_opts.mode_index = Mode::Mixed as usize;
     }
 
     if cli.recursive {
-        read_opts.recursion_index = Recursion::All as usize;
+        app.read_opts.recursion_index = Recursion::All as usize;
     }
 
     let bindings = [
@@ -119,21 +128,26 @@ fn main() -> Result<ExitCode> {
 
     loop {
         // options.preview = Some(get_preview_command(&here));
-        if here.as_os_str().as_encoded_bytes().len()
-            < read_opts.target_dir.as_os_str().as_encoded_bytes().len()
+        if app.here.as_os_str().as_encoded_bytes().len()
+            < app
+                .read_opts
+                .target_dir
+                .as_os_str()
+                .as_encoded_bytes()
+                .len()
         {
-            read_opts.target_dir.clone_from(&here);
+            app.read_opts.target_dir.clone_from(&app.here);
         }
 
         let config = nucleo::Config::DEFAULT;
         let mut nucleo = Nucleo::<Item>::new(config, Arc::new(|| {}), None, 1);
         let tx = AddItem::new(nucleo.injector());
         let tx_copy = tx.clone();
-        let here_copy = here.clone();
-        let read_opts_copy = read_opts.clone();
+        let here_copy = app.here.clone();
+        let read_opts_copy = app.read_opts.clone();
         let streamer = thread::spawn(move || stream_content(tx_copy, here_copy, &read_opts_copy));
 
-        let (final_key, item) = run(&mut nucleo, format!("{}> ", here.to_string_lossy()))?;
+        let (final_key, item) = run(&mut nucleo, format!("{}> ", app.here.to_string_lossy()))?;
         tx.cancel();
 
         streamer.join().expect("panic");
@@ -141,6 +155,10 @@ fn main() -> Result<ExitCode> {
         let navigated = |read_opts: &mut ReadOpts| {
             read_opts.expansions.clear();
         };
+
+        let here = &mut app.here;
+        let read_opts = &mut app.read_opts;
+        let dir_stack = &mut app.dir_stack;
 
         match bindings
             .iter()
@@ -156,22 +174,22 @@ fn main() -> Result<ExitCode> {
             Action::Up => {
                 dir_stack.push(here.clone());
                 here.pop();
-                navigated(&mut read_opts);
+                navigated(read_opts);
             }
             Action::Down => {
                 if let Some(Item::FileEntry { name, .. }) = item {
                     if let Ok(cand) = ensure_directory(here.join(name)) {
                         dir_stack.push(here.clone());
-                        here = cand;
-                        navigated(&mut read_opts);
+                        *here = cand;
+                        navigated(read_opts);
                     }
                 }
             }
             Action::Home => {
                 dir_stack.push(here.clone());
-                here = dirs::home_dir()
+                *here = dirs::home_dir()
                     .ok_or_else(|| anyhow!("but you don't even have a home dir"))?;
-                navigated(&mut read_opts);
+                navigated(read_opts);
             }
             Action::CycleSort => {
                 read_opts.sort = !read_opts.sort;
@@ -211,23 +229,23 @@ fn main() -> Result<ExitCode> {
             }
             Action::DirBack => {
                 if let Some(dir) = dir_stack.back(here.clone()) {
-                    here = dir;
-                    navigated(&mut read_opts);
+                    *here = dir;
+                    navigated(read_opts);
                 }
             }
             Action::DirForward => {
                 if let Some(buf) = dir_stack.forward() {
-                    here = buf;
-                    navigated(&mut read_opts);
+                    *here = buf;
+                    navigated(read_opts);
                 }
             }
             Action::Abort => return Ok(ExitCode::FAILURE),
             Action::Default => {
                 if let Some(Item::FileEntry { name, .. }) = item {
                     if let Ok(cand) = ensure_directory(here.join(name)) {
-                        dir_stack.push(here);
-                        here = cand;
-                        navigated(&mut read_opts);
+                        dir_stack.push(here.to_path_buf());
+                        *here = cand;
+                        navigated(read_opts);
                         // options.query = None;
                     } else {
                         println!("{}", here.join(name).to_string_lossy());
