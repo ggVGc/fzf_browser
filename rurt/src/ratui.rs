@@ -121,7 +121,12 @@ fn draw_listing(f: &mut Frame, ui: &mut Ui, snap: &Snapshot<Item>, area: Rect) {
 
     let mut lines = Vec::new();
     lines.push(Line::styled(
-        format!("{} {}/{}", ui.active, snap.matched_item_count(), snap.item_count()),
+        format!(
+            "{} {}/{}",
+            if ui.active { "S" } else { " " },
+            snap.matched_item_count(),
+            snap.item_count()
+        ),
         Style::new().light_yellow(),
     ));
     let to_show = u32::from(area.height).min(snap.matched_item_count());
