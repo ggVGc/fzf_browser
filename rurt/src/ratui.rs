@@ -1,24 +1,28 @@
+use crate::action::{handle_action, matches_binding, ActionResult};
 use crate::item::Item;
+use crate::store::Store;
+use crate::App;
 use anyhow::Result;
 use crossterm::event;
-use crossterm::event::{Event, KeyCode, KeyEvent};
+use crossterm::event::Event;
 use nucleo::pattern::{CaseMatching, Normalization};
-use nucleo::{Nucleo, Snapshot};
+use nucleo::Snapshot;
 use ratatui::prelude::*;
 use ratatui::widgets::Paragraph;
 use std::ops::Deref;
+use std::process::ExitCode;
 use std::time::Duration;
 use tui_input::backend::crossterm::to_input_request;
 use tui_input::Input;
 
-struct Ui {
+pub struct Ui {
     input: Input,
-    cursor: u32,
-    prompt: String,
+    pub cursor: u32,
+    pub prompt: String,
 }
 
-pub fn run(nucleo: &mut Nucleo<Item>, prompt: impl ToString) -> Result<(KeyEvent, Option<Item>)> {
-    let prompt = prompt.to_string();
+pub fn run(store: &mut Store, app: &mut App) -> Result<(Option<String>, ExitCode)> {
+    let prompt = format!("{}> ", app.here.display());
     let mut terminal = ratatui::try_init()?;
     let _restore = DropRestore {};
 
@@ -28,10 +32,14 @@ pub fn run(nucleo: &mut Nucleo<Item>, prompt: impl ToString) -> Result<(KeyEvent
         prompt,
     };
 
-    loop {
-        nucleo.tick(10);
+    store.start_scan(&app)?;
 
-        let snap = nucleo.snapshot();
+    loop {
+        maybe_update_target_dir(app);
+
+        store.nucleo.tick(10);
+
+        let snap = store.nucleo.snapshot();
 
         terminal.draw(|f| draw_ui(f, &mut ui, snap))?;
 
@@ -40,33 +48,35 @@ pub fn run(nucleo: &mut Nucleo<Item>, prompt: impl ToString) -> Result<(KeyEvent
         }
 
         let ev = event::read()?;
-        if let Some(req) = to_input_request(&ev) {
-            if ui.input.handle(req).map(|v| v.value).unwrap_or_default() {
-                nucleo.pattern.reparse(
-                    0,
-                    ui.input.value(),
-                    CaseMatching::Ignore,
-                    Normalization::Smart,
-                    false,
-                );
-            }
-            continue;
-        }
 
-        match ev {
-            Event::Key(key) if key.code == KeyCode::Up => {
-                ui.cursor = ui.cursor.saturating_sub(1);
+        let binding_action = match ev {
+            Event::Key(key) => matches_binding(&app.bindings, key),
+            _ => None,
+        };
+
+        match binding_action {
+            Some(action) => match handle_action(action, app, &mut ui, snap)? {
+                ActionResult::Ignored => (),
+                ActionResult::Configured => (),
+                ActionResult::Navigated => {
+                    app.read_opts.expansions.clear();
+                    store.start_scan(app)?;
+                }
+                ActionResult::Exit(msg, code) => return Ok((msg, code)),
+            },
+            None => {
+                if let Some(req) = to_input_request(&ev) {
+                    if ui.input.handle(req).map(|v| v.value).unwrap_or_default() {
+                        store.nucleo.pattern.reparse(
+                            0,
+                            ui.input.value(),
+                            CaseMatching::Ignore,
+                            Normalization::Smart,
+                            false,
+                        );
+                    }
+                }
             }
-            Event::Key(key) if key.code == KeyCode::Down => {
-                ui.cursor = ui.cursor.saturating_add(1);
-            }
-            Event::Key(key) => {
-                let item = snap
-                    .get_matched_item(ui.cursor.min(snap.matched_item_count()))
-                    .map(|item| item.data.clone());
-                return Ok((key, item));
-            }
-            _ => (),
         }
     }
 }
@@ -184,5 +194,18 @@ struct DropRestore {}
 impl Drop for DropRestore {
     fn drop(&mut self) {
         ratatui::restore();
+    }
+}
+
+fn maybe_update_target_dir(app: &mut App) {
+    if app.here.as_os_str().as_encoded_bytes().len()
+        < app
+            .read_opts
+            .target_dir
+            .as_os_str()
+            .as_encoded_bytes()
+            .len()
+    {
+        app.read_opts.target_dir.clone_from(&app.here);
     }
 }

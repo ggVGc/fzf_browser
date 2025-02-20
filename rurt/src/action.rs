@@ -1,20 +1,25 @@
+use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use anyhow::{anyhow, bail};
-
 use crate::item::Item;
+use crate::ratui::Ui;
 use crate::walk::{MODES, RECURSION};
 use crate::App;
+use anyhow::{anyhow, bail};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use nucleo::Snapshot;
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Action {
     Default,
     Ignore,
     Up,
     Down,
     Home,
+    // positive is *flips coin* towards the bottom of the screen
+    MoveCursor(i32),
     CycleSort,
     CycleHidden,
     CycleIgnored,
@@ -33,19 +38,22 @@ pub enum ActionResult {
     Ignored,
     Navigated,
     Configured,
-    Exit(ExitCode),
+    Exit(Option<String>, ExitCode),
 }
 
 pub fn handle_action(
-    axion: Action,
+    action: Action,
     app: &mut App,
-    item: Option<&Item>,
+    ui: &mut Ui,
+    snap: &Snapshot<Item>,
 ) -> anyhow::Result<ActionResult> {
     let here = &mut app.here;
     let read_opts = &mut app.read_opts;
     let dir_stack = &mut app.dir_stack;
 
-    Ok(match axion {
+    let item = snap.get_matched_item(ui.cursor).map(|item| item.data);
+
+    Ok(match action {
         Action::Up => {
             dir_stack.push(here.clone());
             here.pop();
@@ -60,6 +68,10 @@ pub fn handle_action(
                 }
             }
             ActionResult::Ignored
+        }
+        Action::MoveCursor(delta) => {
+            ui.cursor = u32::try_from((ui.cursor as i32) + delta).unwrap_or(0);
+            ActionResult::Configured
         }
         Action::Home => {
             dir_stack.push(here.clone());
@@ -130,7 +142,7 @@ pub fn handle_action(
                 ActionResult::Ignored
             }
         }
-        Action::Abort => ActionResult::Exit(ExitCode::FAILURE),
+        Action::Abort => ActionResult::Exit(None, ExitCode::FAILURE),
         Action::Default => {
             if let Some(Item::FileEntry { name, .. }) = item {
                 if let Ok(cand) = ensure_directory(here.join(name)) {
@@ -138,11 +150,13 @@ pub fn handle_action(
                     *here = cand;
                     ActionResult::Navigated
                 } else {
-                    println!("{}", here.join(name).to_string_lossy());
-                    ActionResult::Exit(ExitCode::SUCCESS)
+                    ActionResult::Exit(
+                        Some(here.join(name).display().to_string()),
+                        ExitCode::SUCCESS,
+                    )
                 }
             } else {
-                ActionResult::Exit(ExitCode::FAILURE)
+                ActionResult::Exit(None, ExitCode::FAILURE)
             }
         }
         Action::Ignore => ActionResult::Ignored,
@@ -156,4 +170,17 @@ fn ensure_directory(p: impl AsRef<Path>) -> anyhow::Result<PathBuf> {
     }
 
     Ok(canon)
+}
+
+pub fn matches_binding(
+    bindings: &[(KeyModifiers, KeyCode, Action)],
+    final_key: KeyEvent,
+) -> Option<Action> {
+    bindings.iter().find_map(|(modifier, key, action)| {
+        if final_key.code == *key && final_key.modifiers == *modifier {
+            Some(*action)
+        } else {
+            None
+        }
+    })
 }

@@ -3,7 +3,7 @@ use anyhow::Result;
 use clap::Parser;
 use crossterm::event::{KeyCode, KeyModifiers};
 use nucleo::Nucleo;
-use rurt::action::{handle_action, Action, ActionResult};
+use rurt::action::Action;
 use rurt::dir_stack::DirStack;
 use rurt::item::Item;
 use rurt::ratui::run;
@@ -46,6 +46,8 @@ fn main() -> Result<ExitCode> {
         (KeyModifiers::CONTROL, KeyCode::Char('h'), Action::Up),
         (KeyModifiers::NONE, KeyCode::Right, Action::Down),
         (KeyModifiers::CONTROL, KeyCode::Char('l'), Action::Down),
+        (KeyModifiers::NONE, KeyCode::Up, Action::MoveCursor(-1)),
+        (KeyModifiers::NONE, KeyCode::Down, Action::MoveCursor(1)),
         (KeyModifiers::CONTROL, KeyCode::Char('d'), Action::Home),
         (KeyModifiers::CONTROL, KeyCode::Char('s'), Action::CycleSort),
         (
@@ -109,52 +111,11 @@ fn main() -> Result<ExitCode> {
         1,
     ));
 
-    loop {
-        maybe_update_target_dir(&mut app);
-
-        store.start_scan(&app)?;
-
-        let (final_key, item) = run(
-            &mut store.nucleo,
-            format!("{}> ", app.here.to_string_lossy()),
-        )?;
-
-        store.cancel_scan()?;
-
-        let picked_action = app
-            .bindings
-            .iter()
-            .find_map(|(modifier, key, action)| {
-                if final_key.code == *key && final_key.modifiers == *modifier {
-                    Some(*action)
-                } else {
-                    None
-                }
-            })
-            .unwrap_or(Action::Ignore);
-
-        match handle_action(picked_action, &mut app, item.as_ref())? {
-            ActionResult::Ignored => (),
-            ActionResult::Configured => (),
-            ActionResult::Navigated => {
-                app.read_opts.expansions.clear();
-            }
-            ActionResult::Exit(code) => return Ok(code),
-        }
+    let (msg, code) = run(&mut store, &mut app)?;
+    if let Some(msg) = msg {
+        println!("{}", msg);
     }
-}
-
-fn maybe_update_target_dir(app: &mut App) {
-    if app.here.as_os_str().as_encoded_bytes().len()
-        < app
-            .read_opts
-            .target_dir
-            .as_os_str()
-            .as_encoded_bytes()
-            .len()
-    {
-        app.read_opts.target_dir.clone_from(&app.here);
-    }
+    Ok(code)
 }
 
 fn get_preview_command(current_dir: &Path) -> String {
