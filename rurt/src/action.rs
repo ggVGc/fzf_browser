@@ -1,4 +1,3 @@
-use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -85,19 +84,19 @@ pub fn handle_action(
         }
         Action::CycleHidden => {
             read_opts.show_hidden = !read_opts.show_hidden;
-            ActionResult::Configured
+            ActionResult::Navigated
         }
         Action::CycleIgnored => {
             read_opts.show_ignored = !read_opts.show_ignored;
-            ActionResult::Configured
+            ActionResult::Navigated
         }
         Action::CycleMode => {
             read_opts.mode_index = (read_opts.mode_index + 1) % MODES.len();
-            ActionResult::Configured
+            ActionResult::Navigated
         }
         Action::CycleRecursion => {
             read_opts.recursion_index = (read_opts.recursion_index + 1) % RECURSION.len();
-            ActionResult::Configured
+            ActionResult::Navigated
         }
         Action::TogglePreview => {
             /*

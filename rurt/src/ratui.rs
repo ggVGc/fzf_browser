@@ -22,14 +22,13 @@ pub struct Ui {
 }
 
 pub fn run(store: &mut Store, app: &mut App) -> Result<(Option<String>, ExitCode)> {
-    let prompt = format!("{}> ", app.here.display());
     let mut terminal = ratatui::try_init()?;
     let _restore = DropRestore {};
 
     let mut ui = Ui {
         input: Input::default(),
         cursor: 0,
-        prompt,
+        prompt: format!("{}> ", app.here.display()),
     };
 
     store.start_scan(&app)?;
@@ -60,6 +59,7 @@ pub fn run(store: &mut Store, app: &mut App) -> Result<(Option<String>, ExitCode
                 ActionResult::Configured => (),
                 ActionResult::Navigated => {
                     app.read_opts.expansions.clear();
+                    ui.prompt = format!("{}> ", app.here.display());
                     store.start_scan(app)?;
                 }
                 ActionResult::Exit(msg, code) => return Ok((msg, code)),
