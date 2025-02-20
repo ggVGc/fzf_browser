@@ -33,9 +33,15 @@ pub enum Action {
 }
 
 pub enum ActionResult {
+    /// didn't do anything relevant
     Ignored,
+    /// changed 'here', clear state and rescan
     Navigated,
+    /// changed some scan state, rescan but don't clear
+    JustRescan,
+    /// changed some config state, don't rescan
     Configured,
+    /// we're done, print something and bail
     Exit(Option<String>, ExitCode),
 }
 
@@ -115,7 +121,7 @@ pub fn handle_action(
         Action::Expand => {
             if let Some(Item::FileEntry { name, .. }) = item {
                 read_opts.expansions.push(here.join(name));
-                ActionResult::Navigated
+                ActionResult::JustRescan
             } else {
                 ActionResult::Ignored
             }

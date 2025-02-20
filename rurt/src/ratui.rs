@@ -20,6 +20,7 @@ pub struct Ui {
     pub input: Input,
     pub cursor: u32,
     pub prompt: String,
+    pub active: bool,
 }
 
 pub fn run(store: &mut Store, app: &mut App) -> Result<(Option<String>, ExitCode)> {
@@ -30,6 +31,7 @@ pub fn run(store: &mut Store, app: &mut App) -> Result<(Option<String>, ExitCode
         input: Input::default(),
         cursor: 0,
         prompt: format!("{}> ", app.here.display()),
+        active: true,
     };
 
     store.start_scan(&app)?;
@@ -41,9 +43,11 @@ pub fn run(store: &mut Store, app: &mut App) -> Result<(Option<String>, ExitCode
 
         let snap = store.nucleo.snapshot();
 
+        ui.active = store.is_scanning();
+
         terminal.draw(|f| draw_ui(f, &mut ui, snap))?;
 
-        if !event::poll(Duration::from_millis(30))? {
+        if !event::poll(Duration::from_millis(if ui.active { 5 } else { 90 }))? {
             continue;
         }
 
@@ -63,6 +67,7 @@ pub fn run(store: &mut Store, app: &mut App) -> Result<(Option<String>, ExitCode
                     ui.prompt = format!("{}> ", app.here.display());
                     store.start_scan(app)?;
                 }
+                ActionResult::JustRescan => store.start_scan(app)?,
                 ActionResult::Exit(msg, code) => return Ok((msg, code)),
             },
             None => {
@@ -116,7 +121,7 @@ fn draw_listing(f: &mut Frame, ui: &mut Ui, snap: &Snapshot<Item>, area: Rect) {
 
     let mut lines = Vec::new();
     lines.push(Line::styled(
-        format!("{}/{}", snap.matched_item_count(), snap.item_count()),
+        format!("{} {}/{}", ui.active, snap.matched_item_count(), snap.item_count()),
         Style::new().light_yellow(),
     ));
     let to_show = u32::from(area.height).min(snap.matched_item_count());
@@ -139,7 +144,13 @@ fn draw_listing(f: &mut Frame, ui: &mut Ui, snap: &Snapshot<Item>, area: Rect) {
 }
 
 #[inline]
-pub fn item_range(snap: &Snapshot<Item>, start: u32, end: u32, sort: bool) -> Vec<&Item> {
+pub fn item_range(snap: &Snapshot<Item>, start: u32, mut end: u32, sort: bool) -> Vec<&Item> {
+    if end > snap.matched_item_count() {
+        end = snap.matched_item_count();
+    }
+    if start >= end {
+        return Vec::new();
+    }
     if !sort {
         snap.matched_items(start..end)
             .map(|item| item.data)

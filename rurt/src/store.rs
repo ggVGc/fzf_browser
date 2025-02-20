@@ -49,6 +49,10 @@ impl Store {
 
         Ok(())
     }
+    
+    pub fn is_scanning(&self) -> bool {
+        self.current_scan.as_ref().map(|scan| !scan.handle.is_finished()).unwrap_or(false)
+    }
 
     pub fn cancel_scan(&mut self) -> Result<()> {
         if let Some(scan) = self.current_scan.take() {
