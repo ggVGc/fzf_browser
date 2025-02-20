@@ -6,14 +6,14 @@ use nucleo::Nucleo;
 use rurt::dir_stack::DirStack;
 use rurt::item::Item;
 use rurt::ratui::run;
+use rurt::store::Store;
 use rurt::walk::{Mode, ReadOpts, Recursion, MODES, RECURSION};
+use rurt::App;
 use std::ffi::OsString;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::Arc;
-use std::fs;
-use rurt::App;
-use rurt::store::Store;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -121,9 +121,12 @@ fn main() -> Result<ExitCode> {
         ),
     ];
 
-    let config = nucleo::Config::DEFAULT;
-    let nucleo = Nucleo::<Item>::new(config, Arc::new(|| {}), None, 1);
-    let mut store = Store::new(nucleo);
+    let mut store = Store::new(Nucleo::<Item>::new(
+        nucleo::Config::DEFAULT,
+        Arc::new(|| {}),
+        None,
+        1,
+    ));
 
     loop {
         // options.preview = Some(get_preview_command(&here));
@@ -140,7 +143,10 @@ fn main() -> Result<ExitCode> {
 
         store.start_scan(&app)?;
 
-        let (final_key, item) = run(&mut store.nucleo, format!("{}> ", app.here.to_string_lossy()))?;
+        let (final_key, item) = run(
+            &mut store.nucleo,
+            format!("{}> ", app.here.to_string_lossy()),
+        )?;
 
         // as we are just about to blow up the nucleo index uncondintionally
         let item = item.cloned();

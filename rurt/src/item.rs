@@ -160,9 +160,3 @@ fn convert_resolution(root: impl AsRef<Path>, f: Result<DirEntry>) -> Result<Opt
         Ok(None)
     }
 }
-
-#[cfg(never)]
-fn colour_whole(s: String, attr: impl Into<Attr>) -> AnsiString<'static> {
-    let whole = (0, s.len() as u32);
-    AnsiString::new_string(s, vec![(attr.into(), whole)])
-}
