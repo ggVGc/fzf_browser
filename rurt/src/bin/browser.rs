@@ -49,7 +49,6 @@ fn main() -> Result<ExitCode> {
         (KeyModifiers::NONE, KeyCode::Up, Action::MoveCursor(-1)),
         (KeyModifiers::NONE, KeyCode::Down, Action::MoveCursor(1)),
         (KeyModifiers::CONTROL, KeyCode::Char('d'), Action::Home),
-        (KeyModifiers::CONTROL, KeyCode::Char('s'), Action::CycleSort),
         (
             KeyModifiers::CONTROL,
             KeyCode::Char('a'),
@@ -74,6 +73,8 @@ fn main() -> Result<ExitCode> {
         ),
         (KeyModifiers::CONTROL, KeyCode::Char('t'), Action::SetTarget),
         (KeyModifiers::CONTROL, KeyCode::Char('g'), Action::Open),
+        (KeyModifiers::CONTROL, KeyCode::Char('c'), Action::Abort),
+        (KeyModifiers::NONE, KeyCode::Esc, Action::Abort),
         (KeyModifiers::CONTROL, KeyCode::Char('o'), Action::DirBack),
         (
             KeyModifiers::CONTROL,

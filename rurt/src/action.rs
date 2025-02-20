@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use crate::item::Item;
-use crate::ratui::Ui;
+use crate::ratui::{item_range, Ui};
 use crate::walk::{MODES, RECURSION};
 use crate::App;
 use anyhow::{anyhow, bail};
@@ -19,7 +19,6 @@ pub enum Action {
     Home,
     // positive is *flips coin* towards the bottom of the screen
     MoveCursor(i32),
-    CycleSort,
     CycleHidden,
     CycleIgnored,
     CycleMode,
@@ -50,7 +49,7 @@ pub fn handle_action(
     let read_opts = &mut app.read_opts;
     let dir_stack = &mut app.dir_stack;
 
-    let item = snap.get_matched_item(ui.cursor).map(|item| item.data);
+    let item = item_range(snap, ui.cursor, ui.cursor + 1, ui.input.value().is_empty()).pop();
 
     Ok(match action {
         Action::Up => {
@@ -77,10 +76,6 @@ pub fn handle_action(
             *here =
                 dirs::home_dir().ok_or_else(|| anyhow!("but you don't even have a home dir"))?;
             ActionResult::Navigated
-        }
-        Action::CycleSort => {
-            read_opts.sort = !read_opts.sort;
-            ActionResult::Configured
         }
         Action::CycleHidden => {
             read_opts.show_hidden = !read_opts.show_hidden;

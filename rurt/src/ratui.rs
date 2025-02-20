@@ -5,6 +5,7 @@ use crate::App;
 use anyhow::Result;
 use crossterm::event;
 use crossterm::event::Event;
+use itertools::Itertools;
 use nucleo::pattern::{CaseMatching, Normalization};
 use nucleo::Snapshot;
 use ratatui::prelude::*;
@@ -16,7 +17,7 @@ use tui_input::backend::crossterm::to_input_request;
 use tui_input::Input;
 
 pub struct Ui {
-    input: Input,
+    pub input: Input,
     pub cursor: u32,
     pub prompt: String,
 }
@@ -119,13 +120,7 @@ fn draw_listing(f: &mut Frame, ui: &mut Ui, snap: &Snapshot<Item>, area: Rect) {
         Style::new().light_yellow(),
     ));
     let to_show = u32::from(area.height).min(snap.matched_item_count());
-    let mut items = snap
-        .matched_items(0..to_show)
-        .map(|item| item.data)
-        .collect::<Vec<_>>();
-    if ui.input.value().is_empty() {
-        items.sort_unstable();
-    }
+    let items = item_range(snap, 0, to_show, ui.input.value().is_empty());
 
     for (i, item) in items.into_iter().enumerate() {
         let mut spans = Vec::new();
@@ -141,6 +136,22 @@ fn draw_listing(f: &mut Frame, ui: &mut Ui, snap: &Snapshot<Item>, area: Rect) {
         lines.push(Line::from(spans));
     }
     f.render_widget(Text::from(lines), area);
+}
+
+#[inline]
+pub fn item_range(snap: &Snapshot<Item>, start: u32, end: u32, sort: bool) -> Vec<&Item> {
+    if !sort {
+        snap.matched_items(start..end)
+            .map(|item| item.data)
+            .collect()
+    } else {
+        snap.matched_items(0..snap.matched_item_count())
+            .map(|item| item.data)
+            .sorted()
+            .skip(start as usize)
+            .take((end - start) as usize)
+            .collect()
+    }
 }
 
 fn draw_input_line(f: &mut Frame, prompt: &str, input: &mut Input, input_line_area: Rect) {
