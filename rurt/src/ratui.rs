@@ -3,7 +3,7 @@ use anyhow::Result;
 use crossterm::event;
 use crossterm::event::{Event, KeyCode, KeyEvent};
 use nucleo::pattern::{CaseMatching, Normalization};
-use nucleo::Nucleo;
+use nucleo::{Nucleo, Snapshot};
 use ratatui::prelude::*;
 use ratatui::widgets::Paragraph;
 use std::ops::Deref;
@@ -14,53 +14,28 @@ use tui_input::Input;
 struct Ui {
     input: Input,
     cursor: u32,
+    prompt: String,
 }
 
-pub fn run(
-    nucleo: &mut Nucleo<Item>,
-    prompt: impl AsRef<str>,
-) -> Result<(KeyEvent, Option<&Item>)> {
-    let prompt = prompt.as_ref();
+pub fn run(nucleo: &mut Nucleo<Item>, prompt: impl ToString) -> Result<(KeyEvent, Option<Item>)> {
+    let prompt = prompt.to_string();
     let mut terminal = ratatui::try_init()?;
     let _restore = DropRestore {};
 
     let mut ui = Ui {
         input: Input::default(),
         cursor: 0,
+        prompt,
     };
 
     loop {
-        terminal.draw(|f| {
-            let [input_line_area, main_app_area] = Layout::default()
-                .direction(Direction::Vertical)
-                .constraints(&[Constraint::Length(1), Constraint::Min(0)])
-                .split(f.area())
-                .deref()
-                .try_into()
-                .expect("static constraints");
-
-            let [left_pane_area, divider_area, right_pane_area] = Layout::default()
-                .direction(Direction::Horizontal)
-                .constraints(&[
-                    Constraint::Percentage(50),
-                    Constraint::Length(1),
-                    Constraint::Percentage(50),
-                ])
-                .split(main_app_area)
-                .deref()
-                .try_into()
-                .expect("static constraints");
-
-            draw_input_line(f, prompt, &mut ui.input, input_line_area);
-
-            draw_listing(f, &mut ui, nucleo, left_pane_area);
-            draw_divider(f, divider_area);
-            draw_preview(f, right_pane_area);
-        })?;
-
         nucleo.tick(10);
 
-        if !event::poll(Duration::from_millis(6))? {
+        let snap = nucleo.snapshot();
+
+        terminal.draw(|f| draw_ui(f, &mut ui, snap))?;
+
+        if !event::poll(Duration::from_millis(30))? {
             continue;
         }
 
@@ -86,11 +61,9 @@ pub fn run(
                 ui.cursor = ui.cursor.saturating_add(1);
             }
             Event::Key(key) => {
-                let snap = nucleo.snapshot();
-
                 let item = snap
                     .get_matched_item(ui.cursor.min(snap.matched_item_count()))
-                    .map(|item| item.data);
+                    .map(|item| item.data.clone());
                 return Ok((key, item));
             }
             _ => (),
@@ -98,9 +71,35 @@ pub fn run(
     }
 }
 
-fn draw_listing(f: &mut Frame, ui: &mut Ui, nucleo: &mut Nucleo<Item>, area: Rect) {
-    let snap = nucleo.snapshot();
+fn draw_ui(f: &mut Frame, mut ui: &mut Ui, snap: &Snapshot<Item>) {
+    let [input_line_area, main_app_area] = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(&[Constraint::Length(1), Constraint::Min(0)])
+        .split(f.area())
+        .deref()
+        .try_into()
+        .expect("static constraints");
 
+    let [left_pane_area, divider_area, right_pane_area] = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints(&[
+            Constraint::Percentage(50),
+            Constraint::Length(1),
+            Constraint::Percentage(50),
+        ])
+        .split(main_app_area)
+        .deref()
+        .try_into()
+        .expect("static constraints");
+
+    draw_input_line(f, &ui.prompt, &mut ui.input, input_line_area);
+
+    draw_listing(f, &mut ui, snap, left_pane_area);
+    draw_divider(f, divider_area);
+    draw_preview(f, right_pane_area);
+}
+
+fn draw_listing(f: &mut Frame, ui: &mut Ui, snap: &Snapshot<Item>, area: Rect) {
     // TODO: not correct; allows positioning one past the end
     ui.cursor = ui.cursor.min(snap.matched_item_count());
 

@@ -110,17 +110,7 @@ fn main() -> Result<ExitCode> {
     ));
 
     loop {
-        // options.preview = Some(get_preview_command(&here));
-        if app.here.as_os_str().as_encoded_bytes().len()
-            < app
-                .read_opts
-                .target_dir
-                .as_os_str()
-                .as_encoded_bytes()
-                .len()
-        {
-            app.read_opts.target_dir.clone_from(&app.here);
-        }
+        maybe_update_target_dir(&mut app);
 
         store.start_scan(&app)?;
 
@@ -128,9 +118,6 @@ fn main() -> Result<ExitCode> {
             &mut store.nucleo,
             format!("{}> ", app.here.to_string_lossy()),
         )?;
-
-        // as we are just about to blow up the nucleo index uncondintionally
-        let item = item.cloned();
 
         store.cancel_scan()?;
 
@@ -154,6 +141,19 @@ fn main() -> Result<ExitCode> {
             }
             ActionResult::Exit(code) => return Ok(code),
         }
+    }
+}
+
+fn maybe_update_target_dir(app: &mut App) {
+    if app.here.as_os_str().as_encoded_bytes().len()
+        < app
+            .read_opts
+            .target_dir
+            .as_os_str()
+            .as_encoded_bytes()
+            .len()
+    {
+        app.read_opts.target_dir.clone_from(&app.here);
     }
 }
 
