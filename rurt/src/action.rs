@@ -55,7 +55,7 @@ pub fn handle_action(
     let read_opts = &mut app.read_opts;
     let dir_stack = &mut app.dir_stack;
 
-    let item = item_range(snap, ui.cursor, ui.cursor + 1, ui.input.value().is_empty()).pop();
+    let item = item_range(snap, ui.cursor, ui.cursor + 1, ui).pop();
 
     Ok(match action {
         Action::Up => {

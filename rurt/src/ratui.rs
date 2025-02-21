@@ -5,7 +5,6 @@ use crate::App;
 use anyhow::Result;
 use crossterm::event;
 use crossterm::event::Event;
-use itertools::Itertools;
 use nucleo::pattern::{CaseMatching, Normalization};
 use nucleo::Snapshot;
 use ratatui::prelude::*;
@@ -21,6 +20,7 @@ pub struct Ui {
     pub cursor: u32,
     pub prompt: String,
     pub active: bool,
+    pub sorted_items: Vec<u32>,
 }
 
 pub fn run(store: &mut Store, app: &mut App) -> Result<(Option<String>, ExitCode)> {
@@ -32,6 +32,7 @@ pub fn run(store: &mut Store, app: &mut App) -> Result<(Option<String>, ExitCode
         cursor: 0,
         prompt: format!("{}> ", app.here.display()),
         active: true,
+        sorted_items: Vec::new(),
     };
 
     store.start_scan(&app)?;
@@ -65,9 +66,13 @@ pub fn run(store: &mut Store, app: &mut App) -> Result<(Option<String>, ExitCode
                 ActionResult::Navigated => {
                     app.read_opts.expansions.clear();
                     ui.prompt = format!("{}> ", app.here.display());
+                    ui.sorted_items.clear();
                     store.start_scan(app)?;
                 }
-                ActionResult::JustRescan => store.start_scan(app)?,
+                ActionResult::JustRescan => {
+                    ui.sorted_items.clear();
+                    store.start_scan(app)?;
+                }
                 ActionResult::Exit(msg, code) => return Ok((msg, code)),
             },
             None => {
@@ -130,7 +135,7 @@ fn draw_listing(f: &mut Frame, ui: &mut Ui, snap: &Snapshot<Item>, area: Rect) {
         Style::new().light_yellow(),
     ));
     let to_show = u32::from(area.height).min(snap.matched_item_count());
-    let items = item_range(snap, 0, to_show, ui.input.value().is_empty());
+    let items = item_range(snap, 0, to_show, ui);
 
     for (i, item) in items.into_iter().enumerate() {
         let mut spans = Vec::new();
@@ -149,23 +154,37 @@ fn draw_listing(f: &mut Frame, ui: &mut Ui, snap: &Snapshot<Item>, area: Rect) {
 }
 
 #[inline]
-pub fn item_range(snap: &Snapshot<Item>, start: u32, mut end: u32, sort: bool) -> Vec<&Item> {
+pub fn item_range<'s>(
+    snap: &'s Snapshot<Item>,
+    start: u32,
+    mut end: u32,
+    ui: &mut Ui,
+) -> Vec<&'s Item> {
     if end > snap.matched_item_count() {
         end = snap.matched_item_count();
     }
     if start >= end {
         return Vec::new();
     }
+    let sort = ui.input.value().is_empty();
     if !sort {
         snap.matched_items(start..end)
             .map(|item| item.data)
             .collect()
     } else {
-        snap.matched_items(0..snap.matched_item_count())
-            .map(|item| item.data)
-            .sorted()
-            .skip(start as usize)
-            .take((end - start) as usize)
+        let real_end = snap.item_count();
+        let cache_end = ui.sorted_items.len() as u32;
+        let could_extend = real_end > cache_end;
+        let should_extend = end * 2 > cache_end || real_end % 1024 == 0;
+        if could_extend && should_extend {
+            ui.sorted_items.extend(cache_end..real_end);
+            ui.sorted_items
+                .sort_unstable_by_key(|&i| snap.get_item(i).expect("<end").data);
+        }
+
+        ui.sorted_items[start as usize..end as usize]
+            .into_iter()
+            .map(|&i| snap.get_item(i).expect("<end").data)
             .collect()
     }
 }
