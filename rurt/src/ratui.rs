@@ -1,5 +1,6 @@
 use crate::action::{handle_action, matches_binding, ActionResult};
 use crate::item::Item;
+use crate::preview::{run_preview, Preview};
 use crate::store::Store;
 use crate::App;
 use anyhow::Result;
@@ -10,7 +11,9 @@ use nucleo::Snapshot;
 use ratatui::prelude::*;
 use ratatui::widgets::Paragraph;
 use std::ops::Deref;
+use std::path::PathBuf;
 use std::process::ExitCode;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tui_input::backend::crossterm::to_input_request;
 use tui_input::Input;
@@ -21,6 +24,7 @@ pub struct Ui {
     pub prompt: String,
     pub active: bool,
     pub sorted_items: Vec<u32>,
+    pub preview: Preview,
 }
 
 pub fn run(store: &mut Store, app: &mut App) -> Result<(Option<String>, ExitCode)> {
@@ -33,6 +37,11 @@ pub fn run(store: &mut Store, app: &mut App) -> Result<(Option<String>, ExitCode
         prompt: format!("{}> ", app.here.display()),
         active: true,
         sorted_items: Vec::new(),
+        preview: Preview {
+            showing: PathBuf::new(),
+            content: Arc::new(Mutex::new(Vec::new())),
+            worker: None,
+        },
     };
 
     store.start_scan(&app)?;
@@ -60,21 +69,42 @@ pub fn run(store: &mut Store, app: &mut App) -> Result<(Option<String>, ExitCode
         };
 
         match binding_action {
-            Some(action) => match handle_action(action, app, &mut ui, snap)? {
-                ActionResult::Ignored => (),
-                ActionResult::Configured => (),
-                ActionResult::Navigated => {
-                    app.read_opts.expansions.clear();
-                    ui.prompt = format!("{}> ", app.here.display());
-                    ui.sorted_items.clear();
-                    store.start_scan(app)?;
+            Some(action) => {
+                let (action, item) = handle_action(action, app, &mut ui, snap)?;
+                match action {
+                    ActionResult::Ignored => (),
+                    ActionResult::Configured => {
+                        if let Some(item) = item {
+                            if let Some(path) = item.path() {
+                                if ui.preview.showing != path {
+                                    ui.preview.showing = path.to_owned();
+                                    ui.preview.content = Arc::new(Mutex::new(Vec::new()));
+                                    let write_to = Arc::clone(&ui.preview.content);
+                                    let path = path.to_owned();
+                                    std::thread::spawn(move || {
+                                        if let Err(e) = run_preview(&path, Arc::clone(&write_to)) {
+                                            write_to.lock().expect("panic").extend_from_slice(
+                                                format!("Error: {}\n", e).as_bytes(),
+                                            );
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                    }
+                    ActionResult::Navigated => {
+                        app.read_opts.expansions.clear();
+                        ui.prompt = format!("{}> ", app.here.display());
+                        ui.sorted_items.clear();
+                        store.start_scan(app)?;
+                    }
+                    ActionResult::JustRescan => {
+                        ui.sorted_items.clear();
+                        store.start_scan(app)?;
+                    }
+                    ActionResult::Exit(msg, code) => return Ok((msg, code)),
                 }
-                ActionResult::JustRescan => {
-                    ui.sorted_items.clear();
-                    store.start_scan(app)?;
-                }
-                ActionResult::Exit(msg, code) => return Ok((msg, code)),
-            },
+            }
             None => {
                 if let Some(req) = to_input_request(&ev) {
                     if ui.input.handle(req).map(|v| v.value).unwrap_or_default() {
@@ -92,7 +122,7 @@ pub fn run(store: &mut Store, app: &mut App) -> Result<(Option<String>, ExitCode
     }
 }
 
-fn draw_ui(f: &mut Frame, mut ui: &mut Ui, snap: &Snapshot<Item>) {
+fn draw_ui(f: &mut Frame, ui: &mut Ui, snap: &Snapshot<Item>) {
     let [input_line_area, main_app_area] = Layout::default()
         .direction(Direction::Vertical)
         .constraints(&[Constraint::Length(1), Constraint::Min(0)])
@@ -115,9 +145,9 @@ fn draw_ui(f: &mut Frame, mut ui: &mut Ui, snap: &Snapshot<Item>) {
 
     draw_input_line(f, &ui.prompt, &mut ui.input, input_line_area);
 
-    draw_listing(f, &mut ui, snap, left_pane_area);
+    draw_listing(f, ui, snap, left_pane_area);
     draw_divider(f, divider_area);
-    draw_preview(f, right_pane_area);
+    draw_preview(f, ui, right_pane_area);
 }
 
 fn draw_listing(f: &mut Frame, ui: &mut Ui, snap: &Snapshot<Item>, area: Rect) {
@@ -229,9 +259,11 @@ fn draw_divider(f: &mut Frame, divider_area: Rect) {
     }
 }
 
-fn draw_preview(f: &mut Frame, right_pane_area: Rect) {
+fn draw_preview(f: &mut Frame, ui: &mut Ui, right_pane_area: Rect) {
     f.render_widget(
-        Paragraph::new("this is where the preview would be\nif we had one"),
+        Paragraph::new(String::from_utf8_lossy(
+            &ui.preview.content.lock().expect("panic"),
+        )),
         right_pane_area,
     );
 }

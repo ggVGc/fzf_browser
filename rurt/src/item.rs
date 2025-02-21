@@ -62,6 +62,13 @@ impl Item {
         }
     }
 
+    pub fn path(&self) -> Option<&Path> {
+        match self {
+            Item::FileEntry { info, .. } => Some(&info.path),
+            Item::WalkError { .. } => None,
+        }
+    }
+
     pub fn as_span(&self, selected: bool) -> Span {
         let (name, info) = match self {
             Item::WalkError { msg } => {
