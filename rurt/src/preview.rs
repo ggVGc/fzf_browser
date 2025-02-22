@@ -4,16 +4,22 @@ use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 
 pub struct Preview {
     pub showing: PathBuf,
-    pub content: Arc<Mutex<Vec<u8>>>,
+    pub content: Arc<Mutex<PreviewedData>>,
     pub worker: Option<JoinHandle<()>>,
 }
 
-pub fn run_preview(pathref: impl AsRef<Path>, content: Arc<Mutex<Vec<u8>>>) -> Result<()> {
-    let path = pathref.as_ref().to_path_buf();
+#[derive(Default)]
+pub struct PreviewedData {
+    pub command: String,
+    pub content: Vec<u8>,
+}
+
+pub fn run_preview(pathref: impl AsRef<Path>, preview: Arc<Mutex<PreviewedData>>) -> Result<()> {
+    let path = pathref.as_ref();
     let command = if path.is_file() { "cat" } else { "ls" };
     let spawn = Command::new(command)
         .args(&[path])
@@ -22,10 +28,8 @@ pub fn run_preview(pathref: impl AsRef<Path>, content: Arc<Mutex<Vec<u8>>>) -> R
         .spawn()?;
 
     {
-        let mut content = content.lock().expect("panic");
-        content
-            .write_all(format!("{} {}\n\n", command, pathref.as_ref().to_string_lossy()).as_bytes())
-            .unwrap();
+        let mut preview = preview.lock().expect("panic");
+        preview.command = command.to_owned();
     }
     let mut stdout = spawn.stdout.expect("piped");
     let mut buf = [0u8; 1024];
@@ -35,9 +39,9 @@ pub fn run_preview(pathref: impl AsRef<Path>, content: Arc<Mutex<Vec<u8>>>) -> R
             break;
         }
         let buf = &buf[..bytes];
-        let mut content = content.lock().expect("panic");
-        content.extend(buf);
-        if content.len() > 1024 * 1024 {
+        let mut preview = preview.lock().expect("panic");
+        preview.content.extend(buf);
+        if preview.content.len() > 1024 * 1024 {
             break;
         }
     }

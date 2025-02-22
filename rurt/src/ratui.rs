@@ -1,6 +1,6 @@
 use crate::action::{handle_action, matches_binding, ActionResult};
 use crate::item::Item;
-use crate::preview::{run_preview, Preview};
+use crate::preview::{run_preview, Preview, PreviewedData};
 use crate::store::Store;
 use crate::App;
 use anyhow::Result;
@@ -9,7 +9,7 @@ use crossterm::event::Event;
 use nucleo::pattern::{CaseMatching, Normalization};
 use nucleo::Snapshot;
 use ratatui::prelude::*;
-use ratatui::widgets::Paragraph;
+use ratatui::widgets::{Paragraph, Wrap};
 use std::ops::Deref;
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -41,7 +41,7 @@ pub fn run(store: &mut Store, app: &mut App) -> Result<(Option<String>, ExitCode
         sorted_items: Vec::new(),
         preview: Preview {
             showing: PathBuf::new(),
-            content: Arc::new(Mutex::new(Vec::new())),
+            content: Arc::new(Mutex::new(PreviewedData::default())),
             worker: None,
         },
     };
@@ -80,14 +80,19 @@ pub fn run(store: &mut Store, app: &mut App) -> Result<(Option<String>, ExitCode
                             if let Some(path) = item.path() {
                                 if ui.preview.showing != path {
                                     ui.preview.showing = path.to_owned();
-                                    ui.preview.content = Arc::new(Mutex::new(Vec::new()));
+                                    ui.preview.content =
+                                        Arc::new(Mutex::new(PreviewedData::default()));
                                     let write_to = Arc::clone(&ui.preview.content);
                                     let path = path.to_owned();
                                     std::thread::spawn(move || {
                                         if let Err(e) = run_preview(&path, Arc::clone(&write_to)) {
-                                            write_to.lock().expect("panic").extend_from_slice(
-                                                format!("Error: {}\n", e).as_bytes(),
-                                            );
+                                            write_to
+                                                .lock()
+                                                .expect("panic")
+                                                .content
+                                                .extend_from_slice(
+                                                    format!("Error: {}\n", e).as_bytes(),
+                                                );
                                         }
                                     });
                                 }
@@ -276,13 +281,33 @@ fn draw_divider(f: &mut Frame, divider_area: Rect) {
 }
 
 fn draw_preview(f: &mut Frame, ui: &mut Ui, right_pane_area: Rect) {
-    f.render_widget(
-        Paragraph::new(
-            String::from_utf8_lossy(&ui.preview.content.lock().expect("panic"))
-                .replace(|c: char| c != '\n' && c.is_control(), " "),
-        ),
-        right_pane_area,
-    );
+    let preview = ui.preview.content.lock().expect("panic");
+    if preview.command.is_empty() {
+        f.render_widget(
+            Paragraph::new("Select something to preview something else.").wrap(Wrap::default()),
+            right_pane_area,
+        );
+        return;
+    }
+
+    let mut lines = vec![
+        Line::from(vec![
+            Span::styled(&preview.command, Style::new().light_yellow()),
+            Span::raw(" "),
+            Span::styled(
+                ui.preview.showing.display().to_string(),
+                Style::new().light_green(),
+            ),
+        ]),
+        Line::from(""),
+    ];
+
+    let cleaned = String::from_utf8_lossy(&preview.content)
+        .replace(|c: char| c != '\n' && c.is_control(), " ");
+    for line in cleaned.split('\n') {
+        lines.push(Line::from(Span::raw(line)));
+    }
+    f.render_widget(Text::from(lines), right_pane_area);
 }
 
 struct DropRestore {}
