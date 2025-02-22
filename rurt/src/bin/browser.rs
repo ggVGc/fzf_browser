@@ -41,6 +41,7 @@ fn main() -> Result<ExitCode> {
     let bindings = vec![
         (KeyModifiers::NONE, KeyCode::Enter, Action::Default),
         (KeyModifiers::NONE, KeyCode::Esc, Action::Abort),
+        (KeyModifiers::CONTROL, KeyCode::Char('c'), Action::Abort),
         (KeyModifiers::NONE, KeyCode::Left, Action::Up),
         (KeyModifiers::NONE, KeyCode::Right, Action::Down),
         (KeyModifiers::NONE, KeyCode::Up, Action::MoveCursor(-1)),
