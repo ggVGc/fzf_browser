@@ -1,10 +1,10 @@
-use std::io::{Read, Write};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 
 pub struct Preview {
     pub showing: PathBuf,

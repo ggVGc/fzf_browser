@@ -302,6 +302,23 @@ fn draw_preview(f: &mut Frame, ui: &mut Ui, right_pane_area: Rect) {
         Line::from(""),
     ];
 
+    if preview.command == "cat" {
+        let mut s = String::new();
+        bat::PrettyPrinter::new()
+            .input(bat::Input::from_bytes(&preview.content).name(&ui.preview.showing))
+            .header(true)
+            .term_width(right_pane_area.width as usize)
+            .tab_width(Some(2))
+            .line_numbers(true)
+            .use_italics(false)
+            // < wurf> colours cause chaos
+            .colored_output(false)
+            .print_with_writer(Some(&mut s))
+            .expect("infalliable writer?");
+        f.render_widget(Paragraph::new(s), right_pane_area);
+        return;
+    }
+
     let cleaned = String::from_utf8_lossy(&preview.content)
         .replace(|c: char| c != '\n' && c.is_control(), " ");
     for line in cleaned.split('\n') {
