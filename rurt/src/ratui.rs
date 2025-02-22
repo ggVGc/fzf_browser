@@ -44,7 +44,7 @@ pub fn run(store: &mut Store, app: &mut App) -> Result<(Option<String>, ExitCode
         },
     };
 
-    store.start_scan(&app)?;
+    store.start_scan(app)?;
 
     loop {
         maybe_update_target_dir(app);
@@ -125,7 +125,7 @@ pub fn run(store: &mut Store, app: &mut App) -> Result<(Option<String>, ExitCode
 fn draw_ui(f: &mut Frame, ui: &mut Ui, snap: &Snapshot<Item>) {
     let [input_line_area, main_app_area] = Layout::default()
         .direction(Direction::Vertical)
-        .constraints(&[Constraint::Length(1), Constraint::Min(0)])
+        .constraints([Constraint::Length(1), Constraint::Min(0)])
         .split(f.area())
         .deref()
         .try_into()
@@ -133,7 +133,7 @@ fn draw_ui(f: &mut Frame, ui: &mut Ui, snap: &Snapshot<Item>) {
 
     let [left_pane_area, divider_area, right_pane_area] = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints(&[
+        .constraints([
             Constraint::Percentage(50),
             Constraint::Length(1),
             Constraint::Percentage(50),
@@ -221,7 +221,7 @@ pub fn item_range<'s>(
         }
 
         ui.sorted_items[start as usize..end as usize]
-            .into_iter()
+            .iter()
             .map(|&i| snap.get_item(i).expect("<end").data)
             .collect()
     }
