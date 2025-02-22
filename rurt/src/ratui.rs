@@ -111,7 +111,7 @@ pub fn run(store: &mut Store, app: &mut App) -> Result<(Option<String>, ExitCode
                         store.nucleo.pattern.reparse(
                             0,
                             ui.input.value(),
-                            CaseMatching::Ignore,
+                            CaseMatching::Smart,
                             Normalization::Smart,
                             false,
                         );
