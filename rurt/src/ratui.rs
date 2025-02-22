@@ -205,10 +205,18 @@ pub fn item_range<'s>(
         let real_end = snap.item_count();
         let cache_end = ui.sorted_items.len() as u32;
         let could_extend = real_end > cache_end;
-        let should_extend = end * 2 > cache_end || real_end % 1024 == 0;
+        let should_extend = end * 2 > cache_end || real_end % 64 == 0;
         if could_extend && should_extend {
             ui.sorted_items.extend(cache_end..real_end);
-            ui.sorted_items
+
+            if end < real_end {
+                ui.sorted_items
+                    .select_nth_unstable_by_key(end as usize, |&i| {
+                        snap.get_item(i).expect("<end").data
+                    });
+            }
+
+            ui.sorted_items[0..end as usize]
                 .sort_unstable_by_key(|&i| snap.get_item(i).expect("<end").data);
         }
 
