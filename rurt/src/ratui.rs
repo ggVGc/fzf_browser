@@ -171,10 +171,9 @@ fn draw_listing(f: &mut Frame, ui: &mut Ui, snap: &Snapshot<Item>, area: Rect) {
         let mut spans = Vec::new();
         let selected = ui.cursor as usize == i;
         if selected {
-            spans.push(Span::styled("> ", Style::new().light_red().on_dark_gray()));
+            spans.push(Span::styled("> ", Style::new().light_red()));
         } else {
-            spans.push(Span::styled(" ", Style::new().on_dark_gray()));
-            spans.push(Span::from(" "));
+            spans.push(Span::from("  "));
         }
 
         spans.push(item.as_span(selected));

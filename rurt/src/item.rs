@@ -83,14 +83,10 @@ impl Item {
         let name = name.to_string_lossy();
         let lscolors = LS_COLORS.lock().unwrap();
         if let Some(style) = lscolors.style_for(info) {
-            let mut style = RStyle::from(Style::to_crossterm_style(style));
-            if selected {
-                use ratatui::prelude::Stylize as _;
-                style = style.on_dark_gray();
-            }
+            let style = RStyle::from(Style::to_crossterm_style(style));
             Span::styled(name, style)
         } else if selected {
-            Span::styled(name, RStyle::new().on_dark_gray())
+            Span::styled(name, RStyle::new())
         } else {
             Span::from(name)
         }
