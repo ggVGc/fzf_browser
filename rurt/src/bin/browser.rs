@@ -48,6 +48,8 @@ fn main() -> Result<ExitCode> {
         (KeyModifiers::NONE, KeyCode::Down, Action::MoveCursor(1)),
         (KeyModifiers::NONE, KeyCode::PageDown, Action::MoveCursor(20)),
         (KeyModifiers::NONE, KeyCode::PageUp, Action::MoveCursor(-20)),
+        (KeyModifiers::NONE, KeyCode::Home, Action::MoveCursor(i32::MIN)),
+        (KeyModifiers::NONE, KeyCode::End, Action::MoveCursor(i32::MAX)),
         (KeyModifiers::NONE, KeyCode::Char('\\'), Action::CycleRecursion),
         (KeyModifiers::CONTROL, KeyCode::Char('h'), Action::Up),
         (KeyModifiers::CONTROL, KeyCode::Char('l'), Action::Down),

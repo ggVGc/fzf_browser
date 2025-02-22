@@ -162,19 +162,17 @@ fn draw_listing(f: &mut Frame, ui: &mut Ui, snap: &Snapshot<Item>, area: Rect) {
     ui.cursor = ui.cursor.min(snap.matched_item_count().saturating_sub(1));
     if ui.cursor < ui.view_start {
         ui.view_start = ui.cursor;
-    } else if ui.cursor >= ui.view_start + u32::from(area.height) {
+    } else if ui.cursor + 1 >= ui.view_start + u32::from(area.height) {
         ui.view_start = ui.cursor - u32::from(area.height) + 2;
     }
 
     let mut lines = Vec::new();
     lines.push(Line::styled(
         format!(
-            "{} {}/{} {} {}",
+            "{} {}/{}",
             if ui.active { "S" } else { " " },
             snap.matched_item_count(),
             snap.item_count(),
-            ui.cursor,
-            ui.view_start
         ),
         Style::new().light_yellow(),
     ));

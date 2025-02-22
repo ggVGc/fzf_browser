@@ -75,7 +75,7 @@ pub fn handle_action<'s>(
                 ActionResult::Ignored
             }
             Action::MoveCursor(delta) => {
-                ui.cursor = u32::try_from((ui.cursor as i32) + delta).unwrap_or(0);
+                ui.cursor = u32::try_from((ui.cursor as i32).saturating_add(delta)).unwrap_or(0);
                 ActionResult::Configured
             }
             Action::Home => {
