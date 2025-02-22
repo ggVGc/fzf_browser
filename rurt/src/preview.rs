@@ -1,4 +1,4 @@
-use std::io::Read;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Arc, Mutex};
@@ -12,17 +12,20 @@ pub struct Preview {
     pub worker: Option<JoinHandle<()>>,
 }
 
-pub fn run_preview(path: impl AsRef<Path>, content: Arc<Mutex<Vec<u8>>>) -> Result<()> {
-    let path = path.as_ref().to_path_buf();
-    let spawn = Command::new(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../fzf-browser-preview.sh"
-    ))
-    .args(&[path])
-    .stdout(std::process::Stdio::piped())
-    .stderr(std::process::Stdio::null())
-    .spawn()?;
+pub fn run_preview(pathref: impl AsRef<Path>, content: Arc<Mutex<Vec<u8>>>) -> Result<()> {
+    let path = pathref.as_ref().to_path_buf();
+    let command = if path.is_file() { "cat" } else { "ls" };
+    let spawn = Command::new(command)
+        .args(&[path])
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .spawn()?;
 
+
+    {
+      let mut content = content.lock().expect("panic");
+      content.write_all(format!("{} {}\n\n", command, pathref.as_ref().to_string_lossy()).as_bytes()).unwrap();
+    }
     let mut stdout = spawn.stdout.expect("piped");
     let mut buf = [0u8; 1024];
     loop {

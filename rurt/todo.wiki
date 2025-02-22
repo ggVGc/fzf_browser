@@ -1,3 +1,5 @@
+- Use bat as library: https://docs.rs/bat/latest/bat/
+
 - Preview window is not async. Blocks/hangs on exit if preview rendering takes long:
   - fzf does async loading in preview window, with a little progress bar.
 - Render symlink targets (optionally?)
