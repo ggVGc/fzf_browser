@@ -20,6 +20,7 @@ use tui_input::Input;
 
 pub struct Ui {
     pub input: Input,
+    pub view_start: u32,
     pub cursor: u32,
     pub prompt: String,
     pub active: bool,
@@ -33,6 +34,7 @@ pub fn run(store: &mut Store, app: &mut App) -> Result<(Option<String>, ExitCode
 
     let mut ui = Ui {
         input: Input::default(),
+        view_start: 0,
         cursor: 0,
         prompt: format!("{}> ", app.here.display()),
         active: true,
@@ -152,24 +154,31 @@ fn draw_ui(f: &mut Frame, ui: &mut Ui, snap: &Snapshot<Item>) {
 
 fn draw_listing(f: &mut Frame, ui: &mut Ui, snap: &Snapshot<Item>, area: Rect) {
     // TODO: not correct; allows positioning one past the end
-    ui.cursor = ui.cursor.min(snap.matched_item_count());
+    ui.cursor = ui.cursor.min(snap.matched_item_count().saturating_sub(1));
+    if ui.cursor < ui.view_start {
+        ui.view_start = ui.cursor;
+    } else if ui.cursor >= ui.view_start + u32::from(area.height) {
+        ui.view_start = ui.cursor - u32::from(area.height) + 2;
+    }
 
     let mut lines = Vec::new();
     lines.push(Line::styled(
         format!(
-            "{} {}/{}",
+            "{} {}/{} {} {}",
             if ui.active { "S" } else { " " },
             snap.matched_item_count(),
-            snap.item_count()
+            snap.item_count(),
+            ui.cursor,
+            ui.view_start
         ),
         Style::new().light_yellow(),
     ));
     let to_show = u32::from(area.height).min(snap.matched_item_count());
-    let items = item_range(snap, 0, to_show, ui);
+    let items = item_range(snap, ui.view_start, ui.view_start + to_show, ui);
 
     for (i, item) in items.into_iter().enumerate() {
         let mut spans = Vec::new();
-        let selected = ui.cursor as usize == i;
+        let selected = ui.cursor.saturating_sub(ui.view_start) as usize == i;
         if selected {
             spans.push(Span::styled("> ", Style::new().light_red()));
         } else {
@@ -268,9 +277,10 @@ fn draw_divider(f: &mut Frame, divider_area: Rect) {
 
 fn draw_preview(f: &mut Frame, ui: &mut Ui, right_pane_area: Rect) {
     f.render_widget(
-        Paragraph::new(String::from_utf8_lossy(
-            &ui.preview.content.lock().expect("panic"),
-        )),
+        Paragraph::new(
+            String::from_utf8_lossy(&ui.preview.content.lock().expect("panic"))
+                .replace(|c: char| c.is_control(), " "),
+        ),
         right_pane_area,
     );
 }

@@ -21,10 +21,11 @@ pub fn run_preview(pathref: impl AsRef<Path>, content: Arc<Mutex<Vec<u8>>>) -> R
         .stderr(std::process::Stdio::null())
         .spawn()?;
 
-
     {
-      let mut content = content.lock().expect("panic");
-      content.write_all(format!("{} {}\n\n", command, pathref.as_ref().to_string_lossy()).as_bytes()).unwrap();
+        let mut content = content.lock().expect("panic");
+        content
+            .write_all(format!("{} {}\n\n", command, pathref.as_ref().to_string_lossy()).as_bytes())
+            .unwrap();
     }
     let mut stdout = spawn.stdout.expect("piped");
     let mut buf = [0u8; 1024];
