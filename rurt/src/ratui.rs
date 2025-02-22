@@ -279,7 +279,7 @@ fn draw_preview(f: &mut Frame, ui: &mut Ui, right_pane_area: Rect) {
     f.render_widget(
         Paragraph::new(
             String::from_utf8_lossy(&ui.preview.content.lock().expect("panic"))
-                .replace(|c: char| c.is_control(), " "),
+                .replace(|c: char| c != '\n' && c.is_control(), " "),
         ),
         right_pane_area,
     );
