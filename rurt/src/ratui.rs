@@ -11,7 +11,7 @@ use nucleo::Snapshot;
 use ratatui::prelude::*;
 use ratatui::widgets::{Paragraph, Wrap};
 use std::ops::Deref;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -26,6 +26,24 @@ pub struct Ui {
     pub active: bool,
     pub sorted_items: Vec<u32>,
     pub preview: Preview,
+}
+
+impl Ui {
+    fn open_preview(&mut self, path: &Path) {
+        self.preview.showing = path.to_owned();
+        self.preview.content = Arc::new(Mutex::new(PreviewedData::default()));
+        let write_to = Arc::clone(&self.preview.content);
+        let path = path.to_owned();
+        std::thread::spawn(move || {
+            if let Err(e) = run_preview(&path, Arc::clone(&write_to)) {
+                write_to
+                    .lock()
+                    .expect("panic")
+                    .content
+                    .extend_from_slice(format!("Error: {}\n", e).as_bytes());
+            }
+        });
+    }
 }
 
 pub fn run(store: &mut Store, app: &mut App) -> Result<(Option<String>, ExitCode)> {
@@ -76,39 +94,23 @@ pub fn run(store: &mut Store, app: &mut App) -> Result<(Option<String>, ExitCode
                 match action {
                     ActionResult::Ignored => (),
                     ActionResult::Configured => {
-                        if let Some(item) = item {
-                            if let Some(path) = item.path() {
-                                if ui.preview.showing != path {
-                                    ui.preview.showing = path.to_owned();
-                                    ui.preview.content =
-                                        Arc::new(Mutex::new(PreviewedData::default()));
-                                    let write_to = Arc::clone(&ui.preview.content);
-                                    let path = path.to_owned();
-                                    std::thread::spawn(move || {
-                                        if let Err(e) = run_preview(&path, Arc::clone(&write_to)) {
-                                            write_to
-                                                .lock()
-                                                .expect("panic")
-                                                .content
-                                                .extend_from_slice(
-                                                    format!("Error: {}\n", e).as_bytes(),
-                                                );
-                                        }
-                                    });
-                                }
-                            }
+                        if let Some(path) = item.and_then(|it| it.path()) {
+                            ui.open_preview(path);
                         }
                     }
+
                     ActionResult::Navigated => {
                         app.read_opts.expansions.clear();
                         ui.prompt = format!("{}> ", app.here.display());
                         ui.sorted_items.clear();
                         store.start_scan(app)?;
                     }
+
                     ActionResult::JustRescan => {
                         ui.sorted_items.clear();
                         store.start_scan(app)?;
                     }
+
                     ActionResult::Exit(msg, code) => return Ok((msg, code)),
                 }
             }
