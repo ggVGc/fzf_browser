@@ -5,6 +5,7 @@ edition = "2021"
 default-run = "browser"
 
 [dependencies]
+ansi-to-tui = "7"
 anyhow = "1"
 bat = "0.25"
 clap = { version = "4", features = ["derive"] }

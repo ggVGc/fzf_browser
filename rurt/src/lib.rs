@@ -13,8 +13,8 @@ pub mod item;
 mod preview;
 pub mod ratui;
 pub mod store;
-pub mod walk;
 pub mod tui_log;
+pub mod walk;
 
 pub struct App {
     pub here: PathBuf,

@@ -1,4 +1,4 @@
-use crate::action::{handle_action, matches_binding, ActionResult};
+use crate::action::{handle_action, item_under_cursor, matches_binding, ActionResult};
 use crate::item::Item;
 use crate::preview::{run_preview, Preview, PreviewedData};
 use crate::store::Store;
@@ -16,6 +16,7 @@ use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::{Arc, Mutex};
+use std::thread::JoinHandle;
 use std::time::Duration;
 use tui_input::backend::crossterm::to_input_request;
 use tui_input::Input;
@@ -61,7 +62,7 @@ pub fn run(
 
         let snap = store.nucleo.snapshot();
 
-        ui.active = store.is_scanning();
+        ui.active = store.is_scanning() || still_running(ui.preview.worker.as_ref());
 
         terminal.draw(|f| draw_ui(f, &mut ui, snap, log_state.clone()))?;
 
@@ -78,11 +79,13 @@ pub fn run(
 
         match binding_action {
             Some(action) => {
-                let (action, item) = handle_action(action, app, &mut ui, snap)?;
+                let action = handle_action(action, app, &mut ui, snap)?;
                 match action {
                     ActionResult::Ignored => (),
                     ActionResult::Configured => {
-                        if let Some(path) = item.and_then(|it| it.path()) {
+                        if let Some(path) =
+                            item_under_cursor(&mut ui, snap).and_then(|it| it.path())
+                        {
                             info!("path: {:?}", path);
                             open_preview(&mut ui, path);
                         }
@@ -120,12 +123,16 @@ pub fn run(
     }
 }
 
+pub fn still_running(maybe_handle: Option<&JoinHandle<()>>) -> bool {
+    maybe_handle.map(|w| !w.is_finished()).unwrap_or(false)
+}
+
 fn open_preview(ui: &mut Ui, path: &Path) {
     ui.preview.showing = path.to_owned();
     ui.preview.content = Arc::new(Mutex::new(PreviewedData::default()));
     let write_to = Arc::clone(&ui.preview.content);
     let path = path.to_owned();
-    std::thread::spawn(move || {
+    ui.preview.worker = Some(std::thread::spawn(move || {
         if let Err(e) = run_preview(&path, Arc::clone(&write_to)) {
             write_to
                 .lock()
@@ -133,7 +140,7 @@ fn open_preview(ui: &mut Ui, path: &Path) {
                 .content
                 .extend_from_slice(format!("Error: {}\n", e).as_bytes());
         }
-    });
+    }));
 }
 
 fn draw_ui(
@@ -341,11 +348,13 @@ fn draw_preview(f: &mut Frame, ui: &mut Ui, right_pane_area: Rect) {
             .tab_width(Some(2))
             .line_numbers(true)
             .use_italics(false)
-            // < wurf> colours cause chaos
-            .colored_output(false)
             .print_with_writer(Some(&mut s))
             .expect("infalliable writer?");
-        f.render_widget(Paragraph::new(s), right_pane_area);
+        use ansi_to_tui::IntoText as _;
+        f.render_widget(
+            s.into_text().expect("valid ansi from batt"),
+            right_pane_area,
+        );
         return;
     }
 
