@@ -14,6 +14,7 @@ mod preview;
 pub mod ratui;
 pub mod store;
 pub mod walk;
+pub mod tui_log;
 
 pub struct App {
     pub here: PathBuf,

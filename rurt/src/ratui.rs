@@ -2,14 +2,16 @@ use crate::action::{handle_action, matches_binding, ActionResult};
 use crate::item::Item;
 use crate::preview::{run_preview, Preview, PreviewedData};
 use crate::store::Store;
+use crate::tui_log::{LogWidget, LogWidgetState};
 use crate::App;
 use anyhow::Result;
 use crossterm::event;
 use crossterm::event::Event;
+use log::info;
 use nucleo::pattern::{CaseMatching, Normalization};
 use nucleo::Snapshot;
 use ratatui::prelude::*;
-use ratatui::widgets::{Paragraph, Wrap};
+use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -46,7 +48,11 @@ impl Ui {
     }
 }
 
-pub fn run(store: &mut Store, app: &mut App) -> Result<(Option<String>, ExitCode)> {
+pub fn run(
+    store: &mut Store,
+    app: &mut App,
+    log_state: Arc<Mutex<LogWidgetState>>,
+) -> Result<(Option<String>, ExitCode)> {
     let mut terminal = ratatui::try_init()?;
     let _restore = DropRestore {};
 
@@ -75,7 +81,7 @@ pub fn run(store: &mut Store, app: &mut App) -> Result<(Option<String>, ExitCode
 
         ui.active = store.is_scanning();
 
-        terminal.draw(|f| draw_ui(f, &mut ui, snap))?;
+        terminal.draw(|f| draw_ui(f, &mut ui, snap, log_state.clone()))?;
 
         if !event::poll(Duration::from_millis(if ui.active { 5 } else { 90 }))? {
             continue;
@@ -95,6 +101,7 @@ pub fn run(store: &mut Store, app: &mut App) -> Result<(Option<String>, ExitCode
                     ActionResult::Ignored => (),
                     ActionResult::Configured => {
                         if let Some(path) = item.and_then(|it| it.path()) {
+                            info!("path: {:?}", path);
                             ui.open_preview(path);
                         }
                     }
@@ -131,10 +138,19 @@ pub fn run(store: &mut Store, app: &mut App) -> Result<(Option<String>, ExitCode
     }
 }
 
-fn draw_ui(f: &mut Frame, ui: &mut Ui, snap: &Snapshot<Item>) {
-    let [input_line_area, main_app_area] = Layout::default()
+fn draw_ui(
+    f: &mut Frame,
+    ui: &mut Ui,
+    snap: &Snapshot<Item>,
+    log_state: Arc<Mutex<LogWidgetState>>,
+) {
+    let [input_line_area, main_app_area, log_area] = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(1), Constraint::Min(0)])
+        .constraints([
+            Constraint::Length(1),
+            Constraint::Min(0),
+            Constraint::Percentage(20),
+        ])
         .split(f.area())
         .deref()
         .try_into()
@@ -157,6 +173,22 @@ fn draw_ui(f: &mut Frame, ui: &mut Ui, snap: &Snapshot<Item>) {
     draw_listing(f, ui, snap, left_pane_area);
     draw_divider(f, divider_area);
     draw_preview(f, ui, right_pane_area);
+
+    if let Ok(log_state) = &mut log_state.lock() {
+        f.render_widget(Block::new().borders(Borders::ALL), log_area);
+        let log_inset = edge_inset(&log_area, 1);
+        f.render_stateful_widget(LogWidget::default(), log_inset, log_state);
+    }
+}
+
+fn edge_inset(area: &Rect, margin: u16) -> Rect {
+    let mut inset_area = *area;
+    inset_area.x += margin;
+    inset_area.y += margin;
+    inset_area.height -= margin;
+    inset_area.width -= margin;
+
+    inset_area
 }
 
 fn draw_listing(f: &mut Frame, ui: &mut Ui, snap: &Snapshot<Item>, area: Rect) {

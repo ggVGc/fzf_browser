@@ -2,18 +2,22 @@ use anyhow::Context;
 use anyhow::Result;
 use clap::Parser;
 use crossterm::event::{KeyCode, KeyModifiers};
+use log::LevelFilter;
 use nucleo::Nucleo;
 use rurt::action::Action;
 use rurt::dir_stack::DirStack;
 use rurt::item::Item;
-use rurt::ratui::run;
+use rurt::ratui;
 use rurt::store::Store;
+use rurt::tui_log::LogWidgetState;
+use rurt::tui_log::TuiLogger;
 use rurt::walk::{Mode, ReadOpts, Recursion};
 use rurt::App;
 use std::ffi::OsString;
 use std::fs;
 use std::process::ExitCode;
 use std::sync::Arc;
+use std::sync::Mutex;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -33,7 +37,9 @@ struct Cli {
 }
 
 fn main() -> Result<ExitCode> {
-    env_logger::init();
+    // env_logger::init();
+    let log_state = Arc::new(Mutex::new(LogWidgetState::default()));
+    TuiLogger::init(LevelFilter::Info, log_state.clone()).expect("Could not init logger");
     let cli = Cli::parse();
     let here = fs::canonicalize(cli.start_path).context("start path")?;
 
@@ -94,7 +100,7 @@ fn main() -> Result<ExitCode> {
         1,
     ));
 
-    let (msg, code) = run(&mut store, &mut app)?;
+    let (msg, code) = ratui::run(&mut store, &mut app, log_state)?;
     if let Some(msg) = msg {
         println!("{}", msg);
     }
