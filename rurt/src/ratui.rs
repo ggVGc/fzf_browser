@@ -5,6 +5,7 @@ use crate::store::Store;
 use crate::tui_log::{LogWidget, LogWidgetState};
 use crate::App;
 use anyhow::Result;
+use content_inspector::ContentType;
 use crossterm::event;
 use crossterm::event::Event;
 use log::info;
@@ -12,6 +13,7 @@ use nucleo::pattern::{CaseMatching, Normalization};
 use nucleo::Snapshot;
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
+use std::io;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -340,21 +342,35 @@ fn draw_preview(f: &mut Frame, ui: &mut Ui, right_pane_area: Rect) {
     ];
 
     if preview.command == "cat" {
-        let mut s = String::new();
-        bat::PrettyPrinter::new()
-            .input(bat::Input::from_bytes(&preview.content).name(&ui.preview.showing))
-            .header(true)
-            .term_width(right_pane_area.width as usize)
-            .tab_width(Some(2))
-            .line_numbers(true)
-            .use_italics(false)
-            .print_with_writer(Some(&mut s))
-            .expect("infalliable writer?");
         use ansi_to_tui::IntoText as _;
-        f.render_widget(
-            s.into_text().expect("valid ansi from batt"),
-            right_pane_area,
-        );
+
+        let s = match content_inspector::inspect(&preview.content) {
+            ContentType::BINARY => {
+                let mut v = Vec::new();
+                let panels = (right_pane_area.width.saturating_sub(10) / 35).max(1);
+                hexyl::PrinterBuilder::new(&mut v)
+                    .num_panels(panels as u64)
+                    .build()
+                    .print_all(io::Cursor::new(&preview.content))
+                    .expect("hexylation");
+                v.into_text()
+            }
+            _ => {
+                let mut s = String::new();
+                bat::PrettyPrinter::new()
+                    .input(bat::Input::from_bytes(&preview.content).name(&ui.preview.showing))
+                    .header(true)
+                    .term_width(right_pane_area.width as usize)
+                    .tab_width(Some(2))
+                    .line_numbers(true)
+                    .use_italics(false)
+                    .print_with_writer(Some(&mut s))
+                    .expect("infalliable writer?");
+                s.into_text()
+            }
+        };
+
+        f.render_widget(s.expect("valid ansi from libraries"), right_pane_area);
         return;
     }
 
