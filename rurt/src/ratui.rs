@@ -30,24 +30,6 @@ pub struct Ui {
     pub preview: Preview,
 }
 
-impl Ui {
-    fn open_preview(&mut self, path: &Path) {
-        self.preview.showing = path.to_owned();
-        self.preview.content = Arc::new(Mutex::new(PreviewedData::default()));
-        let write_to = Arc::clone(&self.preview.content);
-        let path = path.to_owned();
-        std::thread::spawn(move || {
-            if let Err(e) = run_preview(&path, Arc::clone(&write_to)) {
-                write_to
-                    .lock()
-                    .expect("panic")
-                    .content
-                    .extend_from_slice(format!("Error: {}\n", e).as_bytes());
-            }
-        });
-    }
-}
-
 pub fn run(
     store: &mut Store,
     app: &mut App,
@@ -102,7 +84,7 @@ pub fn run(
                     ActionResult::Configured => {
                         if let Some(path) = item.and_then(|it| it.path()) {
                             info!("path: {:?}", path);
-                            ui.open_preview(path);
+                            open_preview(&mut ui, path);
                         }
                     }
 
@@ -136,6 +118,22 @@ pub fn run(
             }
         }
     }
+}
+
+fn open_preview(ui: &mut Ui, path: &Path) {
+    ui.preview.showing = path.to_owned();
+    ui.preview.content = Arc::new(Mutex::new(PreviewedData::default()));
+    let write_to = Arc::clone(&ui.preview.content);
+    let path = path.to_owned();
+    std::thread::spawn(move || {
+        if let Err(e) = run_preview(&path, Arc::clone(&write_to)) {
+            write_to
+                .lock()
+                .expect("panic")
+                .content
+                .extend_from_slice(format!("Error: {}\n", e).as_bytes());
+        }
+    });
 }
 
 fn draw_ui(
