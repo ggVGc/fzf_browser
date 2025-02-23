@@ -10,6 +10,7 @@ pub mod action;
 pub mod dir_stack;
 pub mod fuzz;
 pub mod item;
+mod line_stop;
 mod preview;
 pub mod ratui;
 pub mod store;

@@ -1,5 +1,6 @@
 use crate::action::{handle_action, item_under_cursor, matches_binding, ActionResult};
 use crate::item::Item;
+use crate::line_stop::{LineStopFmtWrite, LineStopIoWrite};
 use crate::preview::{run_preview, Preview, PreviewedData};
 use crate::store::Store;
 use crate::tui_log::{LogWidget, LogWidgetState};
@@ -346,27 +347,27 @@ fn draw_preview(f: &mut Frame, ui: &mut Ui, right_pane_area: Rect) {
 
         let s = match content_inspector::inspect(&preview.content) {
             ContentType::BINARY => {
-                let mut v = Vec::new();
+                let mut v = LineStopIoWrite::new(right_pane_area.height as usize);
                 let panels = (right_pane_area.width.saturating_sub(10) / 35).max(1);
-                hexyl::PrinterBuilder::new(&mut v)
+                // TODO: expecting suspicious broken pipe on writer full
+                let _ = hexyl::PrinterBuilder::new(&mut v)
                     .num_panels(panels as u64)
                     .build()
-                    .print_all(io::Cursor::new(&preview.content))
-                    .expect("hexylation");
-                v.into_text()
+                    .print_all(io::Cursor::new(&preview.content));
+                v.inner.into_text()
             }
             _ => {
-                let mut s = String::new();
-                bat::PrettyPrinter::new()
+                let mut writer = LineStopFmtWrite::new(right_pane_area.height as usize);
+                // expecting an unnamed error on writer full
+                let _ = bat::PrettyPrinter::new()
                     .input(bat::Input::from_bytes(&preview.content).name(&ui.preview.showing))
                     .header(true)
                     .term_width(right_pane_area.width as usize)
                     .tab_width(Some(2))
                     .line_numbers(true)
                     .use_italics(false)
-                    .print_with_writer(Some(&mut s))
-                    .expect("infalliable writer?");
-                s.into_text()
+                    .print_with_writer(Some(&mut writer));
+                writer.inner.into_text()
             }
         };
 
