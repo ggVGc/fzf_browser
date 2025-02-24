@@ -205,7 +205,7 @@ fn draw_listing(f: &mut Frame, ui: &mut Ui, snap: &Snapshot<Item>, area: Rect) {
     if ui.cursor < ui.view_start {
         ui.view_start = ui.cursor;
     } else if ui.cursor + 1 >= ui.view_start + u32::from(area.height) {
-        ui.view_start = ui.cursor - u32::from(area.height) + 2;
+        ui.view_start = ui.cursor.saturating_sub(u32::from(area.height)) + 2;
     }
 
     let mut lines = Vec::new();
