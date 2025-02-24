@@ -321,7 +321,7 @@ fn draw_divider(f: &mut Frame, divider_area: Rect) {
 }
 
 fn draw_preview(f: &mut Frame, ui: &mut Ui, right_pane_area: Rect) {
-    let preview = ui.preview.content.lock().expect("panic");
+    let mut preview = ui.preview.content.lock().expect("panic");
     if preview.command.is_empty() {
         f.render_widget(
             Paragraph::new("Select something to preview something else.").wrap(Wrap::default()),
@@ -358,6 +358,7 @@ fn draw_preview(f: &mut Frame, ui: &mut Ui, right_pane_area: Rect) {
             }
             _ => {
                 let mut writer = LineStopFmtWrite::new(right_pane_area.height as usize);
+                preview.content.retain(|&b| b != b'\r');
                 // expecting an unnamed error on writer full
                 let _ = bat::PrettyPrinter::new()
                     .input(bat::Input::from_bytes(&preview.content).name(&ui.preview.showing))
