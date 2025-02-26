@@ -1,12 +1,10 @@
 use crate::action::{handle_action, item_under_cursor, matches_binding, ActionResult};
 use crate::item::Item;
-use crate::line_stop::{LineStopFmtWrite, LineStopIoWrite};
-use crate::preview::{run_preview, Preview, PreviewedData};
+use crate::preview::{run_preview, Preview, PreviewCommand, PreviewedData};
 use crate::store::Store;
 use crate::tui_log::{LogWidget, LogWidgetState};
 use crate::App;
 use anyhow::Result;
-use content_inspector::ContentType;
 use crossterm::event;
 use crossterm::event::Event;
 use log::info;
@@ -14,13 +12,13 @@ use nucleo::pattern::{CaseMatching, Normalization};
 use nucleo::Snapshot;
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
-use std::io;
+use std::collections::VecDeque;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::{Arc, Mutex};
-use std::thread::JoinHandle;
-use std::time::Duration;
+use std::thread;
+use std::time::{Duration, Instant};
 use tui_input::backend::crossterm::to_input_request;
 use tui_input::Input;
 
@@ -28,10 +26,11 @@ pub struct Ui {
     pub input: Input,
     pub view_start: u32,
     pub cursor: u32,
+    pub cursor_showing: PathBuf,
     pub prompt: String,
     pub active: bool,
     pub sorted_items: Vec<u32>,
-    pub preview: Preview,
+    pub previews: VecDeque<Preview>,
 }
 
 pub fn run(
@@ -46,14 +45,11 @@ pub fn run(
         input: Input::default(),
         view_start: 0,
         cursor: 0,
+        cursor_showing: app.here.to_path_buf(),
         prompt: format!("{}> ", app.here.display()),
         active: true,
         sorted_items: Vec::new(),
-        preview: Preview {
-            showing: PathBuf::new(),
-            content: Arc::new(Mutex::new(PreviewedData::default())),
-            worker: None,
-        },
+        previews: VecDeque::new(),
     };
 
     store.start_scan(app)?;
@@ -65,7 +61,12 @@ pub fn run(
 
         let snap = store.nucleo.snapshot();
 
-        ui.active = store.is_scanning() || still_running(ui.preview.worker.as_ref());
+        ui.active = store.is_scanning() || ui.previews.iter().any(|v| !v.worker.is_finished());
+
+        if ui.active && ui.previews.iter().any(|v| would_flicker(v)) {
+            event::poll(Duration::from_millis(60))?;
+            thread::yield_now();
+        }
 
         terminal.draw(|f| draw_ui(f, &mut ui, snap, log_state.clone()))?;
 
@@ -74,6 +75,7 @@ pub fn run(
         }
 
         let ev = event::read()?;
+        let area = terminal.get_frame().area();
 
         let binding_action = match ev {
             Event::Key(key) => matches_binding(&app.bindings, key),
@@ -89,8 +91,8 @@ pub fn run(
                         if let Some(path) =
                             item_under_cursor(&mut ui, snap).and_then(|it| it.path())
                         {
-                            info!("path: {:?}", path);
-                            open_preview(&mut ui, path);
+                            ui.cursor_showing = path.to_owned();
+                            fire_preview(&mut ui, area);
                         }
                     }
 
@@ -126,24 +128,47 @@ pub fn run(
     }
 }
 
-pub fn still_running(maybe_handle: Option<&JoinHandle<()>>) -> bool {
-    maybe_handle.map(|w| !w.is_finished()).unwrap_or(false)
+fn would_flicker(v: &Preview) -> bool {
+    v.started.elapsed() < Duration::from_millis(100) && !v.worker.is_finished()
 }
 
-fn open_preview(ui: &mut Ui, path: &Path) {
-    ui.preview.showing = path.to_owned();
-    ui.preview.content = Arc::new(Mutex::new(PreviewedData::default()));
-    let write_to = Arc::clone(&ui.preview.content);
-    let path = path.to_owned();
-    ui.preview.worker = Some(std::thread::spawn(move || {
-        if let Err(e) = run_preview(&path, Arc::clone(&write_to)) {
+fn fire_preview(ui: &mut Ui, area: Rect) {
+    let started = Instant::now();
+
+    if ui
+        .previews
+        .iter()
+        .any(|v| v.showing == ui.cursor_showing && v.target_area == area)
+    {
+        return;
+    }
+
+    if ui.previews.len() >= 16 {
+        ui.previews.pop_front();
+    }
+
+    let data = Arc::new(Mutex::new(PreviewedData::default()));
+
+    let write_to = Arc::clone(&data);
+    let preview_path = ui.cursor_showing.to_path_buf();
+    let worker = thread::spawn(move || {
+        if let Err(e) = run_preview(&preview_path, Arc::clone(&write_to), area) {
             write_to
                 .lock()
                 .expect("panic")
                 .content
                 .extend_from_slice(format!("Error: {}\n", e).as_bytes());
         }
-    }));
+        info!("preview: {preview_path:?} took {:?}", started.elapsed());
+    });
+
+    ui.previews.push_back(Preview {
+        showing: ui.cursor_showing.to_path_buf(),
+        target_area: area,
+        data: Arc::clone(&data),
+        worker,
+        started,
+    });
 }
 
 fn draw_ui(
@@ -320,68 +345,56 @@ fn draw_divider(f: &mut Frame, divider_area: Rect) {
     }
 }
 
-fn draw_preview(f: &mut Frame, ui: &mut Ui, right_pane_area: Rect) {
-    let mut preview = ui.preview.content.lock().expect("panic");
-    if preview.command.is_empty() {
-        f.render_widget(
-            Paragraph::new("Select something to preview something else.").wrap(Wrap::default()),
-            right_pane_area,
-        );
-        return;
+fn draw_preview(f: &mut Frame, ui: &mut Ui, area: Rect) {
+    let preview = match ui.previews.iter().find(|v| v.showing == ui.cursor_showing) {
+        Some(preview) => preview,
+        None => {
+            draw_no_preview(f, area);
+            return;
+        }
+    };
+
+    let data = preview.data.lock().expect("panic");
+
+    match &data.command {
+        PreviewCommand::InterpretFile => match data.render.as_ref() {
+            Some(rendered) => f.render_widget(rendered, area),
+            None => draw_raw_preview(f, area, &preview.showing, "cat", &data.content),
+        },
+        PreviewCommand::Thinking => draw_raw_preview(f, area, &preview.showing, "file", &[]),
+        PreviewCommand::Custom(command) => {
+            draw_raw_preview(f, area, &preview.showing, command, &data.content)
+        }
     }
+}
 
-    let mut lines = vec![
-        Line::from(vec![
-            Span::styled(&preview.command, Style::new().light_yellow()),
-            Span::raw(" "),
-            Span::styled(
-                ui.preview.showing.display().to_string(),
-                Style::new().light_green(),
-            ),
-        ]),
-        Line::from(""),
-    ];
+fn draw_raw_preview(
+    f: &mut Frame,
+    area: Rect,
+    showing: impl AsRef<Path>,
+    command: &str,
+    content: &[u8],
+) {
+    let mut lines = vec![Line::from(vec![
+        Span::styled(format!("{:>4}", command), Style::new().light_yellow()),
+        Span::raw(" "),
+        Span::styled(showing.as_ref().display().to_string(), Style::new().bold()),
+    ])];
 
-    if preview.command == "cat" {
-        use ansi_to_tui::IntoText as _;
-
-        let s = match content_inspector::inspect(&preview.content) {
-            ContentType::BINARY => {
-                let mut v = LineStopIoWrite::new(right_pane_area.height as usize);
-                let panels = (right_pane_area.width.saturating_sub(10) / 35).max(1);
-                // TODO: expecting suspicious broken pipe on writer full
-                let _ = hexyl::PrinterBuilder::new(&mut v)
-                    .num_panels(panels as u64)
-                    .build()
-                    .print_all(io::Cursor::new(&preview.content));
-                v.inner.into_text()
-            }
-            _ => {
-                let mut writer = LineStopFmtWrite::new(right_pane_area.height as usize);
-                preview.content.retain(|&b| b != b'\r');
-                // expecting an unnamed error on writer full
-                let _ = bat::PrettyPrinter::new()
-                    .input(bat::Input::from_bytes(&preview.content).name(&ui.preview.showing))
-                    .header(true)
-                    .term_width(right_pane_area.width as usize)
-                    .tab_width(Some(2))
-                    .line_numbers(true)
-                    .use_italics(false)
-                    .print_with_writer(Some(&mut writer));
-                writer.inner.into_text()
-            }
-        };
-
-        f.render_widget(s.expect("valid ansi from libraries"), right_pane_area);
-        return;
+    let cleaned =
+        String::from_utf8_lossy(&content).replace(|c: char| c != '\n' && c.is_control(), " ");
+    for (i, line) in cleaned
+        .split('\n')
+        .take(usize::from(area.height))
+        .enumerate()
+    {
+        lines.push(Line::from(Span::raw(format!("{:4} {line}", i + 1))));
     }
+    f.render_widget(Text::from(lines), area);
+}
 
-    let cleaned = String::from_utf8_lossy(&preview.content)
-        .replace(|c: char| c != '\n' && c.is_control(), " ");
-    for line in cleaned.split('\n') {
-        lines.push(Line::from(Span::raw(line)));
-    }
-    f.render_widget(Text::from(lines), right_pane_area);
+fn draw_no_preview(f: &mut Frame, area: Rect) {
+    f.render_widget(Paragraph::new("S").wrap(Wrap::default()), area);
 }
 
 struct DropRestore {}
