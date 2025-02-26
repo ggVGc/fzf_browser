@@ -1,6 +1,4 @@
-- Use bat as library: https://docs.rs/bat/latest/bat/
-
-- Preview window is not async. Blocks/hangs on exit if preview rendering takes long:
+- Preview window flickers slightly on slow loads. There's some racy mitigations.
   - fzf does async loading in preview window, with a little progress bar.
 - Render symlink targets (optionally?)
 - Colorize directory and file part separately, as fd does
