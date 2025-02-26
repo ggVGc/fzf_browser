@@ -92,7 +92,9 @@ pub fn run(
                             item_under_cursor(&mut ui, snap).and_then(|it| it.path())
                         {
                             ui.cursor_showing = path.to_owned();
-                            fire_preview(&mut ui, area);
+                            let mut right_pane_guess = area.clone();
+                            right_pane_guess.width /= 2;
+                            fire_preview(&mut ui, right_pane_guess);
                         }
                     }
 
