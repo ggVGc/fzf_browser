@@ -1,6 +1,6 @@
 use crate::action::{handle_action, item_under_cursor, matches_binding, ActionResult};
 use crate::item::Item;
-use crate::preview::{run_preview, Preview, PreviewCommand, PreviewedData};
+use crate::preview::{preview_header, run_preview, Preview, PreviewCommand, PreviewedData};
 use crate::store::Store;
 use crate::tui_log::{LogWidget, LogWidgetState};
 use crate::App;
@@ -26,11 +26,12 @@ pub struct Ui {
     pub input: Input,
     pub view_start: u32,
     pub cursor: u32,
-    pub cursor_showing: PathBuf,
+    pub cursor_showing: Option<PathBuf>,
     pub prompt: String,
     pub active: bool,
     pub sorted_items: Vec<u32>,
     pub previews: VecDeque<Preview>,
+    pub preview_area: Rect,
 }
 
 pub fn run(
@@ -45,11 +46,12 @@ pub fn run(
         input: Input::default(),
         view_start: 0,
         cursor: 0,
-        cursor_showing: app.here.to_path_buf(),
+        cursor_showing: Some(app.here.to_path_buf()),
         prompt: format!("{}> ", app.here.display()),
         active: true,
         sorted_items: Vec::new(),
         previews: VecDeque::new(),
+        preview_area: Rect::default(),
     };
 
     store.start_scan(app)?;
@@ -70,12 +72,14 @@ pub fn run(
 
         terminal.draw(|f| draw_ui(f, &mut ui, snap, log_state.clone()))?;
 
+        // react to the cursor moving in draw_preview, as the screen has moved :(
+        fire_preview(&mut ui);
+
         if !event::poll(Duration::from_millis(if ui.active { 5 } else { 90 }))? {
             continue;
         }
 
         let ev = event::read()?;
-        let area = terminal.get_frame().area();
 
         let binding_action = match ev {
             Event::Key(key) => matches_binding(&app.bindings, key),
@@ -84,18 +88,12 @@ pub fn run(
 
         match binding_action {
             Some(action) => {
-                let action = handle_action(action, app, &mut ui, snap)?;
+                let action = handle_action(action, app, &mut ui)?;
                 match action {
                     ActionResult::Ignored => (),
                     ActionResult::Configured => {
-                        if let Some(path) =
-                            item_under_cursor(&mut ui, snap).and_then(|it| it.path())
-                        {
-                            ui.cursor_showing = path.to_owned();
-                            let mut right_pane_guess = area.clone();
-                            right_pane_guess.width /= 2;
-                            fire_preview(&mut ui, right_pane_guess);
-                        }
+                        ui.cursor_showing = item_under_cursor(&mut ui, snap).map(PathBuf::from);
+                        fire_preview(&mut ui);
                     }
 
                     ActionResult::Navigated => {
@@ -134,13 +132,23 @@ fn would_flicker(v: &Preview) -> bool {
     v.started.elapsed() < Duration::from_millis(100) && !v.worker.is_finished()
 }
 
-fn fire_preview(ui: &mut Ui, area: Rect) {
+fn fire_preview(ui: &mut Ui) {
+    if ui.preview_area.width == 0 || ui.preview_area.height == 0 {
+        return;
+    }
+
+    let showing = match ui.cursor_showing {
+        Some(ref v) => v,
+        None => return,
+    };
+
     let started = Instant::now();
 
     if ui
         .previews
         .iter()
-        .any(|v| v.showing == ui.cursor_showing && v.target_area == area)
+        .rev()
+        .any(|v| Some(&v.showing) == ui.cursor_showing.as_ref() && v.target_area == ui.preview_area)
     {
         return;
     }
@@ -152,7 +160,8 @@ fn fire_preview(ui: &mut Ui, area: Rect) {
     let data = Arc::new(Mutex::new(PreviewedData::default()));
 
     let write_to = Arc::clone(&data);
-    let preview_path = ui.cursor_showing.to_path_buf();
+    let preview_path = showing.to_path_buf();
+    let area = ui.preview_area;
     let worker = thread::spawn(move || {
         if let Err(e) = run_preview(&preview_path, Arc::clone(&write_to), area) {
             write_to
@@ -165,8 +174,8 @@ fn fire_preview(ui: &mut Ui, area: Rect) {
     });
 
     ui.previews.push_back(Preview {
-        showing: ui.cursor_showing.to_path_buf(),
-        target_area: area,
+        showing: showing.to_path_buf(),
+        target_area: ui.preview_area,
         data: Arc::clone(&data),
         worker,
         started,
@@ -229,6 +238,8 @@ fn edge_inset(area: &Rect, margin: u16) -> Rect {
 fn draw_listing(f: &mut Frame, ui: &mut Ui, snap: &Snapshot<Item>, area: Rect) {
     // TODO: not correct; allows positioning one past the end
     ui.cursor = ui.cursor.min(snap.matched_item_count().saturating_sub(1));
+    ui.cursor_showing = item_under_cursor(ui, snap).map(PathBuf::from);
+
     if ui.cursor < ui.view_start {
         ui.view_start = ui.cursor;
     } else if ui.cursor + 1 >= ui.view_start + u32::from(area.height) {
@@ -348,7 +359,14 @@ fn draw_divider(f: &mut Frame, divider_area: Rect) {
 }
 
 fn draw_preview(f: &mut Frame, ui: &mut Ui, area: Rect) {
-    let preview = match ui.previews.iter().find(|v| v.showing == ui.cursor_showing) {
+    ui.preview_area = area;
+
+    let preview = match ui
+        .previews
+        .iter()
+        .rev()
+        .find(|v| Some(&v.showing) == ui.cursor_showing.as_ref())
+    {
         Some(preview) => preview,
         None => {
             draw_no_preview(f, area);
@@ -377,11 +395,7 @@ fn draw_raw_preview(
     command: &str,
     content: &[u8],
 ) {
-    let mut lines = vec![Line::from(vec![
-        Span::styled(format!("{:>4}", command), Style::new().light_yellow()),
-        Span::raw(" "),
-        Span::styled(showing.as_ref().display().to_string(), Style::new().bold()),
-    ])];
+    let mut lines = vec![preview_header(command, showing)];
 
     let cleaned =
         String::from_utf8_lossy(&content).replace(|c: char| c != '\n' && c.is_control(), " ");

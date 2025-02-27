@@ -105,21 +105,33 @@ fn interpret_file(
                 .num_panels(panels as u64)
                 .build()
                 .print_all(io::Cursor::new(&content));
-            v.inner.into_text()?
+            let mut ret = v.inner.into_text()?;
+            ret.lines.insert(0, preview_header("hexyl", showing));
+            ret
         }
         _ => {
             let mut writer = LineStopFmtWrite::new(area.height as usize);
             content.retain(|&b| b != b'\r');
             // expecting an unnamed error on writer full
             let _ = bat::PrettyPrinter::new()
-                .input(bat::Input::from_bytes(&content).name(showing))
-                .header(true)
+                .input(bat::Input::from_bytes(&content).name(&showing))
+                .header(false)
                 .term_width(area.width as usize)
                 .tab_width(Some(2))
                 .line_numbers(true)
                 .use_italics(false)
                 .print_with_writer(Some(&mut writer));
-            writer.inner.into_text()?
+            let mut ret = writer.inner.into_text()?;
+            ret.lines.insert(0, preview_header("bat", showing));
+            ret
         }
     })
+}
+
+pub fn preview_header(command: &str, showing: impl AsRef<Path>) -> Line {
+    Line::from(vec![
+        Span::styled(format!("{:>5}", command), Style::new().light_yellow()),
+        Span::raw(" "),
+        Span::styled(showing.as_ref().display().to_string(), Style::new().bold()),
+    ])
 }

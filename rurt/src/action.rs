@@ -45,21 +45,20 @@ pub enum ActionResult {
     Exit(Option<String>, ExitCode),
 }
 
-pub fn item_under_cursor<'s>(ui: &mut Ui, snap: &'s Snapshot<Item>) -> Option<&'s Item> {
-    item_range(snap, ui.cursor, ui.cursor + 1, ui).pop()
+pub fn item_under_cursor<'s>(ui: &mut Ui, snap: &'s Snapshot<Item>) -> Option<&'s Path> {
+    item_range(snap, ui.cursor, ui.cursor + 1, ui)
+        .pop()
+        .and_then(|it| it.path())
 }
 
 pub fn handle_action<'s>(
     action: Action,
     app: &mut App,
     ui: &mut Ui,
-    snap: &'s Snapshot<Item>,
 ) -> anyhow::Result<ActionResult> {
     let here = &mut app.here;
     let read_opts = &mut app.read_opts;
     let dir_stack = &mut app.dir_stack;
-
-    let item = item_range(snap, ui.cursor, ui.cursor + 1, ui).pop();
 
     Ok(match action {
         Action::Up => {
@@ -68,14 +67,17 @@ pub fn handle_action<'s>(
             ActionResult::Navigated
         }
         Action::Down => {
-            if let Some(Item::FileEntry { name, .. }) = item {
-                if let Ok(cand) = ensure_directory(here.join(name)) {
-                    dir_stack.push(here.clone());
-                    *here = cand;
-                    return Ok(ActionResult::Navigated);
-                }
+            if let Some(cand) = ui
+                .cursor_showing
+                .as_ref()
+                .and_then(|name| ensure_directory(here.join(&name)).ok())
+            {
+                dir_stack.push(here.clone());
+                *here = cand;
+                ActionResult::Navigated
+            } else {
+                ActionResult::Ignored
             }
-            ActionResult::Ignored
         }
         Action::MoveCursor(delta) => {
             ui.cursor = u32::try_from((ui.cursor as i32).saturating_add(delta)).unwrap_or(0);
@@ -117,13 +119,13 @@ pub fn handle_action<'s>(
             ActionResult::Configured
         }
         Action::Open => {
-            if let Some(Item::FileEntry { name, .. }) = item {
-                open::that_detached(here.join(name))?;
+            if let Some(showing) = &ui.cursor_showing {
+                open::that_detached(here.join(showing))?;
             }
             ActionResult::Ignored
         }
         Action::Expand => {
-            if let Some(Item::FileEntry { name, .. }) = item {
+            if let Some(name) = &ui.cursor_showing {
                 read_opts.expansions.push(here.join(name));
                 ActionResult::JustRescan
             } else {
@@ -148,7 +150,7 @@ pub fn handle_action<'s>(
         }
         Action::Abort => ActionResult::Exit(None, ExitCode::FAILURE),
         Action::Default => {
-            if let Some(Item::FileEntry { name, .. }) = item {
+            if let Some(name) = &ui.cursor_showing {
                 if let Ok(cand) = ensure_directory(here.join(name)) {
                     dir_stack.push(here.to_path_buf());
                     *here = cand;
