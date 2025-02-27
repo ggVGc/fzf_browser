@@ -1,18 +1,12 @@
 use anyhow::{anyhow, Context, Result};
 use ignore::DirEntry;
-use lscolors::{Colorable, LsColors, Style};
-use once_cell::sync::Lazy;
+use lscolors::{Colorable, LsColors, Style as LsStyle};
 use ratatui::prelude::Style as RStyle;
 use ratatui::prelude::*;
+use std::borrow::Cow;
 use std::ffi::OsString;
 use std::fs::FileType;
 use std::path::Path;
-use std::{borrow::Cow, sync::Mutex};
-
-static LS_COLORS: Lazy<Mutex<LsColors>> = Lazy::new(|| {
-    let colors = LsColors::from_env().unwrap_or_default();
-    Mutex::new(colors)
-});
 
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum Item {
@@ -69,7 +63,7 @@ impl Item {
         }
     }
 
-    pub fn as_span(&self, selected: bool) -> Span {
+    pub fn as_span(&self, selected: bool, ls_colors: &LsColors) -> Span {
         let (name, info) = match self {
             Item::WalkError { msg } => {
                 return Span::styled(
@@ -81,9 +75,8 @@ impl Item {
         };
 
         let name = name.to_string_lossy();
-        let lscolors = LS_COLORS.lock().unwrap();
-        if let Some(style) = lscolors.style_for(info) {
-            let style = RStyle::from(Style::to_crossterm_style(style));
+        if let Some(style) = ls_colors.style_for(info) {
+            let style = RStyle::from(LsStyle::to_crossterm_style(style));
             Span::styled(name, style)
         } else if selected {
             Span::styled(name, RStyle::new())

@@ -8,6 +8,7 @@ use anyhow::Result;
 use crossterm::event;
 use crossterm::event::Event;
 use log::info;
+use lscolors::LsColors;
 use nucleo::pattern::{CaseMatching, Normalization};
 use nucleo::Snapshot;
 use ratatui::prelude::*;
@@ -32,6 +33,7 @@ pub struct Ui {
     pub sorted_items: Vec<u32>,
     pub previews: VecDeque<Preview>,
     pub preview_area: Rect,
+    pub ls_colors: LsColors,
 }
 
 pub fn run(
@@ -52,6 +54,7 @@ pub fn run(
         sorted_items: Vec::new(),
         previews: VecDeque::new(),
         preview_area: Rect::default(),
+        ls_colors: LsColors::from_env().unwrap_or_default(),
     };
 
     store.start_scan(app)?;
@@ -268,7 +271,7 @@ fn draw_listing(f: &mut Frame, ui: &mut Ui, snap: &Snapshot<Item>, area: Rect) {
             spans.push(Span::from("  "));
         }
 
-        spans.push(item.as_span(selected));
+        spans.push(item.as_span(selected, &ui.ls_colors));
         lines.push(Line::from(spans));
     }
     f.render_widget(Text::from(lines), area);
