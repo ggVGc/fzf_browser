@@ -63,24 +63,45 @@ impl Item {
         }
     }
 
-    pub fn as_span(&self, ls_colors: &LsColors) -> Span {
+    pub fn as_span(&self, ls_colors: &LsColors) -> Vec<Span> {
         let (name, info) = match self {
             Item::WalkError { msg } => {
-                return Span::styled(
+                return vec![Span::styled(
                     format!("error walking: {msg}"),
                     RStyle::default().light_red(),
-                )
+                )];
             }
             Item::FileEntry { name, info, .. } => (name, info),
         };
 
-        let name = name.to_string_lossy();
-        if let Some(style) = ls_colors.style_for(info) {
-            let style = RStyle::from(LsStyle::to_crossterm_style(style));
-            Span::styled(name, style)
-        } else {
-            Span::from(name)
+        let full = name.display().to_string();
+        let (dir, path) = match full.rfind('/') {
+            Some(pos) => {
+                let (dir, name) = full.split_at(pos + 1);
+                let mut dir = dir.to_string();
+                let _trailing_slash = dir.pop();
+                (Some(dir), name.to_string())
+            }
+            None => (None, full),
+        };
+
+        let mut spans = Vec::with_capacity(4);
+        if let Some(dir) = dir {
+            spans.push(Span::styled(
+                dir.to_string(),
+                RStyle::new().fg(Color::LightBlue),
+            ));
+            spans.push(Span::styled("/", RStyle::new().fg(Color::LightYellow)));
         }
+
+        if let Some(style) = ls_colors.style_for(info) {
+            let style = LsStyle::to_crossterm_style(style);
+            spans.push(Span::styled(path.to_string(), style));
+        } else {
+            spans.push(Span::raw(path.to_string()));
+        }
+
+        spans
     }
 }
 

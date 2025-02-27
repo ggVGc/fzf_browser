@@ -271,7 +271,7 @@ fn draw_listing(f: &mut Frame, ui: &mut Ui, snap: &Snapshot<Item>, area: Rect) {
             spans.push(Span::from("  "));
         }
 
-        spans.push(item.as_span(&ui.ls_colors));
+        spans.extend(item.as_span(&ui.ls_colors));
         lines.push(Line::from(spans));
     }
     f.render_widget(Text::from(lines), area);
