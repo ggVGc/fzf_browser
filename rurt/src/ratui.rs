@@ -68,7 +68,7 @@ pub fn run(
 
         ui.active = store.is_scanning() || ui.previews.iter().any(|v| !v.worker.is_finished());
 
-        if ui.active && ui.previews.iter().any(|v| would_flicker(v)) {
+        if ui.active && ui.previews.iter().any(would_flicker) {
             event::poll(Duration::from_millis(60))?;
             thread::yield_now();
         }
@@ -380,14 +380,14 @@ fn draw_preview(f: &mut Frame, ui: &mut Ui, area: Rect) {
     let data = preview.data.lock().expect("panic");
 
     match &data.command {
-        PreviewCommand::InterpretFile => match data.render.as_ref() {
+        PreviewCommand::Command(command_name) => match data.render.as_ref() {
             Some(rendered) => f.render_widget(rendered, area),
-            None => draw_raw_preview(f, area, &preview.showing, "cat", &data.content),
+            None => {
+                let command_name = command_name.clone().unwrap_or_default();
+                draw_raw_preview(f, area, &preview.showing, &command_name, &data.content);
+            }
         },
         PreviewCommand::Thinking => draw_raw_preview(f, area, &preview.showing, "file", &[]),
-        PreviewCommand::Custom(command) => {
-            draw_raw_preview(f, area, &preview.showing, command, &data.content)
-        }
     }
 }
 
@@ -401,7 +401,7 @@ fn draw_raw_preview(
     let mut lines = vec![preview_header(command, showing)];
 
     let cleaned =
-        String::from_utf8_lossy(&content).replace(|c: char| c != '\n' && c.is_control(), " ");
+        String::from_utf8_lossy(content).replace(|c: char| c != '\n' && c.is_control(), " ");
     for (i, line) in cleaned
         .split('\n')
         .take(usize::from(area.height))

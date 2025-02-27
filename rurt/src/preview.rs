@@ -22,8 +22,7 @@ pub struct Preview {
 pub enum PreviewCommand {
     #[default]
     Thinking,
-    Custom(String),
-    InterpretFile,
+    Command(Option<String>),
 }
 
 #[derive(Default)]
@@ -42,7 +41,7 @@ pub fn run_preview(
     if path.is_file() {
         {
             let mut preview = preview.lock().expect("panic");
-            preview.command = PreviewCommand::InterpretFile;
+            preview.command = PreviewCommand::Command(None);
         }
         stream_some(fs::File::open(path)?, Arc::clone(&preview))?;
 
@@ -58,16 +57,23 @@ pub fn run_preview(
 
     let command = "ls";
     let spawn = Command::new(command)
-        .args(&[path])
+        .arg(path)
+        .arg("-la")
+        .arg("--color=always")
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::null())
         .spawn()?;
 
-    {
-        let mut preview = preview.lock().expect("panic");
-        preview.command = PreviewCommand::Custom(command.to_string());
-    }
-    stream_some(spawn.stdout.expect("piped"), preview)?;
+    use ansi_to_tui::IntoText as _;
+
+    let mut content = String::new();
+    spawn.stdout.expect("piped").read_to_string(&mut content)?;
+    let content = content.into_text()?;
+
+    let mut preview = preview.lock().expect("panic");
+    preview.command = PreviewCommand::Command(Some(command.to_string()));
+    preview.render = Some(content);
+
     Ok(())
 }
 
