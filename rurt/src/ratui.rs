@@ -31,6 +31,7 @@ pub struct Ui {
     pub prompt: String,
     pub active: bool,
     pub sorted_items: Vec<u32>,
+    pub sorted_until: usize,
     pub previews: VecDeque<Preview>,
     pub preview_area: Rect,
     pub ls_colors: LsColors,
@@ -52,6 +53,7 @@ pub fn run(
         prompt: format!("{}> ", app.here.display()),
         active: true,
         sorted_items: Vec::new(),
+        sorted_until: 0,
         previews: VecDeque::new(),
         preview_area: Rect::default(),
         ls_colors: LsColors::from_env().unwrap_or_default(),
@@ -103,11 +105,13 @@ pub fn run(
                         app.read_opts.expansions.clear();
                         ui.prompt = format!("{}> ", app.here.display());
                         ui.sorted_items.clear();
+                        ui.sorted_until = 0;
                         store.start_scan(app)?;
                     }
 
                     ActionResult::JustRescan => {
                         ui.sorted_items.clear();
+                        ui.sorted_until = 0;
                         store.start_scan(app)?;
                     }
 
@@ -259,8 +263,12 @@ fn draw_listing(f: &mut Frame, ui: &mut Ui, snap: &Snapshot<Item>, area: Rect) {
         ),
         Style::new().light_yellow(),
     ));
-    let to_show = u32::from(area.height).min(snap.matched_item_count());
-    let items = item_range(snap, ui.view_start, ui.view_start + to_show, ui);
+    let items = item_range(
+        snap,
+        ui.view_start,
+        ui.view_start.saturating_add(u32::from(area.height)),
+        ui,
+    );
 
     for (i, item) in items.into_iter().enumerate() {
         let mut spans = Vec::new();
@@ -290,17 +298,19 @@ pub fn item_range<'s>(
     if start >= end {
         return Vec::new();
     }
+
     let sort = ui.input.value().is_empty();
     if !sort {
         snap.matched_items(start..end)
             .map(|item| item.data)
             .collect()
     } else {
-        let real_end = snap.item_count();
+        let real_end = snap.matched_item_count();
         let cache_end = ui.sorted_items.len() as u32;
         let could_extend = real_end > cache_end;
         let should_extend = end * 2 > cache_end || real_end % 64 == 0;
-        if could_extend && should_extend {
+        let should_sort = end as usize > ui.sorted_until;
+        if should_sort || (could_extend && should_extend) {
             ui.sorted_items.extend(cache_end..real_end);
 
             if end < real_end {
@@ -310,8 +320,10 @@ pub fn item_range<'s>(
                     });
             }
 
+            info!("sorting for {end}");
             ui.sorted_items[0..end as usize]
                 .sort_unstable_by_key(|&i| snap.get_item(i).expect("<end").data);
+            ui.sorted_until = end as usize;
         }
 
         ui.sorted_items[start as usize..end as usize]
