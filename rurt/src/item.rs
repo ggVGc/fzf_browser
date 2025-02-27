@@ -5,8 +5,9 @@ use ratatui::prelude::Style as RStyle;
 use ratatui::prelude::*;
 use std::borrow::Cow;
 use std::ffi::OsString;
+use std::fs;
 use std::fs::FileType;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum Item {
@@ -17,9 +18,10 @@ pub enum Item {
 #[derive(Clone, Debug)]
 pub struct ItemInfo {
     pub file_type: FileType,
-    path: std::path::PathBuf,
+    path: PathBuf,
     filename: OsString,
-    metadata: Option<std::fs::Metadata>,
+    metadata: Option<fs::Metadata>,
+    pub link_dest: Option<PathBuf>,
 }
 
 impl PartialEq for ItemInfo {
@@ -101,6 +103,12 @@ impl Item {
             spans.push(Span::raw(path.to_string()));
         }
 
+        if let Some(link_dest) = &info.link_dest {
+            let link_dest = pathdiff::diff_paths(&info.path, link_dest)
+                .unwrap_or_else(|| link_dest.to_path_buf());
+            spans.push(Span::styled(" -> ", RStyle::new().fg(Color::LightMagenta)));
+            spans.push(Span::raw(link_dest.display().to_string()));
+        }
         spans
     }
 }
@@ -162,6 +170,12 @@ fn convert_resolution(root: impl AsRef<Path>, f: Result<DirEntry>) -> Result<Opt
 
     // Skip root directory
     if f.depth() != 0 {
+        let link_dest = if f.path_is_symlink() {
+            fs::canonicalize(f.path()).ok()
+        } else {
+            None
+        };
+
         Ok(Some(Item::FileEntry {
             name,
             info: ItemInfo {
@@ -169,6 +183,7 @@ fn convert_resolution(root: impl AsRef<Path>, f: Result<DirEntry>) -> Result<Opt
                 filename: f.file_name().to_os_string(),
                 metadata: f.metadata().ok(),
                 file_type,
+                link_dest,
             },
         }))
     } else {
