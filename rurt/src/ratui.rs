@@ -320,7 +320,6 @@ pub fn item_range<'s>(
                     });
             }
 
-            info!("sorting for {end}");
             ui.sorted_items[0..end as usize]
                 .sort_unstable_by_key(|&i| snap.get_item(i).expect("<end").data);
             ui.sorted_until = end as usize;
