@@ -63,7 +63,7 @@ impl Item {
         }
     }
 
-    pub fn as_span(&self, selected: bool, ls_colors: &LsColors) -> Span {
+    pub fn as_span(&self, ls_colors: &LsColors) -> Span {
         let (name, info) = match self {
             Item::WalkError { msg } => {
                 return Span::styled(
@@ -78,8 +78,6 @@ impl Item {
         if let Some(style) = ls_colors.style_for(info) {
             let style = RStyle::from(LsStyle::to_crossterm_style(style));
             Span::styled(name, style)
-        } else if selected {
-            Span::styled(name, RStyle::new())
         } else {
             Span::from(name)
         }
