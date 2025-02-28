@@ -5,8 +5,11 @@ use crate::store::Store;
 use crate::tui_log::{LogWidget, LogWidgetState};
 use crate::App;
 use anyhow::Result;
-use crossterm::event;
 use crossterm::event::Event;
+use crossterm::terminal::{
+    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
+};
+use crossterm::{event, execute};
 use log::info;
 use lscolors::LsColors;
 use nucleo::pattern::{CaseMatching, Normalization};
@@ -14,6 +17,7 @@ use nucleo::Snapshot;
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
 use std::collections::VecDeque;
+use std::io::{stderr, stdout};
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -42,7 +46,11 @@ pub fn run(
     app: &mut App,
     log_state: Arc<Mutex<LogWidgetState>>,
 ) -> Result<(Option<String>, ExitCode)> {
-    let mut terminal = ratatui::try_init()?;
+    // copy-paste of ratatui::try_init() but for stderr
+    enable_raw_mode()?;
+    execute!(stderr(), EnterAlternateScreen)?;
+    let backend = CrosstermBackend::new(stderr());
+    let mut terminal = Terminal::new(backend)?;
     let _restore = DropRestore {};
 
     let mut ui = Ui {
@@ -430,7 +438,9 @@ fn draw_no_preview(f: &mut Frame, area: Rect) {
 struct DropRestore {}
 impl Drop for DropRestore {
     fn drop(&mut self) {
-        ratatui::restore();
+        // copy-paste of ratatui::restore() but for stderr
+        let _ = disable_raw_mode();
+        let _ = execute!(stderr(), LeaveAlternateScreen);
     }
 }
 

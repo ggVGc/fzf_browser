@@ -1,6 +1,3 @@
-* Behaves badly when used in pipe, which also breaks usage in, for example, fish shell:
-  - Reproduce: `rurt | grep "yeo"`, or anything really
-  - Nothing renders. If enter is pressed, the "selection" is sent over the pipe.
 * Toggle option for colors in preview window:
   - Bit too much for some files
 * Action launching an external program, which should return a path, and cd to it:
