@@ -1,8 +1,10 @@
 use crate::line_stop::{LineStopFmtWrite, LineStopIoWrite};
+use ansi_to_tui::IntoText;
 use anyhow::Result;
 use content_inspector::ContentType;
 use ratatui::prelude::*;
-use std::io::Read;
+use std::ffi::OsStr;
+use std::io::{BufRead, Read};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Arc, Mutex};
@@ -13,6 +15,7 @@ use std::{fs, io};
 pub struct Preview {
     pub showing: PathBuf,
     pub target_area: Rect,
+    pub coloured: bool,
     pub data: Arc<Mutex<PreviewedData>>,
     pub worker: JoinHandle<()>,
     pub started: Instant,
@@ -35,6 +38,7 @@ pub struct PreviewedData {
 
 pub fn run_preview(
     pathref: impl AsRef<Path>,
+    coloured: bool,
     preview: Arc<Mutex<PreviewedData>>,
     area: Rect,
 ) -> Result<()> {
@@ -50,24 +54,49 @@ pub fn run_preview(
         let content = read_content.content.clone();
         drop(read_content);
 
-        let rendered = interpret_file(content, path, area)?;
+        let rendered = interpret_file(content, path, area, coloured)?;
         preview.lock().expect("panic").render = Some(rendered);
 
         return Ok(());
     }
 
     let command = "ls";
+    preview.lock().expect("panic").command = PreviewCommand::Custom(command.to_string());
+
     let spawn = Command::new(command)
-        .args(&[path])
+        .args(&[
+            path.as_os_str(),
+            OsStr::new("-al"),
+            if coloured {
+                OsStr::new("--color=always")
+            } else {
+                OsStr::new("--color=never")
+            },
+        ])
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::null())
         .spawn()?;
 
-    {
-        let mut preview = preview.lock().expect("panic");
-        preview.command = PreviewCommand::Custom(command.to_string());
+    let mut buf = Vec::with_capacity(4096);
+    spawn
+        .stdout
+        .expect("piped")
+        .take(1024 * 1024)
+        .read_to_end(&mut buf)?;
+
+    let mut indented = Vec::with_capacity(buf.len() * 2);
+    for line in buf.split(|&b| b == b'\n') {
+        indented.extend_from_slice(b"     ");
+        indented.extend_from_slice(line);
+        indented.push(b'\n');
     }
-    stream_some(spawn.stdout.expect("piped"), preview)?;
+    indented.trim_ascii_end();
+    let mut text = indented.into_text()?;
+    text.lines.insert(0, preview_header("ls", path));
+
+    let mut preview = preview.lock().expect("panic");
+    preview.render = Some(text);
+    preview.content = buf;
     Ok(())
 }
 
@@ -93,6 +122,7 @@ fn interpret_file(
     mut content: Vec<u8>,
     showing: impl AsRef<Path>,
     area: Rect,
+    coloured: bool,
 ) -> Result<Text<'static>> {
     use ansi_to_tui::IntoText as _;
 
@@ -103,6 +133,7 @@ fn interpret_file(
             // TODO: expecting suspicious broken pipe on writer full
             let _ = hexyl::PrinterBuilder::new(&mut v)
                 .num_panels(panels as u64)
+                .show_color(coloured)
                 .build()
                 .print_all(io::Cursor::new(&content));
             let mut ret = v.inner.into_text()?;
@@ -116,6 +147,7 @@ fn interpret_file(
             let _ = bat::PrettyPrinter::new()
                 .input(bat::Input::from_bytes(&content).name(&showing))
                 .header(false)
+                .colored_output(coloured)
                 .term_width(area.width as usize)
                 .tab_width(Some(2))
                 .line_numbers(true)

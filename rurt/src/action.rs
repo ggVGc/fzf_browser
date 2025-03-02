@@ -24,6 +24,7 @@ pub enum Action {
     CycleMode,
     CycleRecursion,
     TogglePreview,
+    TogglePreviewColour,
     SetTarget,
     Expand,
     Open,
@@ -112,6 +113,10 @@ pub fn handle_action<'s>(
                   Some(_) => None,
               }
             */
+            ActionResult::Configured
+        }
+        Action::TogglePreviewColour => {
+            ui.preview_colours = !ui.preview_colours;
             ActionResult::Configured
         }
         Action::SetTarget => {

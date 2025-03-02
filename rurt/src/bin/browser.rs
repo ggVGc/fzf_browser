@@ -67,6 +67,7 @@ fn main() -> Result<ExitCode> {
         (KeyModifiers::CONTROL, KeyCode::Char('r'), Action::CycleRecursion,),
         (KeyModifiers::CONTROL, KeyCode::Char('t'), Action::SetTarget),
         (KeyModifiers::CONTROL, KeyCode::Char('g'), Action::Open),
+        (KeyModifiers::CONTROL, KeyCode::Char('j'), Action::TogglePreviewColour),
         (KeyModifiers::CONTROL, KeyCode::Char('o'), Action::DirBack),
         (KeyModifiers::CONTROL, KeyCode::Char('u'), Action::DirForward),
     ];

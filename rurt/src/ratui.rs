@@ -17,7 +17,7 @@ use nucleo::Snapshot;
 use ratatui::prelude::*;
 use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
 use std::collections::VecDeque;
-use std::io::{stderr, stdout};
+use std::io::stderr;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -38,6 +38,7 @@ pub struct Ui {
     pub sorted_until: usize,
     pub previews: VecDeque<Preview>,
     pub preview_area: Rect,
+    pub preview_colours: bool,
     pub ls_colors: LsColors,
 }
 
@@ -64,6 +65,7 @@ pub fn run(
         sorted_until: 0,
         previews: VecDeque::new(),
         preview_area: Rect::default(),
+        preview_colours: true,
         ls_colors: LsColors::from_env().unwrap_or_default(),
     };
 
@@ -159,12 +161,11 @@ fn fire_preview(ui: &mut Ui) {
 
     let started = Instant::now();
 
-    if ui
-        .previews
-        .iter()
-        .rev()
-        .any(|v| Some(&v.showing) == ui.cursor_showing.as_ref() && v.target_area == ui.preview_area)
-    {
+    if ui.previews.iter().rev().any(|v| {
+        Some(&v.showing) == ui.cursor_showing.as_ref()
+            && v.target_area == ui.preview_area
+            && v.coloured == ui.preview_colours
+    }) {
         return;
     }
 
@@ -176,9 +177,10 @@ fn fire_preview(ui: &mut Ui) {
 
     let write_to = Arc::clone(&data);
     let preview_path = showing.to_path_buf();
+    let coloured = ui.preview_colours;
     let area = ui.preview_area;
     let worker = thread::spawn(move || {
-        if let Err(e) = run_preview(&preview_path, Arc::clone(&write_to), area) {
+        if let Err(e) = run_preview(&preview_path, coloured, Arc::clone(&write_to), area) {
             write_to
                 .lock()
                 .expect("panic")
@@ -191,6 +193,7 @@ fn fire_preview(ui: &mut Ui) {
     ui.previews.push_back(Preview {
         showing: showing.to_path_buf(),
         target_area: ui.preview_area,
+        coloured: ui.preview_colours,
         data: Arc::clone(&data),
         worker,
         started,
@@ -383,12 +386,9 @@ fn draw_divider(f: &mut Frame, divider_area: Rect) {
 fn draw_preview(f: &mut Frame, ui: &mut Ui, area: Rect) {
     ui.preview_area = area;
 
-    let preview = match ui
-        .previews
-        .iter()
-        .rev()
-        .find(|v| Some(&v.showing) == ui.cursor_showing.as_ref())
-    {
+    let preview = match ui.previews.iter().rev().find(|v| {
+        Some(&v.showing) == ui.cursor_showing.as_ref() && v.coloured == ui.preview_colours
+    }) {
         Some(preview) => preview,
         None => {
             draw_no_preview(f, area);
@@ -404,9 +404,10 @@ fn draw_preview(f: &mut Frame, ui: &mut Ui, area: Rect) {
             None => draw_raw_preview(f, area, &preview.showing, "cat", &data.content),
         },
         PreviewCommand::Thinking => draw_raw_preview(f, area, &preview.showing, "file", &[]),
-        PreviewCommand::Custom(command) => {
-            draw_raw_preview(f, area, &preview.showing, command, &data.content)
-        }
+        PreviewCommand::Custom(command) => match data.render.as_ref() {
+            Some(rendered) => f.render_widget(rendered, area),
+            None => draw_raw_preview(f, area, &preview.showing, command, &data.content),
+        },
     }
 }
 
