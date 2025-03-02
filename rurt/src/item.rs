@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum Item {
-    FileEntry { name: OsString, info: ItemInfo },
+    FileEntry { name: OsString, info: Box<ItemInfo> },
     WalkError { msg: String },
 }
 
@@ -96,7 +96,7 @@ impl Item {
             spans.push(Span::styled("/", RStyle::new().fg(Color::LightYellow)));
         }
 
-        if let Some(style) = ls_colors.style_for(info) {
+        if let Some(style) = ls_colors.style_for(info.as_ref()) {
             let style = LsStyle::to_crossterm_style(style);
             spans.push(Span::styled(path.to_string(), style));
         } else {
@@ -178,13 +178,13 @@ fn convert_resolution(root: impl AsRef<Path>, f: Result<DirEntry>) -> Result<Opt
 
         Ok(Some(Item::FileEntry {
             name,
-            info: ItemInfo {
+            info: Box::new(ItemInfo {
                 path: f.path().to_path_buf(),
                 filename: f.file_name().to_os_string(),
                 metadata: f.metadata().ok(),
                 file_type,
                 link_dest,
-            },
+            }),
         }))
     } else {
         Ok(None)

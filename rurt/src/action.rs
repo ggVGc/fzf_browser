@@ -52,11 +52,7 @@ pub fn item_under_cursor<'s>(ui: &mut Ui, snap: &'s Snapshot<Item>) -> Option<&'
         .and_then(|it| it.path())
 }
 
-pub fn handle_action<'s>(
-    action: Action,
-    app: &mut App,
-    ui: &mut Ui,
-) -> anyhow::Result<ActionResult> {
+pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Result<ActionResult> {
     let here = &mut app.here;
     let read_opts = &mut app.read_opts;
     let dir_stack = &mut app.dir_stack;
@@ -71,7 +67,7 @@ pub fn handle_action<'s>(
             if let Some(cand) = ui
                 .cursor_showing
                 .as_ref()
-                .and_then(|name| ensure_directory(here.join(&name)).ok())
+                .and_then(|name| ensure_directory(here.join(name)).ok())
             {
                 dir_stack.push(here.clone());
                 *here = cand;
@@ -120,7 +116,7 @@ pub fn handle_action<'s>(
             ActionResult::Configured
         }
         Action::SetTarget => {
-            read_opts.target_dir.clone_from(&here);
+            read_opts.target_dir.clone_from(here);
             ActionResult::Configured
         }
         Action::Open => {

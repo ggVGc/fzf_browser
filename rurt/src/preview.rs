@@ -4,7 +4,7 @@ use anyhow::Result;
 use content_inspector::ContentType;
 use ratatui::prelude::*;
 use std::ffi::OsStr;
-use std::io::{BufRead, Read};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Arc, Mutex};
@@ -64,7 +64,7 @@ pub fn run_preview(
     preview.lock().expect("panic").command = PreviewCommand::Custom(command.to_string());
 
     let spawn = Command::new(command)
-        .args(&[
+        .args([
             path.as_os_str(),
             OsStr::new("-al"),
             if coloured {

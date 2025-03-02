@@ -46,7 +46,7 @@ impl io::Write for LineStopIoWrite {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.remaining_new_lines = self
             .remaining_new_lines
-            .saturating_sub(buf.into_iter().filter(|&&c| c == b'\n').count());
+            .saturating_sub(buf.iter().filter(|&&c| c == b'\n').count());
         self.inner.extend_from_slice(buf);
         if self.remaining_new_lines == 0 {
             Err(io::ErrorKind::BrokenPipe.into())

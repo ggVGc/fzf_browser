@@ -421,7 +421,7 @@ fn draw_raw_preview(
     let mut lines = vec![preview_header(command, showing)];
 
     let cleaned =
-        String::from_utf8_lossy(&content).replace(|c: char| c != '\n' && c.is_control(), " ");
+        String::from_utf8_lossy(content).replace(|c: char| c != '\n' && c.is_control(), " ");
     for (i, line) in cleaned
         .split('\n')
         .take(usize::from(area.height))
