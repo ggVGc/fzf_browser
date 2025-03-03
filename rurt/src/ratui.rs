@@ -386,8 +386,9 @@ fn draw_divider(f: &mut Frame, divider_area: Rect) {
 fn draw_preview(f: &mut Frame, ui: &mut Ui, area: Rect) {
     ui.preview_area = area;
 
-    let preview = match ui.previews.iter().rev().find(|v| {
-        Some(&v.showing) == ui.cursor_showing.as_ref() && v.coloured == ui.preview_colours
+    let idx = match ui.previews.iter().enumerate().rev().find_map(|(idx, v)| {
+        (Some(&v.showing) == ui.cursor_showing.as_ref() && v.coloured == ui.preview_colours)
+            .then_some(idx)
     }) {
         Some(preview) => preview,
         None => {
@@ -395,6 +396,13 @@ fn draw_preview(f: &mut Frame, ui: &mut Ui, area: Rect) {
             return;
         }
     };
+
+    if idx != ui.previews.len() - 1 {
+        let hit = ui.previews.remove(idx).expect("just found");
+        ui.previews.push_back(hit);
+    }
+
+    let preview = ui.previews.back().expect("just moved");
 
     let data = preview.data.lock().expect("panic");
 
