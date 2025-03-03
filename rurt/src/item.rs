@@ -1,3 +1,4 @@
+use crate::colour::Colour;
 use anyhow::{anyhow, Context, Result};
 use ignore::DirEntry;
 use lscolors::{Colorable, LsColors, Style as LsStyle};
@@ -65,7 +66,8 @@ impl Item {
         }
     }
 
-    pub fn as_span(&self, ls_colors: &LsColors) -> Vec<Span> {
+    // rot: 0: fresh, 1: stale
+    pub fn as_spans(&self, ls_colors: &LsColors, rot: f32) -> Vec<Span> {
         let (name, info) = match self {
             Item::WalkError { msg } => {
                 return vec![Span::styled(
@@ -89,11 +91,8 @@ impl Item {
 
         let mut spans = Vec::with_capacity(4);
         if let Some(dir) = dir {
-            spans.push(Span::styled(
-                dir.to_string(),
-                RStyle::new().fg(Color::LightBlue),
-            ));
-            spans.push(Span::styled("/", RStyle::new().fg(Color::LightYellow)));
+            spans.push(Span::styled(dir.to_string(), RStyle::new().light_blue()));
+            spans.push(Span::styled("/", RStyle::new().light_yellow()));
         }
 
         if let Some(style) = ls_colors.style_for(info.as_ref()) {
@@ -106,8 +105,18 @@ impl Item {
         if let Some(link_dest) = &info.link_dest {
             let link_dest = pathdiff::diff_paths(&info.path, link_dest)
                 .unwrap_or_else(|| link_dest.to_path_buf());
-            spans.push(Span::styled(" -> ", RStyle::new().fg(Color::LightMagenta)));
+            spans.push(Span::styled(" -> ", RStyle::new().light_magenta()));
             spans.push(Span::raw(link_dest.display().to_string()));
+        }
+        for span in &mut spans {
+            if let Some(colour) = span.style.fg {
+                span.style.fg = Some(
+                    Colour::try_from(colour)
+                        .expect("todo")
+                        .desaturate(rot)
+                        .into(),
+                );
+            }
         }
         spans
     }

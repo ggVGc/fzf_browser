@@ -254,7 +254,6 @@ fn edge_inset(area: &Rect, margin: u16) -> Rect {
 }
 
 fn draw_listing(f: &mut Frame, ui: &mut Ui, snap: &Snapshot<Item>, area: Rect) {
-    // TODO: not correct; allows positioning one past the end
     ui.cursor = ui.cursor.min(snap.matched_item_count().saturating_sub(1));
     ui.cursor_showing = item_under_cursor(ui, snap).map(PathBuf::from);
 
@@ -281,6 +280,8 @@ fn draw_listing(f: &mut Frame, ui: &mut Ui, snap: &Snapshot<Item>, area: Rect) {
         ui,
     );
 
+    let searching = ui.input.value().is_empty();
+
     for (i, item) in items.into_iter().enumerate() {
         let mut spans = Vec::new();
         let selected = ui.cursor.saturating_sub(ui.view_start) as usize == i;
@@ -290,7 +291,15 @@ fn draw_listing(f: &mut Frame, ui: &mut Ui, snap: &Snapshot<Item>, area: Rect) {
             spans.push(Span::from("  "));
         }
 
-        spans.extend(item.as_span(&ui.ls_colors));
+        let overall_pos = (ui.view_start as usize).saturating_add(i);
+        spans.extend(item.as_spans(
+            &ui.ls_colors,
+            if searching {
+                (overall_pos as f32 / 30.).min(0.9)
+            } else {
+                0.
+            },
+        ));
         lines.push(Line::from(spans));
     }
     f.render_widget(Text::from(lines), area);
