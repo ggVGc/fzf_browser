@@ -280,7 +280,7 @@ fn draw_listing(f: &mut Frame, ui: &mut Ui, snap: &Snapshot<Item>, area: Rect) {
         ui,
     );
 
-    let searching = ui.input.value().is_empty();
+    let searching = !ui.input.value().is_empty();
 
     for (i, item) in items.into_iter().enumerate() {
         let mut spans = Vec::new();

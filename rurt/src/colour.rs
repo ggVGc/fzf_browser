@@ -76,9 +76,9 @@ impl Colour {
     }
 }
 
-impl Into<ratatui::style::Color> for Colour {
-    fn into(self) -> ratatui::style::Color {
-        ratatui::style::Color::Rgb(self.r, self.g, self.b)
+impl From<Colour> for style::Color {
+    fn from(colour: Colour) -> style::Color {
+        style::Color::Rgb(colour.r, colour.g, colour.b)
     }
 }
 
