@@ -7,6 +7,7 @@ use crate::dir_stack::DirStack;
 use crate::walk::ReadOpts;
 
 pub mod action;
+mod colour;
 pub mod dir_stack;
 pub mod fuzz;
 pub mod item;

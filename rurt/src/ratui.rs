@@ -254,7 +254,6 @@ fn edge_inset(area: &Rect, margin: u16) -> Rect {
 }
 
 fn draw_listing(f: &mut Frame, ui: &mut Ui, snap: &Snapshot<Item>, area: Rect) {
-    // TODO: not correct; allows positioning one past the end
     ui.cursor = ui.cursor.min(snap.matched_item_count().saturating_sub(1));
     ui.cursor_showing = item_under_cursor(ui, snap).map(PathBuf::from);
 
@@ -281,6 +280,8 @@ fn draw_listing(f: &mut Frame, ui: &mut Ui, snap: &Snapshot<Item>, area: Rect) {
         ui,
     );
 
+    let searching = !ui.input.value().is_empty();
+
     for (i, item) in items.into_iter().enumerate() {
         let mut spans = Vec::new();
         let selected = ui.cursor.saturating_sub(ui.view_start) as usize == i;
@@ -290,7 +291,15 @@ fn draw_listing(f: &mut Frame, ui: &mut Ui, snap: &Snapshot<Item>, area: Rect) {
             spans.push(Span::from("  "));
         }
 
-        spans.extend(item.as_span(&ui.ls_colors));
+        let overall_pos = (ui.view_start as usize).saturating_add(i);
+        spans.extend(item.as_spans(
+            &ui.ls_colors,
+            if searching {
+                (overall_pos as f32 / 30.).min(0.9)
+            } else {
+                0.
+            },
+        ));
         lines.push(Line::from(spans));
     }
     f.render_widget(Text::from(lines), area);
@@ -386,8 +395,9 @@ fn draw_divider(f: &mut Frame, divider_area: Rect) {
 fn draw_preview(f: &mut Frame, ui: &mut Ui, area: Rect) {
     ui.preview_area = area;
 
-    let preview = match ui.previews.iter().rev().find(|v| {
-        Some(&v.showing) == ui.cursor_showing.as_ref() && v.coloured == ui.preview_colours
+    let idx = match ui.previews.iter().enumerate().rev().find_map(|(idx, v)| {
+        (Some(&v.showing) == ui.cursor_showing.as_ref() && v.coloured == ui.preview_colours)
+            .then_some(idx)
     }) {
         Some(preview) => preview,
         None => {
@@ -395,6 +405,13 @@ fn draw_preview(f: &mut Frame, ui: &mut Ui, area: Rect) {
             return;
         }
     };
+
+    if idx != ui.previews.len() - 1 {
+        let hit = ui.previews.remove(idx).expect("just found");
+        ui.previews.push_back(hit);
+    }
+
+    let preview = ui.previews.back().expect("just moved");
 
     let data = preview.data.lock().expect("panic");
 
