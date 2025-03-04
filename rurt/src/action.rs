@@ -157,10 +157,13 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
                     *here = cand;
                     ActionResult::Navigated
                 } else {
-                    ActionResult::Exit(
-                        Some(here.join(name).display().to_string()),
-                        ExitCode::SUCCESS,
-                    )
+                    let mut cand = here.join(name);
+                    if let Ok(cwd) = std::env::current_dir() {
+                        if let Ok(stripped) = cand.strip_prefix(&cwd) {
+                            cand = stripped.to_path_buf();
+                        }
+                    }
+                    ActionResult::Exit(Some(cand.display().to_string()), ExitCode::SUCCESS)
                 }
             } else {
                 ActionResult::Exit(None, ExitCode::FAILURE)
