@@ -110,12 +110,9 @@ impl Item {
         }
         for span in &mut spans {
             if let Some(colour) = span.style.fg {
-                span.style.fg = Some(
-                    Colour::try_from(colour)
-                        .expect("todo")
-                        .desaturate(rot)
-                        .into(),
-                );
+                if let Ok(colour) = Colour::try_from(colour) {
+                    span.style.fg = Some(colour.desaturate(rot).into());
+                }
             }
         }
         spans
