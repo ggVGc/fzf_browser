@@ -85,7 +85,10 @@ pub fn run(
             thread::yield_now();
         }
 
-        terminal.draw(|f| draw_ui(f, &mut ui, snap, log_state.clone()))?;
+        terminal.draw(|f| {
+            let area = setup_screen(f.area());
+            draw_ui(f, area, &mut ui, snap, log_state.clone())
+        })?;
 
         // react to the cursor moving in draw_preview, as the screen has moved :(
         fire_preview(&mut ui);
@@ -200,51 +203,71 @@ fn fire_preview(ui: &mut Ui) {
     });
 }
 
-fn draw_ui(
-    f: &mut Frame,
-    ui: &mut Ui,
-    snap: &Snapshot<Item>,
-    log_state: Arc<Mutex<LogWidgetState>>,
-) {
-    let [input_line_area, main_app_area, log_area] = Layout::default()
+#[derive(Copy, Clone, Debug)]
+struct Areas {
+    input_line: Rect,
+    log: Rect,
+    left_pane: Rect,
+    divider: Rect,
+    right_pane: Rect,
+}
+
+fn setup_screen(screen: Rect) -> Areas {
+    let [input_line, main_app, log] = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(1),
             Constraint::Min(0),
             Constraint::Percentage(20),
         ])
-        .split(f.area())
+        .split(screen)
         .deref()
         .try_into()
         .expect("static constraints");
 
-    let [left_pane_area, divider_area, right_pane_area] = Layout::default()
+    let [left_pane, divider, right_pane] = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
             Constraint::Percentage(50),
             Constraint::Length(1),
             Constraint::Percentage(50),
         ])
-        .split(main_app_area)
+        .split(main_app)
         .deref()
         .try_into()
         .expect("static constraints");
 
-    draw_input_line(f, &ui.prompt, &mut ui.input, input_line_area);
+    Areas {
+        input_line,
+        log,
+        left_pane,
+        divider,
+        right_pane,
+    }
+}
 
-    draw_listing(f, ui, snap, left_pane_area);
-    draw_divider(f, divider_area);
-    draw_preview(f, ui, right_pane_area);
+fn draw_ui(
+    f: &mut Frame,
+    area: Areas,
+    ui: &mut Ui,
+    snap: &Snapshot<Item>,
+    log_state: Arc<Mutex<LogWidgetState>>,
+) {
+    draw_input_line(f, &ui.prompt, &mut ui.input, area.input_line);
+
+    draw_listing(f, ui, snap, area.left_pane);
+    draw_divider(f, area.divider);
+    draw_preview(f, ui, area.right_pane);
 
     if let Ok(log_state) = &mut log_state.lock() {
-        f.render_widget(Block::new().borders(Borders::ALL), log_area);
-        let log_inset = edge_inset(&log_area, 1);
+        f.render_widget(Block::new().borders(Borders::ALL), area.log);
+        let log_inset = edge_inset(area.log, 1);
         f.render_stateful_widget(LogWidget::default(), log_inset, log_state);
     }
 }
 
-fn edge_inset(area: &Rect, margin: u16) -> Rect {
-    let mut inset_area = *area;
+fn edge_inset(area: Rect, margin: u16) -> Rect {
+    let mut inset_area = area;
     inset_area.x += margin;
     inset_area.y += margin;
     inset_area.height -= margin;
