@@ -90,7 +90,7 @@ pub fn run(
                 let item_area = area.left_pane;
                 revalidate_cursor(&mut ui, snap, item_area);
                 let items = ui_item_range(&mut ui, snap, item_area);
-                draw_ui(f, area, &mut ui, &items, log_state.clone())
+                draw_ui(f, area, &ui, &items, log_state.clone())
             })?
             .area;
 
@@ -149,12 +149,12 @@ pub fn run(
     }
 }
 
-fn ui_item_range<'s>(mut ui: &mut Ui, snap: &'s Snapshot<Item>, item_area: Rect) -> Snapped<'s> {
+fn ui_item_range<'s>(ui: &mut Ui, snap: &'s Snapshot<Item>, item_area: Rect) -> Snapped<'s> {
     item_range(
         snap,
         ui.view_start,
         ui.view_start.saturating_add(u32::from(item_area.height)),
-        &mut ui,
+        ui,
     )
 }
 
