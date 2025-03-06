@@ -87,6 +87,7 @@ pub fn run(
             .draw(|f| {
                 let area = setup_screen(f.area());
                 fire_preview(&mut ui, area.right_pane);
+                revalidate_cursor(&mut ui, snap, area.left_pane);
                 draw_ui(f, area, &mut ui, snap, log_state.clone())
             })?
             .area;
@@ -148,6 +149,17 @@ pub fn run(
 
 fn would_flicker(v: &Preview) -> bool {
     v.started.elapsed() < Duration::from_millis(100) && !v.worker.is_finished()
+}
+
+fn revalidate_cursor(ui: &mut Ui, snap: &Snapshot<Item>, area: Rect) {
+    ui.cursor = ui.cursor.min(snap.matched_item_count().saturating_sub(1));
+    ui.cursor_showing = item_under_cursor(ui, snap).map(PathBuf::from);
+
+    if ui.cursor < ui.view_start {
+        ui.view_start = ui.cursor;
+    } else if ui.cursor + 1 >= ui.view_start + u32::from(area.height) {
+        ui.view_start = ui.cursor.saturating_sub(u32::from(area.height)) + 2;
+    }
 }
 
 fn fire_preview(ui: &mut Ui, preview_area: Rect) {
@@ -275,15 +287,6 @@ fn edge_inset(area: Rect, margin: u16) -> Rect {
 }
 
 fn draw_listing(f: &mut Frame, ui: &mut Ui, snap: &Snapshot<Item>, area: Rect) {
-    ui.cursor = ui.cursor.min(snap.matched_item_count().saturating_sub(1));
-    ui.cursor_showing = item_under_cursor(ui, snap).map(PathBuf::from);
-
-    if ui.cursor < ui.view_start {
-        ui.view_start = ui.cursor;
-    } else if ui.cursor + 1 >= ui.view_start + u32::from(area.height) {
-        ui.view_start = ui.cursor.saturating_sub(u32::from(area.height)) + 2;
-    }
-
     let mut lines = Vec::new();
     lines.push(Line::styled(
         format!(
