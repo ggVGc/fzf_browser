@@ -14,6 +14,7 @@ pub mod item;
 mod line_stop;
 mod preview;
 pub mod ratui;
+mod snapped;
 pub mod store;
 pub mod tui_log;
 mod ui_state;

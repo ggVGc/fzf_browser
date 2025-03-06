@@ -2,14 +2,11 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use crate::item::Item;
-use crate::ratui::item_range;
 use crate::ui_state::Ui;
 use crate::walk::{MODES, RECURSION};
 use crate::App;
 use anyhow::{anyhow, bail};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use nucleo::Snapshot;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Action {
@@ -45,13 +42,6 @@ pub enum ActionResult {
     Configured,
     /// we're done, print something and bail
     Exit(Option<String>, ExitCode),
-}
-
-pub fn item_under_cursor<'s>(ui: &mut Ui, snap: &'s Snapshot<Item>) -> Option<&'s Path> {
-    item_range(snap, ui.cursor, ui.cursor + 1, ui)
-        .items
-        .pop()
-        .and_then(|it| it.path())
 }
 
 pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Result<ActionResult> {
