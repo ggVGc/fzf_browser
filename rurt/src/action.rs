@@ -48,6 +48,7 @@ pub enum ActionResult {
 
 pub fn item_under_cursor<'s>(ui: &mut Ui, snap: &'s Snapshot<Item>) -> Option<&'s Path> {
     item_range(snap, ui.cursor, ui.cursor + 1, ui)
+        .items
         .pop()
         .and_then(|it| it.path())
 }

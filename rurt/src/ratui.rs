@@ -87,8 +87,10 @@ pub fn run(
             .draw(|f| {
                 let area = setup_screen(f.area());
                 fire_preview(&mut ui, area.right_pane);
-                revalidate_cursor(&mut ui, snap, area.left_pane);
-                draw_ui(f, area, &mut ui, snap, log_state.clone())
+                let item_area = area.left_pane;
+                revalidate_cursor(&mut ui, snap, item_area);
+                let items = ui_item_range(&mut ui, snap, item_area);
+                draw_ui(f, area, &mut ui, &items, log_state.clone())
             })?
             .area;
 
@@ -145,6 +147,15 @@ pub fn run(
             }
         }
     }
+}
+
+fn ui_item_range<'s>(mut ui: &mut Ui, snap: &'s Snapshot<Item>, item_area: Rect) -> Snapped<'s> {
+    item_range(
+        snap,
+        ui.view_start,
+        ui.view_start.saturating_add(u32::from(item_area.height)),
+        &mut ui,
+    )
 }
 
 fn would_flicker(v: &Preview) -> bool {
@@ -260,10 +271,10 @@ fn draw_ui(
     f: &mut Frame,
     area: Areas,
     ui: &mut Ui,
-    snap: &Snapshot<Item>,
+    snap: &Snapped,
     log_state: Arc<Mutex<LogWidgetState>>,
 ) {
-    draw_input_line(f, &ui.prompt, &mut ui.input, area.input_line);
+    draw_input_line(f, &ui.prompt, &ui.input, area.input_line);
 
     draw_listing(f, ui, snap, area.left_pane);
     draw_divider(f, area.divider);
@@ -286,27 +297,21 @@ fn edge_inset(area: Rect, margin: u16) -> Rect {
     inset_area
 }
 
-fn draw_listing(f: &mut Frame, ui: &mut Ui, snap: &Snapshot<Item>, area: Rect) {
+fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
     let mut lines = Vec::new();
     lines.push(Line::styled(
         format!(
             "{} {}/{}",
             if ui.active { "S" } else { " " },
-            snap.matched_item_count(),
-            snap.item_count(),
+            snap.matched,
+            snap.total,
         ),
         Style::new().light_yellow(),
     ));
-    let items = item_range(
-        snap,
-        ui.view_start,
-        ui.view_start.saturating_add(u32::from(area.height)),
-        ui,
-    );
 
     let searching = !ui.input.value().is_empty();
 
-    for (i, item) in items.into_iter().enumerate() {
+    for (i, item) in snap.items.iter().enumerate() {
         let mut spans = Vec::new();
         let selected = ui.cursor.saturating_sub(ui.view_start) as usize == i;
         if selected {
@@ -329,22 +334,32 @@ fn draw_listing(f: &mut Frame, ui: &mut Ui, snap: &Snapshot<Item>, area: Rect) {
     f.render_widget(Text::from(lines), area);
 }
 
+pub struct Snapped<'i> {
+    pub items: Vec<&'i Item>,
+    pub matched: u32,
+    pub total: u32,
+}
+
 #[inline]
 pub fn item_range<'s>(
     snap: &'s Snapshot<Item>,
     start: u32,
     mut end: u32,
     ui: &mut Ui,
-) -> Vec<&'s Item> {
+) -> Snapped<'s> {
     if end > snap.matched_item_count() {
         end = snap.matched_item_count();
     }
     if start >= end {
-        return Vec::new();
+        return Snapped {
+            items: Vec::new(),
+            matched: snap.matched_item_count(),
+            total: snap.item_count(),
+        };
     }
 
     let sort = ui.input.value().is_empty();
-    if !sort {
+    let items = if !sort {
         snap.matched_items(start..end)
             .map(|item| item.data)
             .collect()
@@ -373,10 +388,16 @@ pub fn item_range<'s>(
             .iter()
             .map(|&i| snap.get_item(i).expect("<end").data)
             .collect()
+    };
+
+    Snapped {
+        items,
+        matched: snap.matched_item_count(),
+        total: snap.item_count(),
     }
 }
 
-fn draw_input_line(f: &mut Frame, prompt: &str, input: &mut Input, input_line_area: Rect) {
+fn draw_input_line(f: &mut Frame, prompt: &str, input: &Input, input_line_area: Rect) {
     let mut prompt = Span::styled(prompt, Style::new().light_blue());
     let mut input_line_remainder = input_line_area.width.saturating_sub(prompt.width() as u16);
     if input_line_remainder < 10 {
