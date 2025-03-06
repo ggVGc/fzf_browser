@@ -37,7 +37,6 @@ pub struct Ui {
     pub sorted_items: Vec<u32>,
     pub sorted_until: usize,
     pub previews: VecDeque<Preview>,
-    pub preview_area: Rect,
     pub preview_colours: bool,
     pub ls_colors: LsColors,
 }
@@ -64,7 +63,6 @@ pub fn run(
         sorted_items: Vec::new(),
         sorted_until: 0,
         previews: VecDeque::new(),
-        preview_area: Rect::default(),
         preview_colours: true,
         ls_colors: LsColors::from_env().unwrap_or_default(),
     };
@@ -87,11 +85,9 @@ pub fn run(
 
         terminal.draw(|f| {
             let area = setup_screen(f.area());
+            fire_preview(&mut ui, area.right_pane);
             draw_ui(f, area, &mut ui, snap, log_state.clone())
         })?;
-
-        // react to the cursor moving in draw_preview, as the screen has moved :(
-        fire_preview(&mut ui);
 
         if !event::poll(Duration::from_millis(if ui.active { 5 } else { 90 }))? {
             continue;
@@ -111,7 +107,10 @@ pub fn run(
                     ActionResult::Ignored => (),
                     ActionResult::Configured => {
                         ui.cursor_showing = item_under_cursor(&mut ui, snap).map(PathBuf::from);
-                        fire_preview(&mut ui);
+                        fire_preview(
+                            &mut ui,
+                            setup_screen(terminal.get_frame().area()).right_pane,
+                        );
                     }
 
                     ActionResult::Navigated => {
@@ -152,8 +151,8 @@ fn would_flicker(v: &Preview) -> bool {
     v.started.elapsed() < Duration::from_millis(100) && !v.worker.is_finished()
 }
 
-fn fire_preview(ui: &mut Ui) {
-    if ui.preview_area.width == 0 || ui.preview_area.height == 0 {
+fn fire_preview(ui: &mut Ui, preview_area: Rect) {
+    if preview_area.width == 0 || preview_area.height == 0 {
         return;
     }
 
@@ -166,7 +165,7 @@ fn fire_preview(ui: &mut Ui) {
 
     if ui.previews.iter().rev().any(|v| {
         Some(&v.showing) == ui.cursor_showing.as_ref()
-            && v.target_area == ui.preview_area
+            && v.target_area == preview_area
             && v.coloured == ui.preview_colours
     }) {
         return;
@@ -181,7 +180,7 @@ fn fire_preview(ui: &mut Ui) {
     let write_to = Arc::clone(&data);
     let preview_path = showing.to_path_buf();
     let coloured = ui.preview_colours;
-    let area = ui.preview_area;
+    let area = preview_area;
     let worker = thread::spawn(move || {
         if let Err(e) = run_preview(&preview_path, coloured, Arc::clone(&write_to), area) {
             write_to
@@ -195,7 +194,7 @@ fn fire_preview(ui: &mut Ui) {
 
     ui.previews.push_back(Preview {
         showing: showing.to_path_buf(),
-        target_area: ui.preview_area,
+        target_area: preview_area,
         coloured: ui.preview_colours,
         data: Arc::clone(&data),
         worker,
@@ -416,8 +415,6 @@ fn draw_divider(f: &mut Frame, divider_area: Rect) {
 }
 
 fn draw_preview(f: &mut Frame, ui: &mut Ui, area: Rect) {
-    ui.preview_area = area;
-
     let idx = match ui.previews.iter().enumerate().rev().find_map(|(idx, v)| {
         (Some(&v.showing) == ui.cursor_showing.as_ref() && v.coloured == ui.preview_colours)
             .then_some(idx)
