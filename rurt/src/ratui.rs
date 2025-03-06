@@ -1,16 +1,16 @@
 use crate::action::{handle_action, item_under_cursor, matches_binding, ActionResult};
 use crate::item::Item;
-use crate::preview::{preview_header, run_preview, Preview, PreviewCommand, PreviewedData};
+use crate::preview::{preview_header, PreviewCommand};
 use crate::store::Store;
 use crate::tui_log::{LogWidget, LogWidgetState};
-use crate::App;
+use crate::ui_state::Ui;
+use crate::{ui_state, App};
 use anyhow::Result;
 use crossterm::event::Event;
 use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
 use crossterm::{event, execute};
-use log::info;
 use lscolors::LsColors;
 use nucleo::pattern::{CaseMatching, Normalization};
 use nucleo::Snapshot;
@@ -23,23 +23,9 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use tui_input::backend::crossterm::to_input_request;
 use tui_input::Input;
-
-pub struct Ui {
-    pub input: Input,
-    pub view_start: u32,
-    pub cursor: u32,
-    pub cursor_showing: Option<PathBuf>,
-    pub prompt: String,
-    pub active: bool,
-    pub sorted_items: Vec<u32>,
-    pub sorted_until: usize,
-    pub previews: VecDeque<Preview>,
-    pub preview_colours: bool,
-    pub ls_colors: LsColors,
-}
 
 pub fn run(
     store: &mut Store,
@@ -78,7 +64,7 @@ pub fn run(
 
         ui.active = store.is_scanning() || ui.previews.iter().any(|v| !v.worker.is_finished());
 
-        if ui.active && ui.previews.iter().any(|v| would_flicker(v)) {
+        if ui.active && ui.previews.iter().any(|v| ui_state::would_flicker(v)) {
             event::poll(Duration::from_millis(60))?;
             thread::yield_now();
         }
@@ -86,7 +72,7 @@ pub fn run(
         let last_area = terminal
             .draw(|f| {
                 let area = setup_screen(f.area());
-                fire_preview(&mut ui, area.right_pane);
+                ui_state::fire_preview(&mut ui, area.right_pane);
                 let item_area = area.left_pane;
                 revalidate_cursor(&mut ui, snap, item_area);
                 let items = ui_item_range(&mut ui, snap, item_area);
@@ -112,7 +98,7 @@ pub fn run(
                     ActionResult::Ignored => (),
                     ActionResult::Configured => {
                         ui.cursor_showing = item_under_cursor(&mut ui, snap).map(PathBuf::from);
-                        fire_preview(&mut ui, setup_screen(last_area).right_pane);
+                        ui_state::fire_preview(&mut ui, setup_screen(last_area).right_pane);
                     }
 
                     ActionResult::Navigated => {
@@ -158,10 +144,6 @@ fn ui_item_range<'s>(ui: &mut Ui, snap: &'s Snapshot<Item>, item_area: Rect) -> 
     )
 }
 
-fn would_flicker(v: &Preview) -> bool {
-    v.started.elapsed() < Duration::from_millis(100) && !v.worker.is_finished()
-}
-
 fn revalidate_cursor(ui: &mut Ui, snap: &Snapshot<Item>, area: Rect) {
     ui.cursor = ui.cursor.min(snap.matched_item_count().saturating_sub(1));
     ui.cursor_showing = item_under_cursor(ui, snap).map(PathBuf::from);
@@ -171,57 +153,6 @@ fn revalidate_cursor(ui: &mut Ui, snap: &Snapshot<Item>, area: Rect) {
     } else if ui.cursor + 1 >= ui.view_start + u32::from(area.height) {
         ui.view_start = ui.cursor.saturating_sub(u32::from(area.height)) + 2;
     }
-}
-
-fn fire_preview(ui: &mut Ui, preview_area: Rect) {
-    if preview_area.width == 0 || preview_area.height == 0 {
-        return;
-    }
-
-    let showing = match ui.cursor_showing {
-        Some(ref v) => v,
-        None => return,
-    };
-
-    let started = Instant::now();
-
-    if ui.previews.iter().rev().any(|v| {
-        Some(&v.showing) == ui.cursor_showing.as_ref()
-            && v.target_area == preview_area
-            && v.coloured == ui.preview_colours
-    }) {
-        return;
-    }
-
-    if ui.previews.len() >= 16 {
-        ui.previews.pop_front();
-    }
-
-    let data = Arc::new(Mutex::new(PreviewedData::default()));
-
-    let write_to = Arc::clone(&data);
-    let preview_path = showing.to_path_buf();
-    let coloured = ui.preview_colours;
-    let area = preview_area;
-    let worker = thread::spawn(move || {
-        if let Err(e) = run_preview(&preview_path, coloured, Arc::clone(&write_to), area) {
-            write_to
-                .lock()
-                .expect("panic")
-                .content
-                .extend_from_slice(format!("Error: {}\n", e).as_bytes());
-        }
-        info!("preview: {preview_path:?} took {:?}", started.elapsed());
-    });
-
-    ui.previews.push_back(Preview {
-        showing: showing.to_path_buf(),
-        target_area: preview_area,
-        coloured: ui.preview_colours,
-        data: Arc::clone(&data),
-        worker,
-        started,
-    });
 }
 
 #[derive(Copy, Clone, Debug)]

@@ -16,6 +16,7 @@ mod preview;
 pub mod ratui;
 pub mod store;
 pub mod tui_log;
+mod ui_state;
 pub mod walk;
 
 pub struct App {

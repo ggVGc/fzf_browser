@@ -3,7 +3,8 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use crate::item::Item;
-use crate::ratui::{item_range, Ui};
+use crate::ratui::item_range;
+use crate::ui_state::Ui;
 use crate::walk::{MODES, RECURSION};
 use crate::App;
 use anyhow::{anyhow, bail};
