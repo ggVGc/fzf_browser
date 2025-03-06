@@ -83,11 +83,13 @@ pub fn run(
             thread::yield_now();
         }
 
-        terminal.draw(|f| {
-            let area = setup_screen(f.area());
-            fire_preview(&mut ui, area.right_pane);
-            draw_ui(f, area, &mut ui, snap, log_state.clone())
-        })?;
+        let last_area = terminal
+            .draw(|f| {
+                let area = setup_screen(f.area());
+                fire_preview(&mut ui, area.right_pane);
+                draw_ui(f, area, &mut ui, snap, log_state.clone())
+            })?
+            .area;
 
         if !event::poll(Duration::from_millis(if ui.active { 5 } else { 90 }))? {
             continue;
@@ -107,10 +109,7 @@ pub fn run(
                     ActionResult::Ignored => (),
                     ActionResult::Configured => {
                         ui.cursor_showing = item_under_cursor(&mut ui, snap).map(PathBuf::from);
-                        fire_preview(
-                            &mut ui,
-                            setup_screen(terminal.get_frame().area()).right_pane,
-                        );
+                        fire_preview(&mut ui, setup_screen(last_area).right_pane);
                     }
 
                     ActionResult::Navigated => {
