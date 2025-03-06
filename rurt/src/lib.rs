@@ -9,6 +9,7 @@ use crate::walk::ReadOpts;
 pub mod action;
 mod colour;
 pub mod dir_stack;
+mod draw;
 pub mod fuzz;
 pub mod item;
 mod line_stop;
