@@ -72,7 +72,7 @@ pub fn fire_preview(ui: &mut Ui, preview_area: Rect) {
         showing: showing.to_path_buf(),
         target_area: preview_area,
         coloured: ui.preview_colours,
-        data: Arc::clone(&data),
+        data,
         worker,
         started,
     });
