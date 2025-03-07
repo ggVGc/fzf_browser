@@ -5,6 +5,7 @@
 * Scroll preview window somehow?
 * LRU the cache for the preview window?
 * Show/hide preview window (and log?) with a keybinding
+* cursor stability as the list changes underneath it
 * Support for indexed colours in rotting, once we work out what rotting should look like
 * Support for terminal colours in rotting (impossible?)
 * Flicker prevention for directory navigation
