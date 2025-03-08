@@ -1,5 +1,6 @@
 use crate::colour::Colour;
 use anyhow::{anyhow, Context, Result};
+use crossterm::style::ContentStyle;
 use ignore::DirEntry;
 use lscolors::{Colorable, LsColors, Style as LsStyle};
 use ratatui::prelude::Style as RStyle;
@@ -67,13 +68,10 @@ impl Item {
     }
 
     // rot: 0: fresh, 1: stale
-    pub fn as_spans(&self, ls_colors: &LsColors, rot: f32) -> Vec<Span> {
+    pub fn as_spans(&self, styling: &Styling, rot: f32) -> Vec<Span> {
         let (name, info) = match self {
             Item::WalkError { msg } => {
-                return vec![Span::styled(
-                    format!("error walking: {msg}"),
-                    RStyle::default().light_red(),
-                )];
+                return vec![Span::styled(format!("error walking: {msg}"), styling.error)];
             }
             Item::FileEntry { name, info, .. } => (name, info),
         };
@@ -91,11 +89,11 @@ impl Item {
 
         let mut spans = Vec::with_capacity(4);
         if let Some(dir) = dir {
-            spans.push(Span::styled(dir.to_string(), RStyle::new().light_blue()));
-            spans.push(Span::styled("/", RStyle::new().light_yellow()));
+            spans.push(Span::styled(dir.to_string(), styling.dir));
+            spans.push(Span::styled("/", styling.path_separator));
         }
 
-        if let Some(style) = ls_colors.style_for(info.as_ref()) {
+        if let Some(style) = styling.item(info.as_ref()) {
             let style = LsStyle::to_crossterm_style(style);
             spans.push(Span::styled(path.to_string(), style));
         } else {
@@ -105,7 +103,7 @@ impl Item {
         if let Some(link_dest) = &info.link_dest {
             let link_dest = pathdiff::diff_paths(&info.path, link_dest)
                 .unwrap_or_else(|| link_dest.to_path_buf());
-            spans.push(Span::styled(" -> ", RStyle::new().light_magenta()));
+            spans.push(Span::styled(" -> ", styling.symlink));
             spans.push(Span::raw(link_dest.display().to_string()));
         }
         for span in &mut spans {
@@ -194,5 +192,33 @@ fn convert_resolution(root: impl AsRef<Path>, f: Result<DirEntry>) -> Result<Opt
         }))
     } else {
         Ok(None)
+    }
+}
+
+pub struct Styling {
+    ls_colors: LsColors,
+    pub path_separator: Style,
+    pub dir: ContentStyle,
+    pub error: Style,
+    pub symlink: Style
+}
+
+impl Styling {
+    pub fn new(ls_colors: &LsColors) -> Self {
+        let dir_style = ls_colors
+            .style_for_indicator(lscolors::Indicator::Directory)
+            .unwrap();
+
+        Self {
+            ls_colors: ls_colors.clone(),
+            dir: lscolors::Style::to_crossterm_style(dir_style),
+            path_separator: RStyle::new().light_red(),
+            symlink: RStyle::new().light_magenta(),
+            error: RStyle::default().light_red(),
+        }
+    }
+
+    pub fn item(&self, item: &ItemInfo) -> Option<&LsStyle> {
+        self.ls_colors.style_for(item)
     }
 }

@@ -1,3 +1,4 @@
+use crate::item::Styling;
 use crate::preview::{preview_header, PreviewCommand};
 use crate::snapped::Snapped;
 use crate::tui_log::{LogWidget, LogWidgetState};
@@ -98,6 +99,8 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
 
     let searching = !ui.input.value().is_empty();
 
+    let styling = Styling::new(&ui.ls_colors);
+
     for (i, item) in snap.items.iter().enumerate() {
         let mut spans = Vec::new();
         let selected = ui.cursor.saturating_sub(ui.view_start) as usize == i;
@@ -109,7 +112,7 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
 
         let overall_pos = (ui.view_start as usize).saturating_add(i);
         spans.extend(item.as_spans(
-            &ui.ls_colors,
+            &styling,
             if searching {
                 (overall_pos as f32 / 30.).min(0.9)
             } else {
