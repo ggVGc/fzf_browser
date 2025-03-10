@@ -46,7 +46,7 @@ fn main() -> Result<ExitCode> {
 
     #[rustfmt::skip]
     let bindings = vec![
-        (KeyModifiers::NONE, KeyCode::Enter, Action::Default),
+        (KeyModifiers::NONE, KeyCode::Enter, Action::Activate),
         (KeyModifiers::NONE, KeyCode::Esc, Action::Abort),
         (KeyModifiers::CONTROL, KeyCode::Char('c'), Action::Abort),
         (KeyModifiers::NONE, KeyCode::Left, Action::Up),

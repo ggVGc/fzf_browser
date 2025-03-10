@@ -10,7 +10,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Action {
-    Default,
+    Activate,
     Ignore,
     Up,
     Down,
@@ -138,9 +138,10 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
             }
         }
         Action::Abort => ActionResult::Exit(None, ExitCode::FAILURE),
-        Action::Default => {
+        Action::Activate => {
             if let Some(name) = &ui.cursor_showing {
                 if let Ok(cand) = ensure_directory(here.join(name)) {
+                    ui.input.reset();
                     dir_stack.push(here.to_path_buf());
                     *here = cand;
                     ActionResult::Navigated
