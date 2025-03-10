@@ -44,6 +44,7 @@ pub fn run(
         sorted_items: Vec::new(),
         sorted_until: 0,
         previews: Previews::default(),
+        preview_cursor: 0,
         preview_colours: true,
         ls_colors: LsColors::from_env().unwrap_or_default(),
     };
@@ -96,6 +97,7 @@ pub fn run(
                     ActionResult::Ignored => (),
                     ActionResult::Configured => {
                         ui.cursor_showing = item_under_cursor(&mut ui, snap).map(PathBuf::from);
+                        ui.preview_cursor = 0;
                         if app.view_opts.preview_enabled {
                             ui_state::fire_preview(
                                 &mut ui,

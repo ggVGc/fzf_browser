@@ -2,7 +2,7 @@ use crate::item::Styling;
 use crate::preview::{preview_header, PreviewCommand};
 use crate::snapped::Snapped;
 use crate::tui_log::{LogWidget, LogWidgetState};
-use crate::ui_state::Ui;
+use crate::ui_state::{matching_preview, URect, Ui};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::prelude::{Line, Span, Style, Stylize, Text};
 use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
@@ -182,9 +182,7 @@ fn draw_divider(f: &mut Frame, divider_area: Rect) {
 }
 
 fn draw_preview(f: &mut Frame, ui: &Ui, area: Rect) {
-    let preview = match ui.previews.inner.iter().rev().find(|v| {
-        Some(&v.showing) == ui.cursor_showing.as_ref() && v.coloured == ui.preview_colours
-    }) {
+    let preview = match matching_preview(ui) {
         Some(preview) => preview,
         None => {
             draw_no_preview(f, area);
@@ -194,38 +192,57 @@ fn draw_preview(f: &mut Frame, ui: &Ui, area: Rect) {
 
     let data = preview.data.lock().expect("panic");
 
-    match &data.command {
+    let text = match &data.command {
         PreviewCommand::InterpretFile => match data.render.as_ref() {
-            Some(rendered) => f.render_widget(rendered, area),
-            None => draw_raw_preview(f, area, &preview.showing, "cat", &data.content),
+            Some(rendered) => rendered,
+            None => &as_raw_preview(preview.target_area, &preview.showing, "cat", &data.content),
         },
-        PreviewCommand::Thinking => draw_raw_preview(f, area, &preview.showing, "file", &[]),
+        PreviewCommand::Thinking => {
+            &as_raw_preview(preview.target_area, &preview.showing, "file", &[])
+        }
         PreviewCommand::Custom(command) => match data.render.as_ref() {
-            Some(rendered) => f.render_widget(rendered, area),
-            None => draw_raw_preview(f, area, &preview.showing, command, &data.content),
+            Some(rendered) => rendered,
+            None => &as_raw_preview(
+                preview.target_area,
+                &preview.showing,
+                command,
+                &data.content,
+            ),
         },
+    };
+
+    let allowable_cursor = text.lines.len().saturating_sub(3);
+
+    if ui.preview_cursor > 0 {
+        f.render_widget(
+            Text::from(
+                text.lines
+                    .iter()
+                    .skip(ui.preview_cursor.min(allowable_cursor))
+                    .cloned()
+                    .collect::<Vec<_>>(),
+            ),
+            area,
+        )
+    } else {
+        f.render_widget(text, area);
     }
 }
 
-fn draw_raw_preview(
-    f: &mut Frame,
-    area: Rect,
+fn as_raw_preview(
+    area: URect,
     showing: impl AsRef<Path>,
     command: &str,
     content: &[u8],
-) {
+) -> Text<'static> {
     let mut lines = vec![preview_header(command, showing)];
 
     let cleaned =
         String::from_utf8_lossy(content).replace(|c: char| c != '\n' && c.is_control(), " ");
-    for (i, line) in cleaned
-        .split('\n')
-        .take(usize::from(area.height))
-        .enumerate()
-    {
+    for (i, line) in cleaned.split('\n').take(area.height).enumerate() {
         lines.push(Line::from(Span::raw(format!("{:4} {line}", i + 1))));
     }
-    f.render_widget(Text::from(lines), area);
+    Text::from(lines)
 }
 
 fn draw_no_preview(f: &mut Frame, area: Rect) {

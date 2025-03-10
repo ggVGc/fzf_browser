@@ -10,7 +10,6 @@
 * Preview window flickers slightly on slow loads. There's some racy mitigations.
   - fzf does async loading in preview window, with a little progress bar.
 * Indicator for current listing mode
-* Scroll preview window somehow?
 * LRU the cache for the preview window?
 * cursor stability as the list changes underneath it
 * Support for indexed colours in rotting, once we work out what rotting should look like

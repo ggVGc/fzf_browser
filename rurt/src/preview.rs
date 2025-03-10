@@ -1,4 +1,5 @@
 use crate::line_stop::{LineStopFmtWrite, LineStopIoWrite};
+use crate::ui_state::URect;
 use ansi_to_tui::IntoText;
 use anyhow::Result;
 use content_inspector::ContentType;
@@ -20,7 +21,7 @@ pub struct Previews {
 
 pub struct Preview {
     pub showing: PathBuf,
-    pub target_area: Rect,
+    pub target_area: URect,
     pub coloured: bool,
     pub data: Arc<Mutex<PreviewedData>>,
     pub worker: JoinHandle<()>,
@@ -46,7 +47,7 @@ pub fn run_preview(
     pathref: impl AsRef<Path>,
     coloured: bool,
     preview: Arc<Mutex<PreviewedData>>,
-    area: Rect,
+    area: URect,
 ) -> Result<()> {
     let path = pathref.as_ref();
     if path.is_file() {
@@ -127,7 +128,7 @@ fn stream_some(reader: impl Read, preview: Arc<Mutex<PreviewedData>>) -> Result<
 fn interpret_file(
     mut content: Vec<u8>,
     showing: impl AsRef<Path>,
-    area: Rect,
+    area: URect,
     coloured: bool,
 ) -> Result<Text<'static>> {
     use ansi_to_tui::IntoText as _;
@@ -166,7 +167,7 @@ fn interpret_file(
     })
 }
 
-pub fn preview_header(command: &str, showing: impl AsRef<Path>) -> Line {
+pub fn preview_header(command: &str, showing: impl AsRef<Path>) -> Line<'static> {
     Line::from(vec![
         Span::styled(format!("{:>5}", command), Style::new().light_yellow()),
         Span::raw(" "),

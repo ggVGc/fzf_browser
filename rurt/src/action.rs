@@ -2,7 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use crate::ui_state::Ui;
+use crate::ui_state::{matching_preview, Ui};
 use crate::walk::{MODES, RECURSION};
 use crate::App;
 use anyhow::{anyhow, bail};
@@ -17,6 +17,7 @@ pub enum Action {
     Home,
     // positive is *flips coin* towards the bottom of the screen
     MoveCursor(i32),
+    MovePreview(i32),
     CycleHidden,
     CycleIgnored,
     CycleMode,
@@ -72,6 +73,24 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
         Action::MoveCursor(delta) => {
             ui.cursor = u32::try_from((ui.cursor as i32).saturating_add(delta)).unwrap_or(0);
             ActionResult::Configured
+        }
+        Action::MovePreview(delta) => {
+            let max_cursor = matching_preview(ui)
+                .and_then(|p| {
+                    p.data
+                        .lock()
+                        .ok()
+                        .and_then(|d| d.render.as_ref().map(|r| r.lines.len()))
+                })
+                .unwrap_or(usize::MAX);
+
+            ui.preview_cursor =
+                usize::try_from((ui.preview_cursor as isize).saturating_add(delta as isize))
+                    .unwrap_or(0)
+                    .min(max_cursor);
+
+            // 'Configured' resets the preview_cursor
+            ActionResult::Ignored
         }
         Action::Home => {
             dir_stack.push(here.clone());
