@@ -102,10 +102,12 @@ pub fn run(
                                 draw::setup_screen(last_area, &app.view_opts).side_pane,
                             );
                         }
+                        reparse(store, &ui);
                     }
 
                     ActionResult::Navigated => {
                         app.read_opts.expansions.clear();
+                        reparse(store, &ui);
                         ui.prompt = format!("{}> ", app.here.display());
                         ui.sorted_items.clear();
                         ui.sorted_until = 0;
@@ -124,18 +126,22 @@ pub fn run(
             None => {
                 if let Some(req) = to_input_request(&ev) {
                     if ui.input.handle(req).map(|v| v.value).unwrap_or_default() {
-                        store.nucleo.pattern.reparse(
-                            0,
-                            ui.input.value(),
-                            CaseMatching::Smart,
-                            Normalization::Smart,
-                            false,
-                        );
+                        reparse(store, &ui);
                     }
                 }
             }
         }
     }
+}
+
+fn reparse(store: &mut Store, ui: &Ui) {
+    store.nucleo.pattern.reparse(
+        0,
+        ui.input.value(),
+        CaseMatching::Smart,
+        Normalization::Smart,
+        false,
+    );
 }
 
 struct DropRestore {}
