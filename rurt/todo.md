@@ -22,3 +22,5 @@
 * Config, themes
 * Search term aware highlighting?
 * Prevent grabbage of ctrl+c??
+* Compile time toggle of log pane
+* Dumb confusing feature: Dual pane listing when preview is disabled?
