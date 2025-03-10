@@ -200,7 +200,7 @@ pub struct Styling {
     pub path_separator: Style,
     pub dir: ContentStyle,
     pub error: Style,
-    pub symlink: Style
+    pub symlink: Style,
 }
 
 impl Styling {
