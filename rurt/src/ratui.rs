@@ -67,12 +67,12 @@ pub fn run(
 
         let last_area = terminal
             .draw(|f| {
-                let area = draw::setup_screen(f.area());
-                ui_state::fire_preview(&mut ui, area.right_pane);
-                let item_area = area.left_pane;
+                let area = draw::setup_screen(f.area(), &app.view_opts);
+                ui_state::fire_preview(&mut ui, area.side_pane);
+                let item_area = area.main_pane;
                 snapped::revalidate_cursor(&mut ui, snap, item_area);
                 let items = snapped::ui_item_range(&mut ui, snap, item_area);
-                draw::draw_ui(f, area, &ui, &items, log_state.clone())
+                draw::draw_ui(f, area, &ui, &app.view_opts, &items, log_state.clone())
             })?
             .area;
 
@@ -94,7 +94,10 @@ pub fn run(
                     ActionResult::Ignored => (),
                     ActionResult::Configured => {
                         ui.cursor_showing = item_under_cursor(&mut ui, snap).map(PathBuf::from);
-                        ui_state::fire_preview(&mut ui, draw::setup_screen(last_area).right_pane);
+                        ui_state::fire_preview(
+                            &mut ui,
+                            draw::setup_screen(last_area, &app.view_opts).side_pane,
+                        );
                     }
 
                     ActionResult::Navigated => {

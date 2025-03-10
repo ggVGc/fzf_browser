@@ -47,6 +47,7 @@ pub enum ActionResult {
 pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Result<ActionResult> {
     let here = &mut app.here;
     let read_opts = &mut app.read_opts;
+    let view_opts = &mut app.view_opts;
     let dir_stack = &mut app.dir_stack;
 
     Ok(match action {
@@ -95,12 +96,7 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
             ActionResult::Navigated
         }
         Action::TogglePreview => {
-            /*
-              options.preview = match options.preview {
-                  None => Some(get_preview_command(&here)),
-                  Some(_) => None,
-              }
-            */
+            view_opts.preview_enabled = !view_opts.preview_enabled;
             ActionResult::Configured
         }
         Action::TogglePreviewColour => {

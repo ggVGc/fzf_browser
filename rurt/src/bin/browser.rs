@@ -12,6 +12,7 @@ use rurt::store::Store;
 use rurt::tui_log::LogWidgetState;
 use rurt::tui_log::TuiLogger;
 use rurt::walk::{Mode, ReadOpts, Recursion};
+use rurt::draw::ViewOpts;
 use rurt::App;
 use std::ffi::OsString;
 use std::fs;
@@ -68,6 +69,7 @@ fn main() -> Result<ExitCode> {
         (KeyModifiers::CONTROL, KeyCode::Char('r'), Action::CycleRecursion,),
         (KeyModifiers::CONTROL, KeyCode::Char('t'), Action::SetTarget),
         (KeyModifiers::CONTROL, KeyCode::Char('g'), Action::Open),
+        (KeyModifiers::CONTROL, KeyCode::Char('p'), Action::TogglePreview),
         (KeyModifiers::CONTROL, KeyCode::Char('j'), Action::TogglePreviewColour),
         (KeyModifiers::CONTROL, KeyCode::Char('o'), Action::DirBack),
         (KeyModifiers::CONTROL, KeyCode::Char('u'), Action::DirForward),
@@ -77,6 +79,10 @@ fn main() -> Result<ExitCode> {
         dir_stack: DirStack::default(),
         read_opts: ReadOpts {
             target_dir: here.clone(),
+            ..Default::default()
+        },
+        view_opts: ViewOpts {
+            preview_enabled: true,
             ..Default::default()
         },
         bindings,

@@ -12,17 +12,22 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 use tui_input::Input;
 
-#[derive(Copy, Clone, Debug)]
-pub struct Areas {
-    pub input_line: Rect,
-    pub log: Rect,
-    pub left_pane: Rect,
-    pub divider: Rect,
-    pub right_pane: Rect,
+#[derive(Default, Clone)]
+pub struct ViewOpts {
+    pub preview_enabled: bool,
 }
 
-pub fn setup_screen(screen: Rect) -> Areas {
-    let [input_line, main_app, log] = Layout::default()
+#[derive(Copy, Clone, Debug)]
+pub struct Areas {
+    pub main_pane: Rect,
+    pub side_pane: Rect,
+    pub input_line: Rect,
+    pub log: Rect,
+    pub divider: Rect,
+}
+
+pub fn setup_screen(screen: Rect, view_opts: &ViewOpts) -> Areas {
+    let [input_line, main_area, log] = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(1),
@@ -34,24 +39,32 @@ pub fn setup_screen(screen: Rect) -> Areas {
         .try_into()
         .expect("static constraints");
 
-    let [left_pane, divider, right_pane] = Layout::default()
+    let [main_pane, divider, side_pane] = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage(50),
-            Constraint::Length(1),
-            Constraint::Percentage(50),
-        ])
-        .split(main_app)
+        .constraints(if view_opts.preview_enabled {
+            [
+                Constraint::Percentage(50),
+                Constraint::Length(1),
+                Constraint::Percentage(50),
+            ]
+        } else {
+            [
+                Constraint::Percentage(100),
+                Constraint::Length(1),
+                Constraint::Percentage(0),
+            ]
+        })
+        .split(main_area)
         .deref()
         .try_into()
         .expect("static constraints");
 
     Areas {
+        main_pane,
+        side_pane,
         input_line,
         log,
-        left_pane,
         divider,
-        right_pane,
     }
 }
 
@@ -59,14 +72,18 @@ pub fn draw_ui(
     f: &mut Frame,
     area: Areas,
     ui: &Ui,
+    view_opts: &ViewOpts,
     snap: &Snapped,
     log_state: Arc<Mutex<LogWidgetState>>,
 ) {
     draw_input_line(f, &ui.prompt, &ui.input, area.input_line);
 
-    draw_listing(f, ui, snap, area.left_pane);
-    draw_divider(f, area.divider);
-    draw_preview(f, ui, area.right_pane);
+    draw_listing(f, ui, snap, area.main_pane);
+
+    if view_opts.preview_enabled {
+        draw_divider(f, area.divider);
+        draw_preview(f, ui, area.side_pane);
+    }
 
     if let Ok(log_state) = &mut log_state.lock() {
         f.render_widget(Block::new().borders(Borders::ALL), area.log);
