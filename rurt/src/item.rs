@@ -89,8 +89,10 @@ impl Item {
 
         let mut spans = Vec::with_capacity(4);
         if let Some(dir) = dir {
-            spans.push(Span::styled(dir.to_string(), styling.dir));
-            spans.push(Span::styled("/", styling.path_separator));
+            for part in dir.split('/') {
+                spans.push(Span::styled(part.to_string(), styling.dir));
+                spans.push(Span::styled("/", styling.path_separator));
+            }
         }
 
         if let Some(style) = styling.item(info.as_ref()) {

@@ -1,5 +1,4 @@
 * CLI option for saving result to a target file instead of printing
-* Bug: Only last path separator is colored.
 * Non-fuzzy filtering mode:
     - Narrows down list, keeping order
     - When Default action is pressed, exits back to fuzzy mode with narrowed list
