@@ -1,6 +1,7 @@
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::thread::JoinHandle;
+use std::time::{Duration, Instant};
 
 use crate::fuzz::AddItem;
 use crate::item::Item;
@@ -15,7 +16,8 @@ pub struct Store {
 }
 
 pub struct CurrentScan {
-    handle: JoinHandle<Result<()>>,
+    started: Instant,
+    worker: JoinHandle<Result<()>>,
     cancellation: Arc<AtomicBool>,
 }
 
@@ -43,8 +45,9 @@ impl Store {
         let handle = std::thread::spawn(move || stream_content(tx, here, &read_opts));
 
         self.current_scan = Some(CurrentScan {
-            handle,
+            worker: handle,
             cancellation,
+            started: Instant::now(),
         });
 
         Ok(())
@@ -53,7 +56,16 @@ impl Store {
     pub fn is_scanning(&self) -> bool {
         self.current_scan
             .as_ref()
-            .map(|scan| !scan.handle.is_finished())
+            .map(|scan| !scan.worker.is_finished())
+            .unwrap_or(false)
+    }
+
+    pub fn would_flicker(&self) -> bool {
+        self.current_scan
+            .as_ref()
+            .map(|scan| {
+                scan.started.elapsed() < Duration::from_millis(100) && !scan.worker.is_finished()
+            })
             .unwrap_or(false)
     }
 
@@ -61,7 +73,7 @@ impl Store {
         if let Some(scan) = self.current_scan.take() {
             scan.cancellation
                 .store(true, std::sync::atomic::Ordering::Relaxed);
-            scan.handle.join().expect("thread panic")?;
+            scan.worker.join().expect("thread panic")?;
         }
         self.nucleo.restart(true);
 

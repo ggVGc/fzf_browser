@@ -3,14 +3,20 @@ use ansi_to_tui::IntoText;
 use anyhow::Result;
 use content_inspector::ContentType;
 use ratatui::prelude::*;
+use std::collections::VecDeque;
 use std::ffi::OsStr;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use std::{fs, io};
+
+#[derive(Default)]
+pub struct Previews {
+    pub inner: VecDeque<Preview>,
+}
 
 pub struct Preview {
     pub showing: PathBuf,
@@ -166,4 +172,16 @@ pub fn preview_header(command: &str, showing: impl AsRef<Path>) -> Line {
         Span::raw(" "),
         Span::styled(showing.as_ref().display().to_string(), Style::new().bold()),
     ])
+}
+
+impl Previews {
+    pub fn is_scanning(&self) -> bool {
+        self.inner.iter().any(|v| !v.worker.is_finished())
+    }
+
+    pub fn would_flicker(&self) -> bool {
+        self.inner
+            .iter()
+            .any(|v| v.started.elapsed() < Duration::from_millis(100) && !v.worker.is_finished())
+    }
 }

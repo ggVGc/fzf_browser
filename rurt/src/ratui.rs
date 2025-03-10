@@ -1,4 +1,5 @@
 use crate::action::{handle_action, matches_binding, ActionResult};
+use crate::preview::Previews;
 use crate::snapped::item_under_cursor;
 use crate::store::Store;
 use crate::tui_log::LogWidgetState;
@@ -13,12 +14,10 @@ use crossterm::{event, execute};
 use lscolors::LsColors;
 use nucleo::pattern::{CaseMatching, Normalization};
 use ratatui::prelude::*;
-use std::collections::VecDeque;
 use std::io::stderr;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::{Arc, Mutex};
-use std::thread;
 use std::time::Duration;
 use tui_input::backend::crossterm::to_input_request;
 use tui_input::Input;
@@ -44,7 +43,7 @@ pub fn run(
         active: true,
         sorted_items: Vec::new(),
         sorted_until: 0,
-        previews: VecDeque::new(),
+        previews: Previews::default(),
         preview_colours: true,
         ls_colors: LsColors::from_env().unwrap_or_default(),
     };
@@ -56,14 +55,14 @@ pub fn run(
 
         store.nucleo.tick(10);
 
-        let snap = store.nucleo.snapshot();
+        ui.active = store.is_scanning() || ui.previews.is_scanning();
 
-        ui.active = store.is_scanning() || ui.previews.iter().any(|v| !v.worker.is_finished());
-
-        if ui.active && ui.previews.iter().any(|v| ui_state::would_flicker(v)) {
-            event::poll(Duration::from_millis(60))?;
-            thread::yield_now();
+        if ui.active && (store.would_flicker() || ui.previews.would_flicker()) {
+            event::poll(Duration::from_millis(50))?;
+            store.nucleo.tick(10);
         }
+
+        let snap = store.nucleo.snapshot();
 
         let last_area = terminal
             .draw(|f| {

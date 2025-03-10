@@ -182,7 +182,7 @@ fn draw_divider(f: &mut Frame, divider_area: Rect) {
 }
 
 fn draw_preview(f: &mut Frame, ui: &Ui, area: Rect) {
-    let preview = match ui.previews.iter().rev().find(|v| {
+    let preview = match ui.previews.inner.iter().rev().find(|v| {
         Some(&v.showing) == ui.cursor_showing.as_ref() && v.coloured == ui.preview_colours
     }) {
         Some(preview) => preview,

@@ -1,12 +1,11 @@
-use crate::preview::{run_preview, Preview, PreviewedData};
+use crate::preview::{run_preview, Preview, PreviewedData, Previews};
 use log::info;
 use lscolors::LsColors;
 use ratatui::layout::Rect;
-use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use tui_input::Input;
 
 pub struct Ui {
@@ -18,13 +17,9 @@ pub struct Ui {
     pub active: bool,
     pub sorted_items: Vec<u32>,
     pub sorted_until: usize,
-    pub previews: VecDeque<Preview>,
+    pub previews: Previews,
     pub preview_colours: bool,
     pub ls_colors: LsColors,
-}
-
-pub fn would_flicker(v: &Preview) -> bool {
-    v.started.elapsed() < Duration::from_millis(100) && !v.worker.is_finished()
 }
 
 pub fn fire_preview(ui: &mut Ui, preview_area: Rect) {
@@ -39,7 +34,7 @@ pub fn fire_preview(ui: &mut Ui, preview_area: Rect) {
 
     let started = Instant::now();
 
-    if ui.previews.iter().rev().any(|v| {
+    if ui.previews.inner.iter().rev().any(|v| {
         Some(&v.showing) == ui.cursor_showing.as_ref()
             && v.target_area == preview_area
             && v.coloured == ui.preview_colours
@@ -47,8 +42,8 @@ pub fn fire_preview(ui: &mut Ui, preview_area: Rect) {
         return;
     }
 
-    if ui.previews.len() >= 16 {
-        ui.previews.pop_front();
+    if ui.previews.inner.len() >= 16 {
+        ui.previews.inner.pop_front();
     }
 
     let data = Arc::new(Mutex::new(PreviewedData::default()));
@@ -68,7 +63,7 @@ pub fn fire_preview(ui: &mut Ui, preview_area: Rect) {
         info!("preview: {preview_path:?} took {:?}", started.elapsed());
     });
 
-    ui.previews.push_back(Preview {
+    ui.previews.inner.push_back(Preview {
         showing: showing.to_path_buf(),
         target_area: preview_area,
         coloured: ui.preview_colours,
