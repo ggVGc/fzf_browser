@@ -135,7 +135,7 @@ fn interpret_file(
 
     Ok(match content_inspector::inspect(&content) {
         ContentType::BINARY => {
-            let mut v = LineStopIoWrite::new(area.height as usize);
+            let mut v = LineStopIoWrite::new(area.height);
             let panels = (area.width.saturating_sub(10) / 35).max(1);
             // TODO: expecting suspicious broken pipe on writer full
             let _ = hexyl::PrinterBuilder::new(&mut v)
@@ -144,7 +144,18 @@ fn interpret_file(
                 .build()
                 .print_all(io::Cursor::new(&content));
             let mut ret = v.inner.into_text()?;
-            ret.lines.insert(0, preview_header("hexyl", showing));
+            ret.lines.insert(0, preview_header("hexyl", &showing));
+
+            let media_type = file_type::FileType::from_bytes(&content);
+            if !media_type.extensions().is_empty() {
+                ret.lines.insert(0, preview_header("file", &showing));
+                ret.lines.insert(
+                    1,
+                    Line::from(Span::styled(media_type.name(), Style::new().dim())),
+                );
+                ret.lines.insert(2, Line::default());
+            }
+
             ret
         }
         _ => {

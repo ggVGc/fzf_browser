@@ -11,6 +11,7 @@ bat = "0.25"
 clap = { version = "4", features = ["derive"] }
 content_inspector = "0.2"
 dirs = "6"
+file_type = "0.7"
 hexyl = "0.16"
 ignore = "0.4"
 nucleo = "0.5"
