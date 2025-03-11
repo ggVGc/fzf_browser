@@ -225,7 +225,7 @@ impl Styling {
         Self {
             ls_colors: ls_colors.clone(),
             dir: lscolors::Style::to_crossterm_style(dir_style),
-            path_separator: Some(RStyle::new().fg(Color::Indexed(251))),
+            path_separator: Some(RStyle::new().fg(Color::Indexed(139))),
             symlink: RStyle::new().light_magenta(),
             error: RStyle::default().light_red(),
         }
