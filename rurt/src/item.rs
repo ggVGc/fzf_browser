@@ -88,10 +88,21 @@ impl Item {
         };
 
         let mut spans = Vec::with_capacity(4);
+
         if let Some(dir) = dir {
-            for part in dir.split('/') {
-                spans.push(Span::styled(part.to_string(), styling.dir));
-                spans.push(Span::styled("/", styling.path_separator));
+            match styling.path_separator {
+                None => {
+                    for part in dir.split('/') {
+                        spans.push(Span::styled(part.to_string(), styling.dir));
+                        spans.push(" ".into());
+                    }
+                }
+                Some(path_separator) => {
+                    for part in dir.split('/') {
+                        spans.push(Span::styled(part.to_string(), styling.dir));
+                        spans.push(Span::styled("|", path_separator));
+                    }
+                }
             }
         }
 
@@ -199,7 +210,7 @@ fn convert_resolution(root: impl AsRef<Path>, f: Result<DirEntry>) -> Result<Opt
 
 pub struct Styling {
     ls_colors: LsColors,
-    pub path_separator: Style,
+    pub path_separator: Option<Style>,
     pub dir: ContentStyle,
     pub error: Style,
     pub symlink: Style,
@@ -214,7 +225,7 @@ impl Styling {
         Self {
             ls_colors: ls_colors.clone(),
             dir: lscolors::Style::to_crossterm_style(dir_style),
-            path_separator: RStyle::new().light_red(),
+            path_separator: Some(RStyle::new().fg(Color::Indexed(251))),
             symlink: RStyle::new().light_magenta(),
             error: RStyle::default().light_red(),
         }
