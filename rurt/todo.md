@@ -1,3 +1,4 @@
+* Bug: Colors don't work in bat in preview when opened inside neovim (but only the second time...)
 * CLI option for saving result to a target file instead of printing
 * Non-fuzzy filtering mode:
     - Narrows down list, keeping order
