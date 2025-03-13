@@ -1,3 +1,4 @@
+use crate::draw::RightPane::{Hidden, Preview, SecondListing};
 use crate::item::Styling;
 use crate::preview::{preview_header, PreviewCommand};
 use crate::snapped::Snapped;
@@ -12,9 +13,18 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 use tui_input::Input;
 
-#[derive(Default, Clone)]
+#[derive(Copy, Clone, PartialEq)]
+pub enum RightPane {
+    Preview,
+    Hidden,
+    SecondListing,
+}
+
+pub const RIGHT_PANE: [RightPane; 3] = [Preview, Hidden, SecondListing];
+
+#[derive(Clone)]
 pub struct ViewOpts {
-    pub preview_enabled: bool,
+    pub right_pane: [RightPane; 3],
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -41,7 +51,7 @@ pub fn setup_screen(screen: Rect, view_opts: &ViewOpts) -> Areas {
 
     let [main_pane, divider, side_pane] = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints(if view_opts.preview_enabled {
+        .constraints(if view_opts.right_pane[0] != RightPane::Hidden {
             [
                 Constraint::Percentage(50),
                 Constraint::Length(1),
@@ -80,7 +90,7 @@ pub fn draw_ui(
 
     draw_listing(f, ui, snap, area.main_pane);
 
-    if view_opts.preview_enabled {
+    if view_opts.right_pane[0] != RightPane::Hidden {
         draw_divider(f, area.divider);
         draw_preview(f, ui, area.side_pane);
     }

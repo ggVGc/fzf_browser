@@ -6,7 +6,7 @@ use log::LevelFilter;
 use nucleo::Nucleo;
 use rurt::action::Action;
 use rurt::dir_stack::DirStack;
-use rurt::draw::ViewOpts;
+use rurt::draw::{ViewOpts, RIGHT_PANE};
 use rurt::item::Item;
 use rurt::ratui;
 use rurt::store::Store;
@@ -86,8 +86,7 @@ fn main() -> Result<ExitCode> {
             ..Default::default()
         },
         view_opts: ViewOpts {
-            preview_enabled: true,
-            ..Default::default()
+            right_pane: RIGHT_PANE,
         },
         bindings,
         here,
