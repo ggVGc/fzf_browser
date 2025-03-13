@@ -137,12 +137,7 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
 
     for (i, item) in snap.items.iter().enumerate() {
         let selected = ui.cursor.saturating_sub(ui.view_start) as usize == i;
-        let overall_pos = (ui.view_start as usize).saturating_add(i);
-        let rot = if searching {
-            (overall_pos as f32 / 30.).min(0.9)
-        } else {
-            0.
-        };
+        let rot = compute_rot(ui, searching, i);
 
         let mut spans = Vec::new();
         if selected {
@@ -158,6 +153,15 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
 }
 
 fn draw_second_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {}
+
+fn compute_rot(ui: &Ui, searching: bool, i: usize) -> f32 {
+    if searching {
+        let overall_pos = (ui.view_start as usize).saturating_add(i);
+        (overall_pos as f32 / 30.).min(0.9)
+    } else {
+        0.
+    }
+}
 
 fn draw_input_line(f: &mut Frame, prompt: &str, input: &Input, input_line_area: Rect) {
     let mut prompt = Span::styled(prompt, Style::new().light_blue());
