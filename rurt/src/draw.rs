@@ -90,9 +90,16 @@ pub fn draw_ui(
 
     draw_listing(f, ui, snap, area.main_pane);
 
-    if view_opts.right_pane[0] != RightPane::Hidden {
-        draw_divider(f, area.divider);
-        draw_preview(f, ui, area.side_pane);
+    match view_opts.right_pane[0] {
+        RightPane::Hidden => (),
+        RightPane::Preview => {
+            draw_divider(f, area.divider);
+            draw_preview(f, ui, area.side_pane);
+        }
+        RightPane::SecondListing => {
+            draw_divider(f, area.divider);
+            draw_second_listing(f, ui, snap, area.side_pane);
+        }
     }
 
     if let Ok(log_state) = &mut log_state.lock() {
@@ -129,27 +136,28 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
     let styling = Styling::new(&ui.ls_colors);
 
     for (i, item) in snap.items.iter().enumerate() {
-        let mut spans = Vec::new();
         let selected = ui.cursor.saturating_sub(ui.view_start) as usize == i;
+        let overall_pos = (ui.view_start as usize).saturating_add(i);
+        let rot = if searching {
+            (overall_pos as f32 / 30.).min(0.9)
+        } else {
+            0.
+        };
+
+        let mut spans = Vec::new();
         if selected {
             spans.push(Span::styled("> ", Style::new().light_red()));
         } else {
             spans.push(Span::from("  "));
         }
 
-        let overall_pos = (ui.view_start as usize).saturating_add(i);
-        spans.extend(item.as_spans(
-            &styling,
-            if searching {
-                (overall_pos as f32 / 30.).min(0.9)
-            } else {
-                0.
-            },
-        ));
+        spans.extend(item.as_spans(&styling, rot));
         lines.push(Line::from(spans));
     }
     f.render_widget(Text::from(lines), area);
 }
+
+fn draw_second_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {}
 
 fn draw_input_line(f: &mut Frame, prompt: &str, input: &Input, input_line_area: Rect) {
     let mut prompt = Span::styled(prompt, Style::new().light_blue());
