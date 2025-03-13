@@ -76,7 +76,7 @@ impl Item {
             Item::FileEntry { name, info, .. } => (name, info),
         };
 
-        let full = name.display().to_string();
+        let full = name.as_os_str().to_string_lossy().to_string();
         let (dir, path) = match full.rfind('/') {
             Some(pos) => {
                 let (dir, name) = full.split_at(pos + 1);
