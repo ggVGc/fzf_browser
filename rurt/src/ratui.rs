@@ -74,10 +74,10 @@ pub fn run(
                 }
 
                 let mut item_area = area.main_pane;
-                snapped::revalidate_cursor(&mut ui, snap, item_area);
                 if app.view_opts.right_pane() == RightPane::SecondListing {
                     item_area.height *= 2;
                 }
+                snapped::revalidate_cursor(&mut ui, snap, item_area);
                 let items = snapped::ui_item_range(&mut ui, snap, item_area);
                 draw::draw_ui(f, area, &ui, &app.view_opts, &items, log_state.clone())
             })?

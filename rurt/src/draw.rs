@@ -201,6 +201,7 @@ fn draw_second_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
         spans.extend(item.as_spans(&styling, rot));
         lines.push(Line::from(spans));
     }
+    // area.y += area.height.saturating_sub(lines.len() as u16);
     f.render_widget(Text::from(lines), area);
 }
 
