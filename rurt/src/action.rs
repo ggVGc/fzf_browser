@@ -115,7 +115,7 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
             ActionResult::Navigated
         }
         Action::TogglePreview => {
-            view_opts.preview_enabled = !view_opts.preview_enabled;
+            view_opts.right_pane_mode.rotate_left(1);
             ActionResult::Configured
         }
         Action::TogglePreviewColour => {

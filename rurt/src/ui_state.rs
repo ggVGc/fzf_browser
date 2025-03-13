@@ -23,6 +23,12 @@ pub struct Ui {
     pub ls_colors: LsColors,
 }
 
+impl Ui {
+    pub fn is_searching(&self) -> bool {
+        !self.input.value().is_empty()
+    }
+}
+
 pub fn matching_preview(ui: &Ui) -> Option<&Preview> {
     ui.previews.inner.iter().rev().find(|v| {
         Some(&v.showing) == ui.cursor_showing.as_ref() && v.coloured == ui.preview_colours

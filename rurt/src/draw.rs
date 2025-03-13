@@ -1,3 +1,4 @@
+use crate::draw::RightPane::{Hidden, Preview, SecondListing};
 use crate::item::Styling;
 use crate::preview::{preview_header, PreviewCommand};
 use crate::snapped::Snapped;
@@ -12,9 +13,24 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 use tui_input::Input;
 
-#[derive(Default, Clone)]
+#[derive(Copy, Clone, PartialEq)]
+pub enum RightPane {
+    Preview,
+    Hidden,
+    SecondListing,
+}
+
+pub const RIGHT_PANE: [RightPane; 3] = [Preview, Hidden, SecondListing];
+
+#[derive(Clone)]
 pub struct ViewOpts {
-    pub preview_enabled: bool,
+    pub right_pane_mode: [RightPane; 3],
+}
+
+impl ViewOpts {
+    pub fn right_pane(&self) -> RightPane {
+        self.right_pane_mode[0]
+    }
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -41,7 +57,7 @@ pub fn setup_screen(screen: Rect, view_opts: &ViewOpts) -> Areas {
 
     let [main_pane, divider, side_pane] = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints(if view_opts.preview_enabled {
+        .constraints(if view_opts.right_pane() != RightPane::Hidden {
             [
                 Constraint::Percentage(50),
                 Constraint::Length(1),
@@ -80,9 +96,16 @@ pub fn draw_ui(
 
     draw_listing(f, ui, snap, area.main_pane);
 
-    if view_opts.preview_enabled {
-        draw_divider(f, area.divider);
-        draw_preview(f, ui, area.side_pane);
+    match view_opts.right_pane() {
+        RightPane::Hidden => (),
+        RightPane::Preview => {
+            draw_divider(f, area.divider);
+            draw_preview(f, ui, area.side_pane);
+        }
+        RightPane::SecondListing => {
+            draw_divider(f, area.divider);
+            draw_second_listing(f, ui, snap, area.side_pane);
+        }
     }
 
     if let Ok(log_state) = &mut log_state.lock() {
@@ -102,6 +125,8 @@ fn edge_inset(area: Rect, margin: u16) -> Rect {
     inset_area
 }
 
+const STATUS_LINES: usize = 1;
+
 fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
     let mut lines = Vec::new();
     lines.push(Line::styled(
@@ -114,28 +139,66 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
         Style::new().light_yellow(),
     ));
 
-    let searching = !ui.input.value().is_empty();
+    assert_eq!(lines.len(), STATUS_LINES);
+
+    let searching = ui.is_searching();
 
     let styling = Styling::new(&ui.ls_colors);
 
-    for (i, item) in snap.items.iter().enumerate() {
+    for (i, item) in snap
+        .items
+        .iter()
+        .take(usize::from(area.height).saturating_sub(STATUS_LINES))
+        .copied()
+    {
+        let selected = ui.cursor == i;
+        let rot = compute_rot(searching, i);
+
         let mut spans = Vec::new();
-        let selected = ui.cursor.saturating_sub(ui.view_start) as usize == i;
         if selected {
             spans.push(Span::styled("> ", Style::new().light_red()));
         } else {
             spans.push(Span::from("  "));
         }
 
-        let overall_pos = (ui.view_start as usize).saturating_add(i);
-        spans.extend(item.as_spans(
-            &styling,
-            if searching {
-                (overall_pos as f32 / 30.).min(0.9)
-            } else {
-                0.
-            },
-        ));
+        spans.extend(item.as_spans(&styling, rot));
+        lines.push(Line::from(spans));
+    }
+    f.render_widget(Text::from(lines), area);
+}
+
+fn compute_rot(searching: bool, i: u32) -> f32 {
+    if searching {
+        (i as f32 / 30.).min(0.9)
+    } else {
+        0.
+    }
+}
+
+fn draw_second_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
+    let mut lines = Vec::new();
+
+    let searching = ui.is_searching();
+
+    let styling = Styling::new(&ui.ls_colors);
+
+    for (i, item) in snap
+        .items
+        .iter()
+        .skip(usize::from(area.height).saturating_sub(STATUS_LINES))
+        .copied()
+    {
+        let selected = ui.cursor == i;
+        let rot = compute_rot(searching, i);
+
+        let mut spans = Vec::new();
+        if selected {
+            spans.push(Span::styled("> ", Style::new().light_red()));
+        } else {
+            spans.push(Span::from("  "));
+        }
+
+        spans.extend(item.as_spans(&styling, rot));
         lines.push(Line::from(spans));
     }
     f.render_widget(Text::from(lines), area);

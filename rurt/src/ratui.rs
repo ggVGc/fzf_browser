@@ -1,4 +1,5 @@
 use crate::action::{handle_action, matches_binding, ActionResult};
+use crate::draw::RightPane;
 use crate::preview::Previews;
 use crate::snapped::item_under_cursor;
 use crate::store::Store;
@@ -68,12 +69,15 @@ pub fn run(
         let last_area = terminal
             .draw(|f| {
                 let area = draw::setup_screen(f.area(), &app.view_opts);
-                if app.view_opts.preview_enabled {
+                if app.view_opts.right_pane() == RightPane::Preview {
                     ui_state::fire_preview(&mut ui, area.side_pane);
                 }
 
-                let item_area = area.main_pane;
+                let mut item_area = area.main_pane;
                 snapped::revalidate_cursor(&mut ui, snap, item_area);
+                if app.view_opts.right_pane() == RightPane::SecondListing {
+                    item_area.height *= 2;
+                }
                 let items = snapped::ui_item_range(&mut ui, snap, item_area);
                 draw::draw_ui(f, area, &ui, &app.view_opts, &items, log_state.clone())
             })?
@@ -98,7 +102,7 @@ pub fn run(
                     ActionResult::Configured => {
                         ui.cursor_showing = item_under_cursor(&mut ui, snap).map(PathBuf::from);
                         ui.preview_cursor = 0;
-                        if app.view_opts.preview_enabled {
+                        if app.view_opts.right_pane() == RightPane::Preview {
                             ui_state::fire_preview(
                                 &mut ui,
                                 draw::setup_screen(last_area, &app.view_opts).side_pane,

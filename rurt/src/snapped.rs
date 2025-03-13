@@ -1,9 +1,8 @@
-use std::path::{Path, PathBuf};
-
 use crate::item::Item;
 use crate::ui_state::Ui;
 use nucleo::Snapshot;
 use ratatui::layout::Rect;
+use std::path::{Path, PathBuf};
 
 pub fn ui_item_range<'s>(ui: &mut Ui, snap: &'s Snapshot<Item>, item_area: Rect) -> Snapped<'s> {
     item_range(
@@ -18,7 +17,7 @@ pub fn item_under_cursor<'s>(ui: &mut Ui, snap: &'s Snapshot<Item>) -> Option<&'
     item_range(snap, ui.cursor, ui.cursor + 1, ui)
         .items
         .pop()
-        .and_then(|it| it.path())
+        .and_then(|(_, it)| it.path())
 }
 
 pub fn revalidate_cursor(ui: &mut Ui, snap: &Snapshot<Item>, area: Rect) {
@@ -33,7 +32,7 @@ pub fn revalidate_cursor(ui: &mut Ui, snap: &Snapshot<Item>, area: Rect) {
 }
 
 pub struct Snapped<'i> {
-    pub items: Vec<&'i Item>,
+    pub items: Vec<(u32, &'i Item)>,
     pub matched: u32,
     pub total: u32,
 }
@@ -60,6 +59,8 @@ pub fn item_range<'s>(
     let items = if !sort {
         snap.matched_items(start..end)
             .map(|item| item.data)
+            .enumerate()
+            .map(|(pos, item)| (start + pos as u32, item))
             .collect()
     } else {
         let real_end = snap.matched_item_count();
@@ -84,7 +85,8 @@ pub fn item_range<'s>(
 
         ui.sorted_items[start as usize..end as usize]
             .iter()
-            .map(|&i| snap.get_item(i).expect("<end").data)
+            .enumerate()
+            .map(|(pos, &i)| (start + pos as u32, snap.get_item(i).expect("<end").data))
             .collect()
     };
 
