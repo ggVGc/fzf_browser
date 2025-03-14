@@ -10,21 +10,17 @@ anyhow = "1"
 bat = "0.25"
 clap = { version = "4", features = ["derive"] }
 content_inspector = "0.2"
+crossterm = "0.28"
 dirs = "6"
 file_type = "0.7"
 hexyl = "0.16"
 ignore = "0.4"
+log = { version = "0.4.25", features = ["std"] }
 nucleo = "0.5"
 open = "5"
 pathdiff = "0.2"
-
-crossterm = "0.28"
 ratatui = "0.29"
 tui-input = "0.11"
-
-
-env_logger = {version = "0.11.6"}
-log = {version = "0.4.25"}
 
 [dependencies.lscolors]
 version = "0.20"
