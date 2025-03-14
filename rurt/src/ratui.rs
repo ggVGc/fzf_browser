@@ -1,4 +1,5 @@
 use crate::action::{handle_action, matches_binding, ActionResult};
+use crate::alt_screen::enter_alt_screen;
 use crate::draw::RightPane;
 use crate::preview::Previews;
 use crate::snapped::item_under_cursor;
@@ -7,11 +8,8 @@ use crate::tui_log::LogWidgetState;
 use crate::ui_state::Ui;
 use crate::{draw, snapped, ui_state, App};
 use anyhow::Result;
+use crossterm::event;
 use crossterm::event::Event;
-use crossterm::terminal::{
-    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
-};
-use crossterm::{event, execute};
 use lscolors::LsColors;
 use nucleo::pattern::{CaseMatching, Normalization};
 use ratatui::prelude::*;
@@ -28,12 +26,9 @@ pub fn run(
     app: &mut App,
     log_state: Arc<Mutex<LogWidgetState>>,
 ) -> Result<(Option<String>, ExitCode)> {
-    // copy-paste of ratatui::try_init() but for stderr
-    enable_raw_mode()?;
-    execute!(stderr(), EnterAlternateScreen)?;
+    let _restore_on_drop = enter_alt_screen()?;
     let backend = CrosstermBackend::new(stderr());
     let mut terminal = Terminal::new(backend)?;
-    let _restore = DropRestore {};
 
     let mut ui = Ui {
         input: Input::default(),
@@ -148,15 +143,6 @@ fn reparse(store: &mut Store, ui: &Ui) {
         Normalization::Smart,
         false,
     );
-}
-
-struct DropRestore {}
-impl Drop for DropRestore {
-    fn drop(&mut self) {
-        // copy-paste of ratatui::restore() but for stderr
-        let _ = disable_raw_mode();
-        let _ = execute!(stderr(), LeaveAlternateScreen);
-    }
 }
 
 fn maybe_update_target_dir(app: &mut App) {

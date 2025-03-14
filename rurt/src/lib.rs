@@ -8,6 +8,7 @@ use crate::walk::ReadOpts;
 use draw::ViewOpts;
 
 pub mod action;
+mod alt_screen;
 mod colour;
 pub mod dir_stack;
 pub mod draw;
