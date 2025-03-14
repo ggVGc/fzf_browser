@@ -18,4 +18,3 @@
 * Config, themes
 * Search term aware highlighting?
 * Prevent grabbage of ctrl+c??
-* Compile time toggle of log pane

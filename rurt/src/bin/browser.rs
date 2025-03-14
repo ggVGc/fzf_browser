@@ -87,6 +87,7 @@ fn main() -> Result<ExitCode> {
         },
         view_opts: ViewOpts {
             right_pane_mode: RIGHT_PANE,
+            log_pane: cfg!(feature = "log_pane"),
         },
         bindings,
         here,

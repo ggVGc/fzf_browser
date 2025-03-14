@@ -25,6 +25,7 @@ pub const RIGHT_PANE: [RightPane; 3] = [Preview, Hidden, SecondListing];
 #[derive(Clone)]
 pub struct ViewOpts {
     pub right_pane_mode: [RightPane; 3],
+    pub log_pane: bool,
 }
 
 impl ViewOpts {
@@ -48,7 +49,11 @@ pub fn setup_screen(screen: Rect, view_opts: &ViewOpts) -> Areas {
         .constraints([
             Constraint::Length(1),
             Constraint::Min(0),
-            Constraint::Percentage(20),
+            if view_opts.log_pane {
+                Constraint::Percentage(20)
+            } else {
+                Constraint::Length(0)
+            },
         ])
         .split(screen)
         .deref()
@@ -108,10 +113,12 @@ pub fn draw_ui(
         }
     }
 
-    if let Ok(log_state) = &mut log_state.lock() {
-        f.render_widget(Block::new().borders(Borders::ALL), area.log);
-        let log_inset = edge_inset(area.log, 1);
-        f.render_stateful_widget(LogWidget::default(), log_inset, log_state);
+    if !area.log.is_empty() {
+        if let Ok(log_state) = &mut log_state.lock() {
+            f.render_widget(Block::new().borders(Borders::ALL), area.log);
+            let log_inset = edge_inset(area.log, 1);
+            f.render_stateful_widget(LogWidget::default(), log_inset, log_state);
+        }
     }
 }
 

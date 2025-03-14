@@ -33,3 +33,4 @@ features = ["crossterm"]
 
 [features]
 never = []
+log_pane = []
