@@ -59,9 +59,7 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
         }
         Action::Down => {
             if let Some(cand) = ui
-                .cursor_showing
-                .as_ref()
-                .and_then(|item| item.path())
+                .cursor_showing_path()
                 .and_then(|name| ensure_directory(here.join(name)).ok())
             {
                 dir_stack.push(here.clone());
@@ -128,13 +126,13 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
             ActionResult::Configured
         }
         Action::Open => {
-            if let Some(showing) = ui.cursor_showing.as_ref().and_then(|item| item.path()) {
+            if let Some(showing) = ui.cursor_showing_path() {
                 open::that_detached(here.join(showing))?;
             }
             ActionResult::Ignored
         }
         Action::Expand => {
-            if let Some(name) = ui.cursor_showing.as_ref().and_then(|item| item.path()) {
+            if let Some(name) = ui.cursor_showing_path() {
                 read_opts.expansions.push(here.join(name));
                 ActionResult::JustRescan
             } else {
@@ -159,7 +157,7 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
         }
         Action::Abort => ActionResult::Exit(None, ExitCode::FAILURE),
         Action::Activate => {
-            if let Some(name) = ui.cursor_showing.as_ref().and_then(|item| item.path()) {
+            if let Some(name) = ui.cursor_showing_path() {
                 if let Ok(cand) = ensure_directory(here.join(name)) {
                     ui.input.reset();
                     dir_stack.push(here.to_path_buf());

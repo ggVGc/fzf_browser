@@ -3,6 +3,7 @@ use crate::preview::{run_preview, Preview, PreviewedData, Previews};
 use log::info;
 use lscolors::LsColors;
 use ratatui::layout::Rect;
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Instant;
@@ -27,12 +28,15 @@ impl Ui {
     pub fn is_searching(&self) -> bool {
         !self.input.value().is_empty()
     }
+
+    pub fn cursor_showing_path(&self) -> Option<&Path> {
+        self.cursor_showing.as_ref().and_then(|v| v.path())
+    }
 }
 
 pub fn matching_preview(ui: &Ui) -> Option<&Preview> {
     ui.previews.inner.iter().rev().find(|v| {
-        Some(v.showing.as_path()) == ui.cursor_showing.as_ref().and_then(|v| v.path())
-            && v.coloured == ui.preview_colours
+        Some(v.showing.as_path()) == ui.cursor_showing_path() && v.coloured == ui.preview_colours
     })
 }
 
@@ -49,16 +53,16 @@ pub fn fire_preview(ui: &mut Ui, preview_area: Rect) {
 
     area.height = (proposal / breakpoint + 1) * breakpoint;
 
-    let showing = ui.cursor_showing.as_ref().and_then(|v| v.path());
-    let showing = match showing {
-        Some(ref v) => v,
+    // BORROW CHECKER
+    let showing = match ui.cursor_showing_path().map(|v| v.to_path_buf()) {
+        Some(v) => v,
         None => return,
     };
 
     let started = Instant::now();
 
     if ui.previews.inner.iter().rev().any(|v| {
-        Some(v.showing.as_path()) == ui.cursor_showing.as_ref().and_then(|v| v.path())
+        Some(v.showing.as_path()) == ui.cursor_showing_path()
             && v.target_area == area
             && v.coloured == ui.preview_colours
     }) {
