@@ -117,7 +117,7 @@ pub fn draw_ui(
         if let Ok(log_state) = &mut log_state.lock() {
             f.render_widget(Block::new().borders(Borders::ALL), area.log);
             let log_inset = edge_inset(area.log, 1);
-            f.render_stateful_widget(LogWidget::default(), log_inset, log_state);
+            f.render_stateful_widget(LogWidget { boot: ui.boot }, log_inset, log_state);
         }
     }
 }

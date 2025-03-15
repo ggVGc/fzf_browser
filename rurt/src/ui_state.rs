@@ -10,6 +10,7 @@ use std::time::Instant;
 use tui_input::Input;
 
 pub struct Ui {
+    pub boot: Instant,
     pub input: Input,
     pub view_start: u32,
     pub cursor: u32,

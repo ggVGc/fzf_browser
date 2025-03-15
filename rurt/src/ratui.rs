@@ -16,7 +16,7 @@ use ratatui::prelude::*;
 use std::io::stderr;
 use std::process::ExitCode;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use tui_input::backend::crossterm::to_input_request;
 use tui_input::Input;
 
@@ -30,6 +30,7 @@ pub fn run(
     let mut terminal = Terminal::new(backend)?;
 
     let mut ui = Ui {
+        boot: Instant::now(),
         input: Input::default(),
         view_start: 0,
         cursor: 0,

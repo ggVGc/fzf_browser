@@ -6,6 +6,7 @@ use ratatui::{
     widgets::{StatefulWidget, Widget},
 };
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 pub trait Writable {
     fn write_line(&mut self, level: Level, message: &str);
@@ -60,6 +61,7 @@ impl<W: Writable + Send + 'static> Log for TuiLogger<W> {
 
 #[derive(Clone)]
 pub struct HistoryEntry {
+    now: Instant,
     level: Level,
     text: String,
 }
@@ -69,8 +71,10 @@ pub struct LogWidgetState {
     pub history: Vec<HistoryEntry>,
 }
 
-#[derive(Default, Clone)]
-pub struct LogWidget {}
+#[derive(Clone)]
+pub struct LogWidget {
+    pub boot: Instant,
+}
 
 impl StatefulWidget for LogWidget {
     type State = LogWidgetState;
@@ -89,7 +93,7 @@ impl StatefulWidget for LogWidget {
             buf.set_string(
                 area.left(),
                 area.top() + y as u16,
-                entry.text.clone(),
+                format!("{:5}ms {}", (entry.now - self.boot).as_millis(), entry.text),
                 style,
             );
         }
@@ -105,6 +109,7 @@ impl Widget for LogWidget {
 impl Writable for LogWidgetState {
     fn write_line(&mut self, level: Level, message: &str) {
         self.history.push(HistoryEntry {
+            now: Instant::now(),
             level,
             text: message.to_string(),
         })
