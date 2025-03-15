@@ -2,7 +2,6 @@ use crate::item::Item;
 use crate::ui_state::Ui;
 use nucleo::Snapshot;
 use ratatui::layout::Rect;
-use std::path::{Path, PathBuf};
 
 pub fn ui_item_range<'s>(ui: &mut Ui, snap: &'s Snapshot<Item>, item_area: Rect) -> Snapped<'s> {
     item_range(
@@ -13,16 +12,16 @@ pub fn ui_item_range<'s>(ui: &mut Ui, snap: &'s Snapshot<Item>, item_area: Rect)
     )
 }
 
-pub fn item_under_cursor<'s>(ui: &mut Ui, snap: &'s Snapshot<Item>) -> Option<&'s Path> {
+pub fn item_under_cursor<'s>(ui: &mut Ui, snap: &'s Snapshot<Item>) -> Option<&'s Item> {
     item_range(snap, ui.cursor, ui.cursor + 1, ui)
         .items
         .pop()
-        .and_then(|(_, it)| it.path())
+        .map(|(_, it)| it)
 }
 
 pub fn revalidate_cursor(ui: &mut Ui, snap: &Snapshot<Item>, area: Rect) {
     ui.cursor = ui.cursor.min(snap.matched_item_count().saturating_sub(1));
-    ui.cursor_showing = item_under_cursor(ui, snap).map(PathBuf::from);
+    ui.cursor_showing = item_under_cursor(ui, snap).cloned();
 
     if ui.cursor < ui.view_start {
         ui.view_start = ui.cursor;

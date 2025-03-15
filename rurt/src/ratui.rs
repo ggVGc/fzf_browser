@@ -14,7 +14,6 @@ use lscolors::LsColors;
 use nucleo::pattern::{CaseMatching, Normalization};
 use ratatui::prelude::*;
 use std::io::stderr;
-use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -34,7 +33,7 @@ pub fn run(
         input: Input::default(),
         view_start: 0,
         cursor: 0,
-        cursor_showing: Some(app.here.to_path_buf()),
+        cursor_showing: None,
         prompt: format!("{}> ", app.here.display()),
         active: true,
         sorted_items: Vec::new(),
@@ -95,7 +94,7 @@ pub fn run(
                 match action {
                     ActionResult::Ignored => (),
                     ActionResult::Configured => {
-                        ui.cursor_showing = item_under_cursor(&mut ui, snap).map(PathBuf::from);
+                        ui.cursor_showing = item_under_cursor(&mut ui, snap).cloned();
                         ui.preview_cursor = 0;
                         if app.view_opts.right_pane() == RightPane::Preview {
                             ui_state::fire_preview(

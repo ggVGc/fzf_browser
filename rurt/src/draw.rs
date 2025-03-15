@@ -158,7 +158,7 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
         .take(usize::from(area.height).saturating_sub(STATUS_LINES))
         .copied()
     {
-        let selected = ui.cursor == i;
+        let selected = ui.cursor_showing.as_ref() == Some(&item);
         let rot = compute_rot(searching, i);
 
         let mut spans = Vec::new();
@@ -195,7 +195,7 @@ fn draw_second_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
         .skip(usize::from(area.height).saturating_sub(STATUS_LINES))
         .copied()
     {
-        let selected = ui.cursor == i;
+        let selected = ui.cursor_showing.as_ref() == Some(&item);
         let rot = compute_rot(searching, i);
 
         let mut spans = Vec::new();

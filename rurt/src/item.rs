@@ -10,10 +10,11 @@ use std::ffi::OsString;
 use std::fs;
 use std::fs::FileType;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum Item {
-    FileEntry { name: OsString, info: Box<ItemInfo> },
+    FileEntry { name: OsString, info: Arc<ItemInfo> },
     WalkError { msg: String },
 }
 
@@ -195,7 +196,7 @@ fn convert_resolution(root: impl AsRef<Path>, f: Result<DirEntry>) -> Result<Opt
 
         Ok(Some(Item::FileEntry {
             name,
-            info: Box::new(ItemInfo {
+            info: Arc::new(ItemInfo {
                 path: f.path().to_path_buf(),
                 filename: f.file_name().to_os_string(),
                 metadata: f.metadata().ok(),

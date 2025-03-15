@@ -1,8 +1,8 @@
+use crate::item::Item;
 use crate::preview::{run_preview, Preview, PreviewedData, Previews};
 use log::info;
 use lscolors::LsColors;
 use ratatui::layout::Rect;
-use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Instant;
@@ -12,7 +12,7 @@ pub struct Ui {
     pub input: Input,
     pub view_start: u32,
     pub cursor: u32,
-    pub cursor_showing: Option<PathBuf>,
+    pub cursor_showing: Option<Item>,
     pub prompt: String,
     pub active: bool,
     pub sorted_items: Vec<u32>,
@@ -31,7 +31,8 @@ impl Ui {
 
 pub fn matching_preview(ui: &Ui) -> Option<&Preview> {
     ui.previews.inner.iter().rev().find(|v| {
-        Some(&v.showing) == ui.cursor_showing.as_ref() && v.coloured == ui.preview_colours
+        Some(v.showing.as_path()) == ui.cursor_showing.as_ref().and_then(|v| v.path())
+            && v.coloured == ui.preview_colours
     })
 }
 
@@ -48,7 +49,8 @@ pub fn fire_preview(ui: &mut Ui, preview_area: Rect) {
 
     area.height = (proposal / breakpoint + 1) * breakpoint;
 
-    let showing = match ui.cursor_showing {
+    let showing = ui.cursor_showing.as_ref().and_then(|v| v.path());
+    let showing = match showing {
         Some(ref v) => v,
         None => return,
     };
@@ -56,7 +58,7 @@ pub fn fire_preview(ui: &mut Ui, preview_area: Rect) {
     let started = Instant::now();
 
     if ui.previews.inner.iter().rev().any(|v| {
-        Some(&v.showing) == ui.cursor_showing.as_ref()
+        Some(v.showing.as_path()) == ui.cursor_showing.as_ref().and_then(|v| v.path())
             && v.target_area == area
             && v.coloured == ui.preview_colours
     }) {
