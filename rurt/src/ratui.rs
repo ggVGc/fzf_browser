@@ -55,8 +55,10 @@ pub fn run(
         ui.active = store.is_scanning() || ui.previews.is_scanning();
 
         if ui.active && (store.would_flicker() || ui.previews.would_flicker()) {
-            event::poll(Duration::from_millis(50))?;
-            store.nucleo.tick(10);
+            for _ in 0..2 {
+                event::poll(Duration::from_millis(20))?;
+                store.nucleo.tick(10);
+            }
         }
 
         let snap = store.nucleo.snapshot();
