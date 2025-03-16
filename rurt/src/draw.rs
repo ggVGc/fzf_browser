@@ -154,7 +154,7 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
             snap.matched,
             snap.total,
         ),
-        Style::new().light_yellow(),
+        Style::new().yellow(),
     ));
 
     assert_eq!(lines.len(), STATUS_LINES);
@@ -226,7 +226,7 @@ fn draw_second_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
 }
 
 fn draw_input_line(f: &mut Frame, prompt: &str, input: &Input, input_line_area: Rect) {
-    let mut prompt = Span::styled(prompt, Style::new().light_blue());
+    let mut prompt = Span::styled(prompt, Style::new().light_yellow());
     let mut input_line_remainder = input_line_area.width.saturating_sub(prompt.width() as u16);
     if input_line_remainder < 10 {
         prompt = Span::styled("> ", Style::new().blue());
