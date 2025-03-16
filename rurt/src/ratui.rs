@@ -2,10 +2,10 @@ use crate::action::{handle_action, matches_binding, ActionResult};
 use crate::alt_screen::enter_alt_screen;
 use crate::draw::RightPane;
 use crate::preview::Previews;
-use crate::snapped::item_under_cursor;
+use crate::snapped::revalidate_cursor;
 use crate::store::Store;
 use crate::tui_log::LogWidgetState;
-use crate::ui_state::{SortedItems, Ui};
+use crate::ui_state::{Cursor, SortedItems, Ui};
 use crate::{draw, snapped, ui_state, App};
 use anyhow::Result;
 use crossterm::event;
@@ -33,7 +33,7 @@ pub fn run(
         boot: Instant::now(),
         input: Input::default(),
         view_start: 0,
-        cursor: 0,
+        cursor: Cursor::default(),
         cursor_showing: None,
         prompt: format!("{}> ", app.here.display()),
         active: true,
@@ -69,12 +69,9 @@ pub fn run(
                     ui_state::fire_preview(&mut ui, area.side_pane);
                 }
 
-                let mut item_area = area.main_pane;
-                if app.view_opts.right_pane() == RightPane::SecondListing {
-                    item_area.height *= 2;
-                }
-                snapped::revalidate_cursor(&mut ui, snap, item_area);
-                let items = snapped::ui_item_range(&mut ui, snap, item_area);
+                let items_required = area.items_required(&app.view_opts);
+                revalidate_cursor(&mut ui, snap, items_required);
+                let items = snapped::ui_item_range(&mut ui, snap, items_required);
                 draw::draw_ui(f, area, &ui, &app.view_opts, &items, log_state.clone())
             })?
             .area;
@@ -96,13 +93,13 @@ pub fn run(
                 match action {
                     ActionResult::Ignored => (),
                     ActionResult::Configured => {
-                        ui.cursor_showing = item_under_cursor(&mut ui, snap).cloned();
+                        let next_screen = draw::setup_screen(last_area, &app.view_opts);
+                        let items_required = next_screen.items_required(&app.view_opts);
+                        revalidate_cursor(&mut ui, snap, items_required);
                         ui.preview_cursor = 0;
+
                         if app.view_opts.right_pane() == RightPane::Preview {
-                            ui_state::fire_preview(
-                                &mut ui,
-                                draw::setup_screen(last_area, &app.view_opts).side_pane,
-                            );
+                            ui_state::fire_preview(&mut ui, next_screen.side_pane);
                         }
                         reparse(store, &ui);
                     }

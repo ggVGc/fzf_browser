@@ -17,8 +17,8 @@ pub enum Action {
     Down,
     Home,
     // positive is *flips coin* towards the bottom of the screen
-    MoveCursor(i32),
-    MovePreview(i32),
+    MoveCursor(isize),
+    MovePreview(isize),
     CycleHidden,
     CycleIgnored,
     CycleMode,
@@ -70,7 +70,7 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
             }
         }
         Action::MoveCursor(delta) => {
-            ui.cursor = u32::try_from((ui.cursor as i32).saturating_add(delta)).unwrap_or(0);
+            ui.cursor.pending_move = Some(delta);
             ActionResult::Configured
         }
         Action::MovePreview(delta) => {
@@ -133,8 +133,11 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
         }
         Action::Expand => {
             if let Some(name) = ui.cursor_showing_path() {
-                read_opts.expansions.push(here.join(name));
-                ActionResult::JustRescan
+                if read_opts.expansions.insert(here.join(name)) {
+                    ActionResult::JustRescan
+                } else {
+                    ActionResult::Ignored
+                }
             } else {
                 ActionResult::Ignored
             }

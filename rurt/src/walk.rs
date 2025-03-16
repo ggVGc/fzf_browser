@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use crate::fuzz::AddItem;
@@ -13,7 +14,7 @@ pub struct ReadOpts {
     pub mode_index: usize,
     pub recursion_index: usize,
     pub target_dir: PathBuf,
-    pub expansions: Vec<PathBuf>,
+    pub expansions: HashSet<PathBuf>,
 }
 
 #[derive(Copy, Clone, clap::ValueEnum, PartialEq, Eq)]

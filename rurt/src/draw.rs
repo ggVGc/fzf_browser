@@ -22,7 +22,7 @@ pub enum RightPane {
 
 pub const RIGHT_PANE: [RightPane; 3] = [Preview, Hidden, SecondListing];
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct ViewOpts {
     pub right_pane_mode: [RightPane; 3],
     pub log_pane: bool,
@@ -86,6 +86,17 @@ pub fn setup_screen(screen: Rect, view_opts: &ViewOpts) -> Areas {
         input_line,
         log,
         divider,
+    }
+}
+
+impl Areas {
+    pub(crate) fn items_required(&self, view_opts: &ViewOpts) -> u32 {
+        u32::from(self.main_pane.height)
+            * if view_opts.right_pane() == RightPane::SecondListing {
+                2
+            } else {
+                1
+            }
     }
 }
 
