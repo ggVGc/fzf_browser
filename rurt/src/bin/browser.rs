@@ -66,6 +66,8 @@ fn main() -> Result<ExitCode> {
         (KeyModifiers::NONE, KeyCode::Char('\\'), Action::CycleRecursion),
         (KeyModifiers::CONTROL, KeyCode::Char('h'), Action::Up),
         (KeyModifiers::CONTROL, KeyCode::Char('l'), Action::Down),
+        (KeyModifiers::CONTROL, KeyCode::Char('j'), Action::MoveCursor(1)),
+        (KeyModifiers::CONTROL, KeyCode::Char('k'), Action::MoveCursor(-1)),
         (KeyModifiers::CONTROL, KeyCode::Char('d'), Action::Home),
         (KeyModifiers::CONTROL, KeyCode::Char('a'), Action::CycleHidden,),
         (KeyModifiers::CONTROL, KeyCode::Char('y'), Action::CycleIgnored,),
@@ -75,7 +77,7 @@ fn main() -> Result<ExitCode> {
         (KeyModifiers::CONTROL, KeyCode::Char('t'), Action::SetTarget),
         (KeyModifiers::CONTROL, KeyCode::Char('g'), Action::Open),
         (KeyModifiers::CONTROL, KeyCode::Char('p'), Action::TogglePreview),
-        (KeyModifiers::CONTROL, KeyCode::Char('j'), Action::TogglePreviewColour),
+        (KeyModifiers::ALT, KeyCode::Char('p'), Action::TogglePreviewColour),
         (KeyModifiers::CONTROL, KeyCode::Char('o'), Action::DirBack),
         (KeyModifiers::CONTROL, KeyCode::Char('u'), Action::DirForward),
     ];
