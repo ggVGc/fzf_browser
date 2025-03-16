@@ -5,7 +5,7 @@ use crate::preview::Previews;
 use crate::snapped::item_under_cursor;
 use crate::store::Store;
 use crate::tui_log::LogWidgetState;
-use crate::ui_state::Ui;
+use crate::ui_state::{SortedItems, Ui};
 use crate::{draw, snapped, ui_state, App};
 use anyhow::Result;
 use crossterm::event;
@@ -37,8 +37,7 @@ pub fn run(
         cursor_showing: None,
         prompt: format!("{}> ", app.here.display()),
         active: true,
-        sorted_items: Vec::new(),
-        sorted_until: 0,
+        sorted_items: SortedItems::default(),
         previews: Previews::default(),
         preview_cursor: 0,
         preview_colours: true,
@@ -113,13 +112,11 @@ pub fn run(
                         reparse(store, &ui);
                         ui.prompt = format!("{}> ", app.here.display());
                         ui.sorted_items.clear();
-                        ui.sorted_until = 0;
                         store.start_scan(app)?;
                     }
 
                     ActionResult::JustRescan => {
                         ui.sorted_items.clear();
-                        ui.sorted_until = 0;
                         store.start_scan(app)?;
                     }
 

@@ -17,8 +17,7 @@ pub struct Ui {
     pub cursor_showing: Option<Item>,
     pub prompt: String,
     pub active: bool,
-    pub sorted_items: Vec<u32>,
-    pub sorted_until: usize,
+    pub sorted_items: SortedItems,
     pub previews: Previews,
     pub preview_cursor: usize,
     pub preview_colours: bool,
@@ -116,5 +115,18 @@ impl From<Rect> for URect {
             width: usize::from(r.width),
             height: usize::from(r.height),
         }
+    }
+}
+
+#[derive(Default)]
+pub struct SortedItems {
+    pub items: Vec<u32>,
+    pub until: usize,
+}
+
+impl SortedItems {
+    pub fn clear(&mut self) {
+        self.items.clear();
+        self.until = 0;
     }
 }

@@ -155,8 +155,9 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
     for (i, item) in snap
         .items
         .iter()
+        .enumerate()
+        .map(|(i, item)| (i as u32 + snap.start, item))
         .take(usize::from(area.height).saturating_sub(STATUS_LINES))
-        .copied()
     {
         let selected = ui.cursor_showing.as_ref() == Some(&item);
         let rot = compute_rot(searching, i);
@@ -192,8 +193,9 @@ fn draw_second_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
     for (i, item) in snap
         .items
         .iter()
+        .enumerate()
+        .map(|(i, item)| (i as u32 + snap.start, item))
         .skip(usize::from(area.height).saturating_sub(STATUS_LINES))
-        .copied()
     {
         let selected = ui.cursor_showing.as_ref() == Some(&item);
         let rot = compute_rot(searching, i);
