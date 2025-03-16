@@ -182,8 +182,7 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
             if let Ok(cwd) = std::env::current_dir() {
                 if cwd == cand {
                     cand = ".".into()
-                }
-                else if let Ok(stripped) = cand.strip_prefix(&cwd) {
+                } else if let Ok(stripped) = cand.strip_prefix(&cwd) {
                     cand = stripped.to_path_buf();
                 }
             }
