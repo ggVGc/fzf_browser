@@ -1,42 +1,34 @@
 use crate::item::Item;
 use crate::ui_state::{SortedItems, Ui};
 use nucleo::Snapshot;
-use ratatui::layout::Rect;
 
-pub fn ui_item_range<'s>(ui: &mut Ui, snap: &'s Snapshot<Item>, item_area: Rect) -> Snapped<'s> {
+pub fn ui_item_range<'s>(ui: &mut Ui, snap: &'s Snapshot<Item>, len: u32) -> Snapped<'s> {
     item_range(
         snap,
         ui.view_start,
-        ui.view_start.saturating_add(u32::from(item_area.height)),
+        len,
         should_sort(ui),
         &mut ui.sorted_items,
     )
-}
-
-pub fn item_under_cursor<'s>(ui: &mut Ui, snap: &'s Snapshot<Item>) -> Option<&'s Item> {
-    item_range(
-        snap,
-        ui.cursor,
-        ui.cursor + 1,
-        should_sort(ui),
-        &mut ui.sorted_items,
-    )
-    .items
-    .pop()
 }
 
 fn should_sort(ui: &Ui) -> bool {
     ui.input.value().is_empty()
 }
 
-pub fn revalidate_cursor(ui: &mut Ui, snap: &Snapshot<Item>, area: Rect) {
+pub fn revalidate_cursor(ui: &mut Ui, snap: &Snapshot<Item>, len: u32) {
     ui.cursor = ui.cursor.min(snap.matched_item_count().saturating_sub(1));
-    ui.cursor_showing = item_under_cursor(ui, snap).cloned();
 
-    if ui.cursor < ui.view_start {
-        ui.view_start = ui.cursor;
-    } else if ui.cursor + 1 >= ui.view_start + u32::from(area.height) {
-        ui.view_start = ui.cursor.saturating_sub(u32::from(area.height)) + 2;
+    let chosen = ui.cursor;
+    ui.cursor_showing = item_range(snap, chosen, 1, should_sort(ui), &mut ui.sorted_items)
+        .items
+        .pop()
+        .cloned();
+
+    if chosen < ui.view_start {
+        ui.view_start = chosen;
+    } else if chosen + 1 >= ui.view_start + len {
+        ui.view_start = chosen.saturating_sub(len) + 2;
     }
 }
 
@@ -50,10 +42,11 @@ pub struct Snapped<'i> {
 fn item_range<'s>(
     snap: &'s Snapshot<Item>,
     start: u32,
-    mut end: u32,
+    len: u32,
     sort: bool,
     sorted_items: &mut SortedItems,
 ) -> Snapped<'s> {
+    let mut end = start.saturating_add(len);
     if end > snap.matched_item_count() {
         end = snap.matched_item_count();
     }
