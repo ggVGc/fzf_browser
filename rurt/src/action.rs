@@ -133,8 +133,11 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
         }
         Action::Expand => {
             if let Some(name) = ui.cursor_showing_path() {
-                read_opts.expansions.push(here.join(name));
-                ActionResult::JustRescan
+                if read_opts.expansions.insert(here.join(name)) {
+                    ActionResult::JustRescan
+                } else {
+                    ActionResult::Ignored
+                }
             } else {
                 ActionResult::Ignored
             }
