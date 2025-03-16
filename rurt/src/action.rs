@@ -11,7 +11,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Action {
     Activate,
-    AcceptCurrentDir,
+    AcceptCurrentDirectory,
     Ignore,
     Up,
     Down,
@@ -54,12 +54,14 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
 
     Ok(match action {
         Action::Up => {
+            ui.input.reset();
             dir_stack.push(here.clone());
             here.pop();
             ActionResult::Navigated
         }
         Action::Down => {
             if let Some(cand) = get_cursor_directory(here, ui) {
+                ui.input.reset();
                 dir_stack.push(here.clone());
                 *here = cand;
                 ActionResult::Navigated
@@ -174,7 +176,7 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
                 ActionResult::Exit(None, ExitCode::FAILURE)
             }
         }
-        Action::AcceptCurrentDir => {
+        Action::AcceptCurrentDirectory => {
             let mut cand = here.clone();
             if let Ok(cwd) = std::env::current_dir() {
                 if cwd == cand {
