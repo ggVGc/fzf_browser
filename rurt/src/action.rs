@@ -59,10 +59,7 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
             ActionResult::Navigated
         }
         Action::Down => {
-            if let Some(cand) = ui
-                .cursor_showing_path()
-                .and_then(|name| ensure_directory(here.join(name)).ok())
-            {
+            if let Some(cand) = get_cursor_directory(here, ui) {
                 dir_stack.push(here.clone());
                 *here = cand;
                 ActionResult::Navigated
@@ -189,6 +186,16 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
             ActionResult::Exit(Some(cand.display().to_string()), ExitCode::SUCCESS)
         }
         Action::Ignore => ActionResult::Ignored,
+    })
+}
+
+fn get_cursor_directory(current_dir: &PathBuf, ui: &Ui) -> Option<PathBuf> {
+    ui.cursor_showing_path().and_then(|name| {
+        let path = current_dir.clone().join(name);
+        ensure_directory(path.clone()).ok().or_else(|| {
+            let path = path.as_path().parent()?;
+            Some(path.into())
+        })
     })
 }
 
