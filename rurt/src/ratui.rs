@@ -5,7 +5,7 @@ use crate::preview::Previews;
 use crate::snapped::revalidate_cursor;
 use crate::store::Store;
 use crate::tui_log::LogWidgetState;
-use crate::ui_state::{SortedItems, Ui};
+use crate::ui_state::{Cursor, SortedItems, Ui};
 use crate::{draw, snapped, ui_state, App};
 use anyhow::Result;
 use crossterm::event;
@@ -33,7 +33,7 @@ pub fn run(
         boot: Instant::now(),
         input: Input::default(),
         view_start: 0,
-        cursor: 0,
+        cursor: Cursor::default(),
         cursor_showing: None,
         prompt: format!("{}> ", app.here.display()),
         active: true,

@@ -13,7 +13,7 @@ pub struct Ui {
     pub boot: Instant,
     pub input: Input,
     pub view_start: u32,
-    pub cursor: u32,
+    pub cursor: Cursor,
     pub cursor_showing: Option<Item>,
     pub prompt: String,
     pub active: bool,
@@ -32,6 +32,12 @@ impl Ui {
     pub fn cursor_showing_path(&self) -> Option<&Path> {
         self.cursor_showing.as_ref().and_then(|v| v.path())
     }
+}
+
+#[derive(Default)]
+pub struct Cursor {
+    pub last_pos: u32,
+    pub pending_move: Option<isize>,
 }
 
 pub fn matching_preview(ui: &Ui) -> Option<&Preview> {
@@ -121,7 +127,7 @@ impl From<Rect> for URect {
 #[derive(Default)]
 pub struct SortedItems {
     pub items: Vec<u32>,
-    pub until: usize,
+    pub until: u32,
 }
 
 impl SortedItems {
