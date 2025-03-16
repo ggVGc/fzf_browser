@@ -11,6 +11,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Action {
     Activate,
+    AcceptCurrentDir,
     Ignore,
     Up,
     Down,
@@ -175,6 +176,18 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
             } else {
                 ActionResult::Exit(None, ExitCode::FAILURE)
             }
+        }
+        Action::AcceptCurrentDir => {
+            let mut cand = here.clone();
+            if let Ok(cwd) = std::env::current_dir() {
+                if cwd == cand {
+                    cand = ".".into()
+                }
+                else if let Ok(stripped) = cand.strip_prefix(&cwd) {
+                    cand = stripped.to_path_buf();
+                }
+            }
+            ActionResult::Exit(Some(cand.display().to_string()), ExitCode::SUCCESS)
         }
         Action::Ignore => ActionResult::Ignored,
     })
