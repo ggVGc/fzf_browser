@@ -4,6 +4,7 @@ use crossterm::event::{KeyCode, KeyModifiers};
 
 use crate::action::Action;
 use crate::dir_stack::DirStack;
+use crate::git::Git;
 use crate::walk::ReadOpts;
 use draw::ViewOpts;
 
@@ -13,6 +14,7 @@ mod colour;
 pub mod dir_stack;
 pub mod draw;
 pub mod fuzz;
+mod git;
 pub mod item;
 mod line_stop;
 mod preview;
@@ -35,4 +37,13 @@ pub struct App {
     pub view_opts: ViewOpts,
     pub result_opts: ResultOpts,
     pub bindings: Vec<(KeyModifiers, KeyCode, Action)>,
+}
+
+impl App {
+    fn git_info(&self) -> Option<Git> {
+        self.view_opts
+            .git_info
+            .then(|| Git::new(&self.here))
+            .flatten()
+    }
 }

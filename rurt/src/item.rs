@@ -69,7 +69,7 @@ impl Item {
     }
 
     // rot: 0: fresh, 1: stale
-    pub fn as_spans(&self, styling: &Styling, rot: f32) -> Vec<Span> {
+    pub fn as_spans(&self, styling: &Styling, rot: f32, git_info: Option<&str>) -> Vec<Span> {
         let (name, info) = match self {
             Item::WalkError { msg } => {
                 return vec![Span::styled(format!("error walking: {msg}"), styling.error)];
@@ -127,6 +127,11 @@ impl Item {
                 }
             }
         }
+
+        if let Some(git_info) = git_info {
+            spans.push(Span::styled(format!("  {git_info}"), styling.git_info));
+        }
+
         spans
     }
 }
@@ -215,6 +220,7 @@ pub struct Styling {
     pub dir: ContentStyle,
     pub error: Style,
     pub symlink: Style,
+    pub git_info: Style,
 }
 
 impl Styling {
@@ -229,6 +235,7 @@ impl Styling {
             path_separator: Some(RStyle::new().fg(Color::Indexed(139))),
             symlink: RStyle::new().light_magenta(),
             error: RStyle::default().light_red(),
+            git_info: RStyle::default().fg(Color::DarkGray),
         }
     }
 

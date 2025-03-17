@@ -13,6 +13,7 @@ content_inspector = "0.2"
 crossterm = "0.28"
 dirs = "6"
 file_type = "0.7"
+gix = "0.70"
 hexyl = "0.16"
 ignore = "0.4"
 log = { version = "0.4.25", features = ["std"] }
@@ -29,4 +30,5 @@ features = ["crossterm"]
 
 [features]
 never = []
+git_info = []
 log_pane = []

@@ -27,6 +27,7 @@ pub const RIGHT_PANE: [RightPane; 3] = [Preview, Hidden, SecondListing];
 pub struct ViewOpts {
     pub right_pane_mode: [RightPane; 3],
     pub log_pane: bool,
+    pub git_info: bool,
 }
 
 impl ViewOpts {
@@ -181,7 +182,11 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
             spans.push(Span::from("  "));
         }
 
-        spans.extend(item.as_spans(&styling, rot));
+        let git_info = item
+            .path()
+            .and_then(|p| ui.git_info.as_ref().and_then(|gi| gi.resolve(p)));
+
+        spans.extend(item.as_spans(&styling, rot, git_info.as_deref()));
         lines.push(Line::from(spans));
     }
     f.render_widget(Text::from(lines), area);
@@ -219,7 +224,7 @@ fn draw_second_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
             spans.push(Span::from("  "));
         }
 
-        spans.extend(item.as_spans(&styling, rot));
+        spans.extend(item.as_spans(&styling, rot, None));
         lines.push(Line::from(spans));
     }
     // area.y += area.height.saturating_sub(lines.len() as u16);

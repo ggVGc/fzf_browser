@@ -39,6 +39,7 @@ pub fn run(
         active: true,
         sorted_items: SortedItems::default(),
         previews: Previews::default(),
+        git_info: app.git_info(),
         preview_cursor: 0,
         preview_colours: true,
         ls_colors: LsColors::from_env().unwrap_or_default(),
@@ -109,6 +110,7 @@ pub fn run(
                         reparse(store, &ui);
                         ui.prompt = format!("{}> ", app.here.display());
                         ui.sorted_items.clear();
+                        ui.git_info = app.git_info();
                         store.start_scan(app)?;
                     }
 

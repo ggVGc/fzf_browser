@@ -95,6 +95,7 @@ fn main() -> Result<ExitCode> {
         view_opts: ViewOpts {
             right_pane_mode: RIGHT_PANE,
             log_pane: cfg!(feature = "log_pane"),
+            git_info: cfg!(feature = "git_info"),
         },
         result_opts: ResultOpts {
             force_absolute_path: cli.force_absolute_path,

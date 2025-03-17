@@ -1,3 +1,4 @@
+use crate::git::Git;
 use crate::item::Item;
 use crate::preview::{run_preview, Preview, PreviewedData, Previews};
 use log::info;
@@ -19,6 +20,7 @@ pub struct Ui {
     pub active: bool,
     pub sorted_items: SortedItems,
     pub previews: Previews,
+    pub git_info: Option<Git>,
     pub preview_cursor: usize,
     pub preview_colours: bool,
     pub ls_colors: LsColors,
