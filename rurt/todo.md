@@ -2,6 +2,12 @@
 * Bug: If you hit return during startup, colours don't work in bat in preview
 * Bug: Keep cursor position when expanding a directory (ctrl-e)
 * CLI option for saving result to a target file instead of printing
+* Multi selection
+* Separate toggle for showing preview window, and preview window "mode"
+* Preview modes:
+  - Git log of current file in preview window
+  - Git diff/show of current file in preview window
+  - "Long listing", which currently exists
 * Non-fuzzy filtering mode:
     - Narrows down list, keeping order
     - When Default action is pressed, exits back to fuzzy mode with narrowed list
