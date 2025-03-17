@@ -23,10 +23,16 @@ pub mod tui_log;
 mod ui_state;
 pub mod walk;
 
+#[derive(Copy, Clone)]
+pub struct ResultOpts {
+    pub force_absolute_path: bool,
+}
+
 pub struct App {
     pub here: PathBuf,
     pub dir_stack: DirStack<PathBuf>,
     pub read_opts: ReadOpts,
     pub view_opts: ViewOpts,
+    pub result_opts: ResultOpts,
     pub bindings: Vec<(KeyModifiers, KeyCode, Action)>,
 }

@@ -168,9 +168,11 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
                     ActionResult::Navigated
                 } else {
                     let mut cand = here.join(name);
-                    if let Ok(cwd) = std::env::current_dir() {
-                        if let Ok(stripped) = cand.strip_prefix(&cwd) {
-                            cand = stripped.to_path_buf();
+                    if !app.result_opts.force_absolute_path {
+                        if let Ok(cwd) = std::env::current_dir() {
+                            if let Ok(stripped) = cand.strip_prefix(&cwd) {
+                                cand = stripped.to_path_buf();
+                            }
                         }
                     }
                     ActionResult::Exit(Some(cand.display().to_string()), ExitCode::SUCCESS)

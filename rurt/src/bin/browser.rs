@@ -14,6 +14,7 @@ use rurt::tui_log::LogWidgetState;
 use rurt::tui_log::TuiLogger;
 use rurt::walk::{Mode, ReadOpts, Recursion};
 use rurt::App;
+use rurt::ResultOpts;
 use std::ffi::OsString;
 use std::fs;
 use std::process::ExitCode;
@@ -35,6 +36,9 @@ struct Cli {
     /// default: mixed (when non-recursive), files (when recursive)
     #[clap(short, long)]
     mode: Option<Mode>,
+
+    #[clap(long)]
+    force_absolute_path: bool,
 }
 
 fn main() -> Result<ExitCode> {
@@ -91,6 +95,9 @@ fn main() -> Result<ExitCode> {
         view_opts: ViewOpts {
             right_pane_mode: RIGHT_PANE,
             log_pane: cfg!(feature = "log_pane"),
+        },
+        result_opts: ResultOpts {
+            force_absolute_path: cli.force_absolute_path,
         },
         bindings,
         here,

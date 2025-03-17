@@ -6,6 +6,7 @@ use crate::tui_log::{LogWidget, LogWidgetState};
 use crate::ui_state::{matching_preview, URect, Ui};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::prelude::{Line, Span, Style, Stylize, Text};
+use ratatui::style::Color;
 use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
 use ratatui::Frame;
 use std::ops::Deref;
@@ -154,7 +155,7 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
             snap.matched,
             snap.total,
         ),
-        Style::new().yellow(),
+        Style::new().fg(Color::Indexed(250)),
     ));
 
     assert_eq!(lines.len(), STATUS_LINES);
