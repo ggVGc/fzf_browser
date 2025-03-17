@@ -8,6 +8,8 @@
   - Git log of current file in preview window
   - Git diff/show of current file in preview window
   - "Long listing", which currently exists
+* Git status view: Shows modified files in left pane and diffs in right pane:
+  - Optionally show untracked
 * Non-fuzzy filtering mode:
     - Narrows down list, keeping order
     - When Default action is pressed, exits back to fuzzy mode with narrowed list
