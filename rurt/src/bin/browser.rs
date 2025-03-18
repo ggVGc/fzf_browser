@@ -17,6 +17,8 @@ use rurt::App;
 use rurt::ResultOpts;
 use std::ffi::OsString;
 use std::fs;
+use std::fs::File;
+use std::io::Write;
 use std::process::ExitCode;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -26,6 +28,9 @@ use std::sync::Mutex;
 struct Cli {
     #[clap(default_value = ".")]
     start_path: OsString,
+
+    #[clap(short, long)]
+    output_path: Option<OsString>,
 
     #[clap(short, long)]
     query: Option<String>,
@@ -125,7 +130,12 @@ fn main() -> Result<ExitCode> {
 
     let (msg, code) = ratui::run(&mut store, &mut app, log_state)?;
     if let Some(msg) = msg {
-        println!("{}", msg);
+        if let Some(path) = cli.output_path {
+            let mut file = File::create(path).unwrap();
+            file.write_all(msg.as_bytes()).unwrap();
+        } else {
+            println!("{}", msg);
+        }
     }
     Ok(code)
 }
