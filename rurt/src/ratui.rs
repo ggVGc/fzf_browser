@@ -67,7 +67,7 @@ pub fn run(
             .draw(|f| {
                 let area = draw::setup_screen(f.area(), &app.view_opts);
                 if app.view_opts.right_pane() == RightPane::Preview {
-                    ui_state::fire_preview(&mut ui, area.side_pane);
+                    ui_state::fire_preview(&mut ui, app.view_opts.preview_mode(), area.side_pane);
                 }
 
                 let items_required = area.items_required(&app.view_opts);
@@ -100,7 +100,11 @@ pub fn run(
                         ui.preview_cursor = 0;
 
                         if app.view_opts.right_pane() == RightPane::Preview {
-                            ui_state::fire_preview(&mut ui, next_screen.side_pane);
+                            ui_state::fire_preview(
+                                &mut ui,
+                                app.view_opts.preview_mode(),
+                                next_screen.side_pane,
+                            );
                         }
                         reparse(store, &ui);
                     }

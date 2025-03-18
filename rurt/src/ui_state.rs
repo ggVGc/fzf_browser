@@ -1,3 +1,4 @@
+use crate::draw::PreviewMode;
 use crate::git::Git;
 use crate::item::Item;
 use crate::preview::{run_preview, Preview, PreviewedData, Previews};
@@ -42,13 +43,15 @@ pub struct Cursor {
     pub pending_move: Option<isize>,
 }
 
-pub fn matching_preview(ui: &Ui) -> Option<&Preview> {
+pub fn matching_preview(ui: &Ui, mode: PreviewMode) -> Option<&Preview> {
     ui.previews.inner.iter().rev().find(|v| {
-        Some(v.showing.as_path()) == ui.cursor_showing_path() && v.coloured == ui.preview_colours
+        Some(v.showing.as_path()) == ui.cursor_showing_path()
+            && v.mode == mode
+            && v.coloured == ui.preview_colours
     })
 }
 
-pub fn fire_preview(ui: &mut Ui, preview_area: Rect) {
+pub fn fire_preview(ui: &mut Ui, mode: PreviewMode, preview_area: Rect) {
     if preview_area.width == 0 || preview_area.height == 0 {
         return;
     }
@@ -72,6 +75,7 @@ pub fn fire_preview(ui: &mut Ui, preview_area: Rect) {
     if ui.previews.inner.iter().rev().any(|v| {
         Some(v.showing.as_path()) == ui.cursor_showing_path()
             && v.target_area == area
+            && v.mode == mode
             && v.coloured == ui.preview_colours
     }) {
         return;
@@ -87,7 +91,7 @@ pub fn fire_preview(ui: &mut Ui, preview_area: Rect) {
     let preview_path = showing.to_path_buf();
     let coloured = ui.preview_colours;
     let worker = thread::spawn(move || {
-        if let Err(e) = run_preview(&preview_path, coloured, Arc::clone(&write_to), area) {
+        if let Err(e) = run_preview(&preview_path, coloured, mode, Arc::clone(&write_to), area) {
             write_to
                 .lock()
                 .expect("panic")
@@ -99,6 +103,7 @@ pub fn fire_preview(ui: &mut Ui, preview_area: Rect) {
 
     ui.previews.inner.push_back(Preview {
         showing: showing.to_path_buf(),
+        mode,
         target_area: area,
         coloured: ui.preview_colours,
         data,

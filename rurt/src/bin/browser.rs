@@ -7,7 +7,7 @@ use nucleo::Nucleo;
 use rurt::action::Action;
 use rurt::dir_stack::DirStack;
 use rurt::draw::RIGHT_PANE_HIDDEN;
-use rurt::draw::{ViewOpts, RIGHT_PANE};
+use rurt::draw::{ViewOpts, PREVIEW_MODE, RIGHT_PANE};
 use rurt::item::Item;
 use rurt::ratui;
 use rurt::store::Store;
@@ -91,6 +91,7 @@ fn main() -> Result<ExitCode> {
         (KeyModifiers::CONTROL, KeyCode::Char('t'), Action::SetTarget),
         (KeyModifiers::CONTROL, KeyCode::Char('g'), Action::Open),
         (KeyModifiers::CONTROL, KeyCode::Char('p'), Action::TogglePreview),
+        (KeyModifiers::ALT | KeyModifiers::SHIFT, KeyCode::Char('P'), Action::TogglePreviewMode),
         (KeyModifiers::ALT, KeyCode::Char('p'), Action::TogglePreviewColour),
         (KeyModifiers::CONTROL, KeyCode::Char('o'), Action::DirBack),
         (KeyModifiers::CONTROL, KeyCode::Char('u'), Action::DirForward),
@@ -108,6 +109,7 @@ fn main() -> Result<ExitCode> {
             } else {
                 RIGHT_PANE_HIDDEN
             },
+            preview_mode_flag: PREVIEW_MODE,
             log_pane: cfg!(feature = "log_pane"),
             git_info: cfg!(feature = "git_info"),
         },

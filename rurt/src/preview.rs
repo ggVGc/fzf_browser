@@ -1,7 +1,8 @@
+use crate::draw::PreviewMode;
 use crate::line_stop::{LineStopFmtWrite, LineStopIoWrite};
 use crate::ui_state::URect;
 use ansi_to_tui::IntoText;
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use content_inspector::ContentType;
 use ratatui::prelude::*;
 use std::collections::VecDeque;
@@ -21,6 +22,7 @@ pub struct Previews {
 
 pub struct Preview {
     pub showing: PathBuf,
+    pub mode: PreviewMode,
     pub target_area: URect,
     pub coloured: bool,
     pub data: Arc<Mutex<PreviewedData>>,
@@ -44,6 +46,20 @@ pub struct PreviewedData {
 }
 
 pub fn run_preview(
+    pathref: impl AsRef<Path>,
+    coloured: bool,
+    mode: PreviewMode,
+    preview: Arc<Mutex<PreviewedData>>,
+    area: URect,
+) -> Result<()> {
+    match mode {
+        PreviewMode::Content => run_preview_content(pathref, coloured, preview, area),
+        PreviewMode::GitLg => run_git(pathref, coloured, preview, area, "lg"),
+        PreviewMode::GitShow => run_git(pathref, coloured, preview, area, "show"),
+    }
+}
+
+fn run_preview_content(
     pathref: impl AsRef<Path>,
     coloured: bool,
     preview: Arc<Mutex<PreviewedData>>,
@@ -91,20 +107,24 @@ pub fn run_preview(
         .take(1024 * 1024)
         .read_to_end(&mut buf)?;
 
-    let mut indented = Vec::with_capacity(buf.len() * 2);
-    for line in buf.split(|&b| b == b'\n') {
-        indented.extend_from_slice(b"     ");
-        indented.extend_from_slice(line);
-        indented.push(b'\n');
-    }
-    indented.trim_ascii_end();
-    let mut text = indented.into_text()?;
+    let mut text = indent(&buf, b"     ")?;
     text.lines.insert(0, preview_header("ls", path));
 
     let mut preview = preview.lock().expect("panic");
     preview.render = Some(text);
     preview.content = buf;
     Ok(())
+}
+
+fn indent(buf: &[u8], with: &[u8]) -> Result<Text<'static>> {
+    let mut indented = Vec::with_capacity(buf.len() * 2);
+    for line in buf.split(|&b| b == b'\n') {
+        indented.extend_from_slice(with);
+        indented.extend_from_slice(line);
+        indented.push(b'\n');
+    }
+    indented.trim_ascii_end();
+    Ok(indented.into_text()?)
 }
 
 fn stream_some(reader: impl Read, preview: Arc<Mutex<PreviewedData>>) -> Result<()> {
@@ -159,14 +179,14 @@ fn interpret_file(
             ret
         }
         _ => {
-            let mut writer = LineStopFmtWrite::new(area.height as usize);
+            let mut writer = LineStopFmtWrite::new(area.height);
             content.retain(|&b| b != b'\r');
             // expecting an unnamed error on writer full
             let _ = bat::PrettyPrinter::new()
                 .input(bat::Input::from_bytes(&content).name(&showing))
                 .header(false)
                 .colored_output(coloured)
-                .term_width(area.width as usize)
+                .term_width(area.width)
                 .tab_width(Some(2))
                 .line_numbers(true)
                 .use_italics(false)
@@ -196,4 +216,50 @@ impl Previews {
             .iter()
             .any(|v| v.started.elapsed() < Duration::from_millis(100) && !v.worker.is_finished())
     }
+}
+
+fn run_git(
+    path: impl AsRef<Path>,
+    coloured: bool,
+    preview: Arc<Mutex<PreviewedData>>,
+    _area: URect,
+    sub_cmd: &str,
+) -> Result<()> {
+    preview.lock().expect("panic").command = PreviewCommand::Custom(format!("g {sub_cmd}"));
+
+    let spawn = Command::new("git")
+        .args([
+            OsStr::new(sub_cmd),
+            if coloured {
+                OsStr::new("--color=always")
+            } else {
+                OsStr::new("--color=never")
+            },
+            path.as_ref().as_os_str(),
+        ])
+        .current_dir(path.as_ref().parent().ok_or_else(|| anyhow!("no parent"))?)
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()?;
+
+    let mut buf = Vec::with_capacity(4096);
+    spawn
+        .stdout
+        .expect("piped")
+        .take(1024 * 1024)
+        .read_to_end(&mut buf)?;
+
+    spawn
+        .stderr
+        .expect("piped")
+        .take(1024 * 1024)
+        .read_to_end(&mut buf)?;
+
+    let mut text = indent(&buf, b" ")?;
+    text.lines
+        .insert(0, preview_header(&format!("g {sub_cmd}"), path));
+
+    preview.lock().expect("panic").render = Some(text);
+
+    Ok(())
 }

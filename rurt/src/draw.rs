@@ -21,12 +21,25 @@ pub enum RightPane {
     SecondListing,
 }
 
+#[derive(Copy, Clone, PartialEq)]
+pub enum PreviewMode {
+    Content,
+    GitLg,
+    GitShow,
+}
+
 pub const RIGHT_PANE: [RightPane; 3] = [Preview, SecondListing, Hidden];
 pub const RIGHT_PANE_HIDDEN: [RightPane; 3] = [Hidden, Preview, SecondListing];
+pub const PREVIEW_MODE: [PreviewMode; 3] = [
+    PreviewMode::Content,
+    PreviewMode::GitLg,
+    PreviewMode::GitShow,
+];
 
 #[derive(Copy, Clone)]
 pub struct ViewOpts {
     pub right_pane_mode: [RightPane; 3],
+    pub preview_mode_flag: [PreviewMode; 3],
     pub log_pane: bool,
     pub git_info: bool,
 }
@@ -34,6 +47,9 @@ pub struct ViewOpts {
 impl ViewOpts {
     pub fn right_pane(&self) -> RightPane {
         self.right_pane_mode[0]
+    }
+    pub fn preview_mode(&self) -> PreviewMode {
+        self.preview_mode_flag[0]
     }
 }
 
@@ -119,7 +135,7 @@ pub fn draw_ui(
         RightPane::Hidden => (),
         RightPane::Preview => {
             draw_divider(f, area.divider);
-            draw_preview(f, ui, area.side_pane);
+            draw_preview(f, ui, view_opts.preview_mode(), area.side_pane);
         }
         RightPane::SecondListing => {
             draw_divider(f, area.divider);
@@ -272,8 +288,8 @@ fn draw_divider(f: &mut Frame, divider_area: Rect) {
     }
 }
 
-fn draw_preview(f: &mut Frame, ui: &Ui, area: Rect) {
-    let preview = match matching_preview(ui) {
+fn draw_preview(f: &mut Frame, ui: &Ui, mode: PreviewMode, area: Rect) {
+    let preview = match matching_preview(ui, mode) {
         Some(preview) => preview,
         None => {
             draw_no_preview(f, area);

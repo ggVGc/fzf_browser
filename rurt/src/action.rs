@@ -24,6 +24,7 @@ pub enum Action {
     CycleMode,
     CycleRecursion,
     TogglePreview,
+    TogglePreviewMode,
     TogglePreviewColour,
     SetTarget,
     Expand,
@@ -74,7 +75,7 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
             ActionResult::Configured
         }
         Action::MovePreview(delta) => {
-            let max_cursor = matching_preview(ui)
+            let max_cursor = matching_preview(ui, view_opts.preview_mode())
                 .and_then(|p| {
                     p.data
                         .lock()
@@ -115,6 +116,10 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
         }
         Action::TogglePreview => {
             view_opts.right_pane_mode.rotate_left(1);
+            ActionResult::Configured
+        }
+        Action::TogglePreviewMode => {
+            view_opts.preview_mode_flag.rotate_left(1);
             ActionResult::Configured
         }
         Action::TogglePreviewColour => {
