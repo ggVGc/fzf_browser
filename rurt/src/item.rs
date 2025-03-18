@@ -101,13 +101,12 @@ impl Item {
             0
         };
 
-        for i in 0..indentation {
-            let start = 246 - indentation;
-            let mut ind = start + i;
+        for _ in 0..indentation {
+            let mut ind = 246 - indentation;
             if ind < 235 {
                 ind = 235;
             } 
-            spans.push(Span::styled("|", RStyle::new().fg(Color::Indexed(ind))));
+            spans.push(Span::styled("  ", RStyle::new().fg(Color::Indexed(ind))));
         }
 
         if let Some(style) = styling.item(info.as_ref()) {
