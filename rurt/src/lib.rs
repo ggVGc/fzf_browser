@@ -10,6 +10,7 @@ use draw::ViewOpts;
 
 pub mod action;
 mod alt_screen;
+mod cache;
 mod colour;
 pub mod dir_stack;
 pub mod draw;

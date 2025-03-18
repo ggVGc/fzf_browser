@@ -1,24 +1,38 @@
+use crate::cache::Cache;
 use anyhow::Result;
 use gix::revision::walk::Sorting;
 use gix::Repository;
+use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 
 pub struct Git {
     root: PathBuf,
     repo: Repository,
+    cache: RefCell<Cache<PathBuf, String>>,
 }
 
 impl Git {
     pub fn new(here: impl AsRef<Path>) -> Option<Self> {
         let repo = gix::discover(&here).ok()?;
         let root = repo.work_dir()?.to_path_buf();
-        Some(Self { root, repo })
+        Some(Self {
+            root,
+            repo,
+            cache: RefCell::new(Cache::new()),
+        })
     }
 
     pub fn resolve(&self, path: impl AsRef<Path>) -> Option<String> {
-        find_file_commit(&self.repo, &self.root, path)
-            .ok()
-            .flatten()
+        let path = path.as_ref();
+        let repo = self.repo.clone();
+        let root = self.root.clone();
+        let path_2 = path.to_path_buf();
+        self.cache
+            .borrow_mut()
+            .compute(path.to_path_buf(), move || {
+                find_file_commit(&repo, &root, path_2).ok().flatten()
+            })
+            .cloned()
     }
 }
 

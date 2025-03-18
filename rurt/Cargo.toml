@@ -29,6 +29,7 @@ default-features = false
 features = ["crossterm"]
 
 [features]
+default = ["git_info"]
 never = []
 git_info = []
 log_pane = []
