@@ -190,6 +190,14 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
         spans.extend(item.as_spans(&styling, rot, git_info.as_deref()));
         lines.push(Line::from(spans));
     }
+
+    // let [left, right] = Layout::default()
+    //     .direction(Direction::Horizontal)
+    //     .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+    //     .split(area)
+    //     .deref()
+    //     .try_into().expect("static constraints");
+
     f.render_widget(Text::from(lines), area);
 }
 

@@ -69,7 +69,7 @@ impl Item {
     }
 
     // rot: 0: fresh, 1: stale
-    pub fn as_spans(&self, styling: &Styling, rot: f32, git_info: Option<&str>) -> Vec<Span> {
+    pub fn as_spans(&self, styling: &Styling, rot: f32, _git_info: Option<&str>) -> Vec<Span> {
         let (name, info) = match self {
             Item::WalkError { msg } => {
                 return vec![Span::styled(format!("error walking: {msg}"), styling.error)];
@@ -90,21 +90,24 @@ impl Item {
 
         let mut spans = Vec::with_capacity(4);
 
-        if let Some(dir) = dir {
-            match styling.path_separator {
-                None => {
-                    for part in dir.split('/') {
-                        spans.push(Span::styled(part.to_string(), styling.dir));
-                        spans.push(" ".into());
-                    }
-                }
-                Some(path_separator) => {
-                    for part in dir.split('/') {
-                        spans.push(Span::styled(part.to_string(), styling.dir));
-                        spans.push(Span::styled("|", path_separator));
-                    }
-                }
+        let indentation = if let Some(dir) = dir.clone() {
+            let mut count = 0;
+            for _ in dir.split('/') {
+                count = count + 1;
             }
+
+            count
+        } else {
+            0
+        };
+
+        for i in 0..indentation {
+            let start = 246 - indentation;
+            let mut ind = start + i;
+            if ind < 235 {
+                ind = 235;
+            } 
+            spans.push(Span::styled("|", RStyle::new().fg(Color::Indexed(ind))));
         }
 
         if let Some(style) = styling.item(info.as_ref()) {
@@ -120,6 +123,34 @@ impl Item {
             spans.push(Span::styled(" -> ", styling.symlink));
             spans.push(Span::raw(link_dest.display().to_string()));
         }
+
+        let dir_style = RStyle::new().fg(Color::Indexed(247));
+
+        if let Some(dir) = dir {
+            spans.push(Span::raw("   ["));
+            for part in dir.split('/') {
+                spans.push(Span::styled(part.to_string(), dir_style));
+                spans.push(Span::styled("/", dir_style));
+            }
+            spans.push(Span::raw("]"));
+            // match styling.path_separator {
+            //     None => {
+            //         // spans.push(Span::raw(" | "));
+            //         for part in dir.split('/') {
+            //             spans.push(Span::styled(part.to_string(), styling.git_info));
+            //             spans.push(" ".into());
+            //         }
+            //     }
+            //     Some(_path_separator) => {
+            //         // spans.push(Span::styled(" | ", path_separator));
+            //         for part in dir.split('/') {
+            //             spans.push(Span::styled(part.to_string(), styling.git_info));
+            //             spans.push(Span::styled("/", styling.git_info));
+            //         }
+            //     }
+            // }
+        }
+
         for span in &mut spans {
             if let Some(colour) = span.style.fg {
                 if let Ok(colour) = Colour::try_from(colour) {
@@ -128,9 +159,9 @@ impl Item {
             }
         }
 
-        if let Some(git_info) = git_info {
-            spans.push(Span::styled(format!("  {git_info}"), styling.git_info));
-        }
+        // if let Some(git_info) = git_info {
+        //     spans.push(Span::styled(format!("  {git_info}"), styling.git_info));
+        // }
 
         spans
     }
