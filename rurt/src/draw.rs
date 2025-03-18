@@ -21,7 +21,8 @@ pub enum RightPane {
     SecondListing,
 }
 
-pub const RIGHT_PANE: [RightPane; 3] = [Preview, Hidden, SecondListing];
+pub const RIGHT_PANE: [RightPane; 3] = [Preview, SecondListing, Hidden];
+pub const RIGHT_PANE_HIDDEN: [RightPane; 3] = [Hidden, Preview, SecondListing];
 
 #[derive(Copy, Clone)]
 pub struct ViewOpts {

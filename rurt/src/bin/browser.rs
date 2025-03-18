@@ -6,6 +6,7 @@ use log::LevelFilter;
 use nucleo::Nucleo;
 use rurt::action::Action;
 use rurt::dir_stack::DirStack;
+use rurt::draw::RIGHT_PANE_HIDDEN;
 use rurt::draw::{ViewOpts, RIGHT_PANE};
 use rurt::item::Item;
 use rurt::ratui;
@@ -31,6 +32,10 @@ struct Cli {
 
     #[clap(short, long)]
     output_path: Option<OsString>,
+
+    #[clap(short, long, action)]
+    #[clap(default_value = "true")]
+    preview: Option<bool>,
 
     #[clap(short, long)]
     query: Option<String>,
@@ -98,7 +103,11 @@ fn main() -> Result<ExitCode> {
             ..Default::default()
         },
         view_opts: ViewOpts {
-            right_pane_mode: RIGHT_PANE,
+            right_pane_mode: if cli.preview.unwrap_or(true) {
+                RIGHT_PANE
+            } else {
+                RIGHT_PANE_HIDDEN
+            },
             log_pane: cfg!(feature = "log_pane"),
             git_info: cfg!(feature = "git_info"),
         },
