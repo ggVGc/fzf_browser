@@ -100,28 +100,30 @@ impl Item {
 
         let mut cols = Columns {
             primary: Vec::with_capacity(4),
-            secondary: Some(Vec::with_capacity(4)),
+            secondary: None,
             extra: None,
         };
 
-        if let Some(dir) = dir {
-            match styling.path_separator {
-                None => {
-                    for part in dir.split('/') {
-                        cols.primary
-                            .push(Span::styled(part.to_string(), styling.dir));
-                        cols.primary.push(" ".into());
-                    }
+        cols.secondary = if let Some(dir) = dir {
+            if cfg!(feature = "dirs_in_secondary") {
+                let mut secondary = Vec::with_capacity(4);
+                secondary.push(Span::raw("["));
+                // secondary.push(Span::styled(dir.to_string(), styling.git_info));
+                secondary.push(Span::raw(dir.to_string()));
+                secondary.push(Span::raw("]"));
+                Some(secondary)
+            } else {
+                for part in dir.split('/') {
+                    cols.primary
+                        .push(Span::styled(part.to_string(), styling.dir));
+                    cols.primary.push(Span::styled("|", styling.path_separator));
                 }
-                Some(path_separator) => {
-                    for part in dir.split('/') {
-                        cols.primary
-                            .push(Span::styled(part.to_string(), styling.dir));
-                        cols.primary.push(Span::styled("|", path_separator));
-                    }
-                }
+
+                None
             }
-        }
+        } else {
+            None
+        };
 
         if let Some(style) = styling.item(info.as_ref()) {
             let style = LsStyle::to_crossterm_style(style);
@@ -236,7 +238,7 @@ fn convert_resolution(root: impl AsRef<Path>, f: Result<DirEntry>) -> Result<Opt
 
 pub struct Styling {
     ls_colors: LsColors,
-    pub path_separator: Option<Style>,
+    pub path_separator: Style,
     pub dir: ContentStyle,
     pub error: Style,
     pub symlink: Style,
@@ -252,7 +254,7 @@ impl Styling {
         Self {
             ls_colors: ls_colors.clone(),
             dir: lscolors::Style::to_crossterm_style(dir_style),
-            path_separator: Some(RStyle::new().fg(Color::Indexed(139))),
+            path_separator: RStyle::new().fg(Color::Indexed(139)),
             symlink: RStyle::new().light_magenta(),
             error: RStyle::default().light_red(),
             git_info: RStyle::default().fg(Color::DarkGray),

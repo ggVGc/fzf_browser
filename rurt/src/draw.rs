@@ -169,7 +169,9 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
     let mut secondary_lines: Vec<Line<'_>> = Vec::new();
     let mut extra_lines: Vec<Line<'_>> = Vec::new();
 
-    primary_lines.push(Line::styled(
+    primary_lines.push(Line::raw(""));
+    extra_lines.push(Line::raw(""));
+    secondary_lines.push(Line::styled(
         format!(
             "{} {}/{}",
             if ui.active { "S" } else { " " },
@@ -179,7 +181,7 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
         Style::new().fg(Color::Indexed(250)),
     ));
 
-    assert_eq!(primary_lines.len(), STATUS_LINES);
+    assert_eq!(secondary_lines.len(), STATUS_LINES);
 
     let searching = ui.is_searching();
 
@@ -222,21 +224,35 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
         });
     }
 
-    let [primary, secondary, extra] = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Fill(4),
-            Constraint::Fill(4),
-            Constraint::Fill(3)
-        ])
-        .split(area)
-        .deref()
-        .try_into()
-        .expect("static constraints");
+    if cfg!(feature = "dirs_in_secondary") {
+        let [secondary, _divider, primary, extra] = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Fill(4),
+                Constraint::Length(1),
+                Constraint::Fill(4),
+                Constraint::Fill(3),
+            ])
+            .split(area)
+            .deref()
+            .try_into()
+            .expect("static constraints");
 
-    f.render_widget(Text::from(primary_lines), primary);
-    f.render_widget(Text::from(secondary_lines), secondary);
-    f.render_widget(Text::from(extra_lines), extra);
+        f.render_widget(Text::from(primary_lines), primary);
+        f.render_widget(Text::from(secondary_lines), secondary);
+        f.render_widget(Text::from(extra_lines), extra);
+    } else {
+        let [primary, extra] = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(70), Constraint::Fill(3)])
+            .split(area)
+            .deref()
+            .try_into()
+            .expect("static constraints");
+
+        f.render_widget(Text::from(primary_lines), primary);
+        f.render_widget(Text::from(extra_lines), extra);
+    };
 }
 
 fn compute_rot(searching: bool, i: u32) -> f32 {
@@ -293,7 +309,7 @@ fn draw_second_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
         });
     }
 
-    let [primary, secondary, extra] = Layout::default()
+    let [secondary, primary, extra] = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
             Constraint::Percentage(30),
