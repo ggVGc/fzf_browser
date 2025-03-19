@@ -127,7 +127,7 @@ impl Item {
         if cfg!(feature = "dirs_in_secondary") {
             if info.file_type.is_dir() {
                 if let Some(dir) = dir {
-                    let mut indentation = 0;
+                    let mut indentation = 1;
                     for ch in dir.chars() {
                         if ch == '/' {
                             indentation = indentation + 1;
