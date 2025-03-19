@@ -104,7 +104,7 @@ impl Item {
             extra: None,
         };
 
-        cols.secondary = if let Some(dir) = dir {
+        cols.secondary = if let Some(dir) = dir.clone() {
             if cfg!(feature = "dirs_in_secondary") {
                 let mut secondary = Vec::with_capacity(4);
                 secondary.push(Span::raw("["));
@@ -124,6 +124,19 @@ impl Item {
         } else {
             None
         };
+
+        if info.file_type.is_dir() {
+            if let Some(dir) = dir {
+                let mut indentation = 0;
+                for ch in dir.chars() {
+                    if ch == '/' {
+                        indentation = indentation + 1;
+                    }
+                }
+                let indents = String::from_utf8(vec![b' '; (indentation * 2) as usize]).unwrap();
+                cols.primary.push(Span::raw(indents));
+            }
+        }
 
         if let Some(style) = styling.item(info.as_ref()) {
             let style = LsStyle::to_crossterm_style(style);
