@@ -70,6 +70,8 @@ impl Item {
 
     // rot: 0: fresh, 1: stale
     pub fn as_spans(&self, styling: &Styling, rot: f32, _git_info: Option<&str>) -> Vec<Span> {
+        let right_column_pos : u32 = 60;
+
         let (name, info) = match self {
             Item::WalkError { msg } => {
                 return vec![Span::styled(format!("error walking: {msg}"), styling.error)];
@@ -90,7 +92,7 @@ impl Item {
 
         let mut spans = Vec::with_capacity(4);
 
-        let indentation = if let Some(dir) = dir.clone() {
+        let indentation : u32 = if let Some(dir) = dir.clone() {
             let mut count = 0;
             for _ in dir.split('/') {
                 count = count + 1;
@@ -101,13 +103,16 @@ impl Item {
             0
         };
 
-        for _ in 0..indentation {
-            let mut ind = 246 - indentation;
-            if ind < 235 {
-                ind = 235;
-            } 
-            spans.push(Span::styled("  ", RStyle::new().fg(Color::Indexed(ind))));
-        }
+        // for _ in 0..indentation {
+        //     let mut ind = 246 - indentation;
+        //     if ind < 235 {
+        //         ind = 235;
+        //     } 
+        //     spans.push(Span::styled("  ", RStyle::new().fg(Color::Indexed(ind as u8))));
+        // }
+
+        let indents = String::from_utf8(vec![b' '; (indentation * 2) as usize]).unwrap();
+        spans.push(Span::raw(indents));
 
         if let Some(style) = styling.item(info.as_ref()) {
             let style = LsStyle::to_crossterm_style(style);
@@ -126,7 +131,15 @@ impl Item {
         let dir_style = RStyle::new().fg(Color::Indexed(247));
 
         if let Some(dir) = dir {
-            spans.push(Span::raw("   ["));
+            let space_count = (right_column_pos - (indentation * 2) - (path.len() as u32)) as usize;
+            // for _ in 0..count {
+            //     spans.push(Span::raw(" "));
+            // }
+
+            let spaces = String::from_utf8(vec![b' '; space_count]).unwrap();
+            spans.push(Span::raw(spaces));
+
+            spans.push(Span::raw("["));
             for part in dir.split('/') {
                 spans.push(Span::styled(part.to_string(), dir_style));
                 spans.push(Span::styled("/", dir_style));
