@@ -108,7 +108,6 @@ impl Item {
             if cfg!(feature = "dirs_in_secondary") {
                 let mut secondary = Vec::with_capacity(4);
                 secondary.push(Span::raw("["));
-                // secondary.push(Span::styled(dir.to_string(), styling.git_info));
                 secondary.push(Span::raw(dir.to_string()));
                 secondary.push(Span::raw("]"));
                 Some(secondary)
