@@ -165,8 +165,9 @@ fn edge_inset(area: Rect, margin: u16) -> Rect {
 const STATUS_LINES: usize = 1;
 
 fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
-    let mut lines = Vec::new();
-    lines.push(Line::styled(
+    let mut left_lines: Vec<Line<'_>> = Vec::new();
+    let mut right_lines: Vec<Line<'_>> = Vec::new();
+    left_lines.push(Line::styled(
         format!(
             "{} {}/{}",
             if ui.active { "S" } else { " " },
@@ -176,7 +177,7 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
         Style::new().fg(Color::Indexed(250)),
     ));
 
-    assert_eq!(lines.len(), STATUS_LINES);
+    assert_eq!(left_lines.len(), STATUS_LINES);
 
     let searching = ui.is_searching();
 
@@ -203,10 +204,22 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
             .path()
             .and_then(|p| ui.git_info.as_ref().and_then(|gi| gi.resolve(p)));
 
-        spans.extend(item.as_spans(&styling, rot, git_info.as_deref()));
-        lines.push(Line::from(spans));
+        let (primary, secondary) = item.as_spans(&styling, rot, git_info.as_deref());
+        spans.extend(primary);
+        left_lines.push(Line::from(spans));
+        right_lines.push(Line::from(secondary));
     }
-    f.render_widget(Text::from(lines), area);
+
+    let [left, right] = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(60), Constraint::Percentage(40)])
+        .split(area)
+        .deref()
+        .try_into()
+        .expect("static constraints");
+
+    f.render_widget(Text::from(left_lines), left);
+    f.render_widget(Text::from(right_lines), right);
 }
 
 fn compute_rot(searching: bool, i: u32) -> f32 {
@@ -218,7 +231,8 @@ fn compute_rot(searching: bool, i: u32) -> f32 {
 }
 
 fn draw_second_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
-    let mut lines = Vec::new();
+    let mut left_lines: Vec<Line<'_>> = Vec::new();
+    let mut right_lines: Vec<Line<'_>> = Vec::new();
 
     let searching = ui.is_searching();
 
@@ -229,7 +243,7 @@ fn draw_second_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
         .iter()
         .enumerate()
         .map(|(i, item)| (i as u32 + snap.start, item))
-        .skip(usize::from(area.height).saturating_sub(STATUS_LINES))
+        .take(usize::from(area.height).saturating_sub(STATUS_LINES))
     {
         let selected = ui.cursor_showing.as_ref() == Some(&item);
         let rot = compute_rot(searching, i);
@@ -241,11 +255,26 @@ fn draw_second_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
             spans.push(Span::from("  "));
         }
 
-        spans.extend(item.as_spans(&styling, rot, None));
-        lines.push(Line::from(spans));
+        let git_info = item
+            .path()
+            .and_then(|p| ui.git_info.as_ref().and_then(|gi| gi.resolve(p)));
+
+        let (primary, secondary) = item.as_spans(&styling, rot, git_info.as_deref());
+        spans.extend(primary);
+        left_lines.push(Line::from(spans));
+        right_lines.push(Line::from(secondary));
     }
-    // area.y += area.height.saturating_sub(lines.len() as u16);
-    f.render_widget(Text::from(lines), area);
+
+    let [left, right] = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(60), Constraint::Percentage(40)])
+        .split(area)
+        .deref()
+        .try_into()
+        .expect("static constraints");
+
+    f.render_widget(Text::from(left_lines), left);
+    f.render_widget(Text::from(right_lines), right);
 }
 
 fn draw_input_line(f: &mut Frame, prompt: &str, input: &Input, input_line_area: Rect) {

@@ -69,10 +69,10 @@ impl Item {
     }
 
     // rot: 0: fresh, 1: stale
-    pub fn as_spans(&self, styling: &Styling, rot: f32, git_info: Option<&str>) -> Vec<Span> {
+    pub fn as_spans(&self, styling: &Styling, rot: f32, git_info: Option<&str>) -> (Vec<Span>, Vec<Span>) {
         let (name, info) = match self {
             Item::WalkError { msg } => {
-                return vec![Span::styled(format!("error walking: {msg}"), styling.error)];
+                return (vec![Span::styled(format!("error walking: {msg}"), styling.error)], vec![]);
             }
             Item::FileEntry { name, info, .. } => (name, info),
         };
@@ -88,20 +88,21 @@ impl Item {
             None => (None, full),
         };
 
-        let mut spans = Vec::with_capacity(4);
+        let mut primary_spans = Vec::with_capacity(4);
+        let mut secondary_spans = Vec::with_capacity(4);
 
         if let Some(dir) = dir {
             match styling.path_separator {
                 None => {
                     for part in dir.split('/') {
-                        spans.push(Span::styled(part.to_string(), styling.dir));
-                        spans.push(" ".into());
+                        primary_spans.push(Span::styled(part.to_string(), styling.dir));
+                        primary_spans.push(" ".into());
                     }
                 }
                 Some(path_separator) => {
                     for part in dir.split('/') {
-                        spans.push(Span::styled(part.to_string(), styling.dir));
-                        spans.push(Span::styled("|", path_separator));
+                        primary_spans.push(Span::styled(part.to_string(), styling.dir));
+                        primary_spans.push(Span::styled("|", path_separator));
                     }
                 }
             }
@@ -109,18 +110,18 @@ impl Item {
 
         if let Some(style) = styling.item(info.as_ref()) {
             let style = LsStyle::to_crossterm_style(style);
-            spans.push(Span::styled(path.to_string(), style));
+            primary_spans.push(Span::styled(path.to_string(), style));
         } else {
-            spans.push(Span::raw(path.to_string()));
+            primary_spans.push(Span::raw(path.to_string()));
         }
 
         if let Some(link_dest) = &info.link_dest {
             let link_dest = pathdiff::diff_paths(&info.path, link_dest)
                 .unwrap_or_else(|| link_dest.to_path_buf());
-            spans.push(Span::styled(" -> ", styling.symlink));
-            spans.push(Span::raw(link_dest.display().to_string()));
+            primary_spans.push(Span::styled(" -> ", styling.symlink));
+            primary_spans.push(Span::raw(link_dest.display().to_string()));
         }
-        for span in &mut spans {
+        for span in &mut primary_spans {
             if let Some(colour) = span.style.fg {
                 if let Ok(colour) = Colour::try_from(colour) {
                     span.style.fg = Some(colour.desaturate(rot).into());
@@ -129,10 +130,10 @@ impl Item {
         }
 
         if let Some(git_info) = git_info {
-            spans.push(Span::styled(format!("  {git_info}"), styling.git_info));
+            secondary_spans.push(Span::styled(format!("  {git_info}"), styling.git_info));
         }
 
-        spans
+        (primary_spans, secondary_spans)
     }
 }
 
