@@ -225,13 +225,12 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
     }
 
     if cfg!(feature = "dirs_in_secondary") {
-        let [secondary, _divider, primary, extra] = Layout::default()
+        let [primary, secondary, extra] = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
-                Constraint::Fill(4),
-                Constraint::Length(1),
-                Constraint::Fill(4),
-                Constraint::Fill(3),
+                Constraint::Percentage(35),
+                Constraint::Percentage(40),
+                Constraint::Fill(1),
             ])
             .split(area)
             .deref()
