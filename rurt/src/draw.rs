@@ -165,9 +165,11 @@ fn edge_inset(area: Rect, margin: u16) -> Rect {
 const STATUS_LINES: usize = 1;
 
 fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
-    let mut left_lines: Vec<Line<'_>> = Vec::new();
-    let mut right_lines: Vec<Line<'_>> = Vec::new();
-    left_lines.push(Line::styled(
+    let mut primary_lines: Vec<Line<'_>> = Vec::new();
+    let mut secondary_lines: Vec<Line<'_>> = Vec::new();
+    let mut extra_lines: Vec<Line<'_>> = Vec::new();
+
+    primary_lines.push(Line::styled(
         format!(
             "{} {}/{}",
             if ui.active { "S" } else { " " },
@@ -177,7 +179,7 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
         Style::new().fg(Color::Indexed(250)),
     ));
 
-    assert_eq!(left_lines.len(), STATUS_LINES);
+    assert_eq!(primary_lines.len(), STATUS_LINES);
 
     let searching = ui.is_searching();
 
@@ -204,22 +206,37 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
             .path()
             .and_then(|p| ui.git_info.as_ref().and_then(|gi| gi.resolve(p)));
 
-        let (primary, secondary) = item.as_spans(&styling, rot, git_info.as_deref());
-        spans.extend(primary);
-        left_lines.push(Line::from(spans));
-        right_lines.push(Line::from(secondary));
+        let columns = item.as_spans(&styling, rot, git_info.as_deref());
+        spans.extend(columns.primary);
+        primary_lines.push(Line::from(spans));
+        secondary_lines.push(if let Some(spans) = columns.secondary {
+            Line::from(spans)
+        } else {
+            Line::raw("")
+        });
+
+        extra_lines.push(if let Some(spans) = columns.extra {
+            Line::from(spans)
+        } else {
+            Line::raw("")
+        });
     }
 
-    let [left, right] = Layout::default()
+    let [primary, secondary, extra] = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(60), Constraint::Percentage(40)])
+        .constraints([
+            Constraint::Fill(4),
+            Constraint::Fill(4),
+            Constraint::Fill(3)
+        ])
         .split(area)
         .deref()
         .try_into()
         .expect("static constraints");
 
-    f.render_widget(Text::from(left_lines), left);
-    f.render_widget(Text::from(right_lines), right);
+    f.render_widget(Text::from(primary_lines), primary);
+    f.render_widget(Text::from(secondary_lines), secondary);
+    f.render_widget(Text::from(extra_lines), extra);
 }
 
 fn compute_rot(searching: bool, i: u32) -> f32 {
@@ -231,8 +248,9 @@ fn compute_rot(searching: bool, i: u32) -> f32 {
 }
 
 fn draw_second_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
-    let mut left_lines: Vec<Line<'_>> = Vec::new();
-    let mut right_lines: Vec<Line<'_>> = Vec::new();
+    let mut primary_lines: Vec<Line<'_>> = Vec::new();
+    let mut secondary_lines: Vec<Line<'_>> = Vec::new();
+    let mut extra_lines: Vec<Line<'_>> = Vec::new();
 
     let searching = ui.is_searching();
 
@@ -259,22 +277,37 @@ fn draw_second_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
             .path()
             .and_then(|p| ui.git_info.as_ref().and_then(|gi| gi.resolve(p)));
 
-        let (primary, secondary) = item.as_spans(&styling, rot, git_info.as_deref());
-        spans.extend(primary);
-        left_lines.push(Line::from(spans));
-        right_lines.push(Line::from(secondary));
+        let columns = item.as_spans(&styling, rot, git_info.as_deref());
+        spans.extend(columns.primary);
+        primary_lines.push(Line::from(spans));
+        secondary_lines.push(if let Some(spans) = columns.secondary {
+            Line::from(spans)
+        } else {
+            Line::raw("")
+        });
+
+        extra_lines.push(if let Some(spans) = columns.extra {
+            Line::from(spans)
+        } else {
+            Line::raw("")
+        });
     }
 
-    let [left, right] = Layout::default()
+    let [primary, secondary, extra] = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(60), Constraint::Percentage(40)])
+        .constraints([
+            Constraint::Percentage(30),
+            Constraint::Percentage(30),
+            Constraint::Percentage(20),
+        ])
         .split(area)
         .deref()
         .try_into()
         .expect("static constraints");
 
-    f.render_widget(Text::from(left_lines), left);
-    f.render_widget(Text::from(right_lines), right);
+    f.render_widget(Text::from(primary_lines), primary);
+    f.render_widget(Text::from(secondary_lines), secondary);
+    f.render_widget(Text::from(extra_lines), extra);
 }
 
 fn draw_input_line(f: &mut Frame, prompt: &str, input: &Input, input_line_area: Rect) {
