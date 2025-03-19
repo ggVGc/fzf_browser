@@ -169,9 +169,9 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
     let mut secondary_lines: Vec<Line<'_>> = Vec::new();
     let mut extra_lines: Vec<Line<'_>> = Vec::new();
 
-    primary_lines.push(Line::raw(""));
+    secondary_lines.push(Line::raw(""));
     extra_lines.push(Line::raw(""));
-    secondary_lines.push(Line::styled(
+    primary_lines.push(Line::styled(
         format!(
             "{} {}/{}",
             if ui.active { "S" } else { " " },
@@ -181,7 +181,7 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
         Style::new().fg(Color::Indexed(250)),
     ));
 
-    assert_eq!(secondary_lines.len(), STATUS_LINES);
+    assert_eq!(primary_lines.len(), STATUS_LINES);
 
     let searching = ui.is_searching();
 
@@ -197,22 +197,23 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
         let selected = ui.cursor_showing.as_ref() == Some(&item);
         let rot = compute_rot(searching, i);
 
-        let mut spans = Vec::new();
-        if selected {
-            spans.push(Span::styled("> ", Style::new().light_red()));
+        let current_indicator = if selected {
+            Span::styled("> ", Style::new().light_red())
         } else {
-            spans.push(Span::from("  "));
-        }
+            Span::from("  ")
+        };
 
         let git_info = item
             .path()
             .and_then(|p| ui.git_info.as_ref().and_then(|gi| gi.resolve(p)));
 
         let columns = item.as_spans(&styling, rot, git_info.as_deref());
-        spans.extend(columns.primary);
-        primary_lines.push(Line::from(spans));
+        primary_lines.push(Line::from(
+            vec![vec![current_indicator.clone()], columns.primary].concat(),
+        ));
+
         secondary_lines.push(if let Some(spans) = columns.secondary {
-            Line::from(spans)
+            Line::from(vec![vec![current_indicator], spans].concat())
         } else {
             Line::raw("")
         });
@@ -228,8 +229,8 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
         let [primary, secondary, extra] = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
-                Constraint::Percentage(35),
-                Constraint::Percentage(40),
+                Constraint::Percentage(30),
+                Constraint::Percentage(45),
                 Constraint::Fill(1),
             ])
             .split(area)
