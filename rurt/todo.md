@@ -1,3 +1,4 @@
+* Bug: Second listing is broken. But maybe it's a very bad feature?
 * Bug: Everything is easily scrambled in "git show" preview mode
 * Bug: Colors don't work in bat in preview when opened inside neovim (but only the second time...)
 * Bug: If you hit return during startup, colours don't work in bat in preview
