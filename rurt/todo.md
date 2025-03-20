@@ -8,6 +8,11 @@
 * Separate toggle for showing preview window, and preview window "mode"
 * Feat: Alternative listing mode which doesn't reduce the list, but disables and grays out entries instead
 * Feat: Move cursor to preview window in git log preview mode, fuzzy filter, selecting commit puts it into clipboard
+* Feat: Preview-detail window:
+  - Opens as horizontal split of preview windows
+  - Allow focus shift to preview window, with fuzzy filtering
+  - Show 'details' of current entry in preview-details window
+  - Example: files changed in commit, when in 'git lg' view
 * Git status view: Shows modified files in left pane and diffs in right pane:
   - Optionally show untracked
 * Non-fuzzy filtering mode:
