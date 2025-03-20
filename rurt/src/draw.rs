@@ -55,6 +55,7 @@ impl ViewOpts {
 
 #[derive(Copy, Clone, Debug)]
 pub struct Areas {
+    pub info_line: Rect,
     pub main_pane: Rect,
     pub side_pane: Rect,
     pub input_line: Rect,
@@ -63,9 +64,10 @@ pub struct Areas {
 }
 
 pub fn setup_screen(screen: Rect, view_opts: &ViewOpts) -> Areas {
-    let [input_line, main_area, log] = Layout::default()
+    let [info_line, input_line, main_area, log] = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
+            Constraint::Length(1),
             Constraint::Length(1),
             Constraint::Min(0),
             if view_opts.log_pane {
@@ -100,6 +102,7 @@ pub fn setup_screen(screen: Rect, view_opts: &ViewOpts) -> Areas {
         .expect("static constraints");
 
     Areas {
+        info_line,
         main_pane,
         side_pane,
         input_line,
@@ -128,6 +131,7 @@ pub fn draw_ui(
     log_state: Arc<Mutex<LogWidgetState>>,
 ) {
     draw_input_line(f, &ui.prompt, &ui.input, area.input_line);
+    draw_info_line(f, ui, snap, area.info_line);
 
     draw_listing(f, ui, snap, area.main_pane);
 
@@ -168,20 +172,6 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
     let mut primary_lines: Vec<Line<'_>> = Vec::new();
     let mut secondary_lines: Vec<Line<'_>> = Vec::new();
     let mut extra_lines: Vec<Line<'_>> = Vec::new();
-
-    secondary_lines.push(Line::raw(""));
-    extra_lines.push(Line::raw(""));
-    primary_lines.push(Line::styled(
-        format!(
-            "{} {}/{}",
-            if ui.active { "S" } else { " " },
-            snap.matched,
-            snap.total,
-        ),
-        Style::new().fg(Color::Indexed(250)),
-    ));
-
-    assert_eq!(primary_lines.len(), STATUS_LINES);
 
     let searching = ui.is_searching();
 
@@ -354,6 +344,20 @@ fn draw_input_line(f: &mut Frame, prompt: &str, input: &Input, input_line_area: 
         text_area.x + (input.visual_cursor().max(scroll) - scroll) as u16,
         text_area.y,
     ));
+}
+
+fn draw_info_line(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
+    let line = Line::styled(
+        format!(
+            "{}/{} {}",
+            snap.matched,
+            snap.total,
+            if ui.active { "S" } else { " " },
+        ),
+        Style::new().fg(Color::Indexed(250)),
+    );
+
+    f.render_widget(line, area);
 }
 
 fn draw_divider(f: &mut Frame, divider_area: Rect) {

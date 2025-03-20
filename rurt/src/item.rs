@@ -121,7 +121,11 @@ impl Item {
                 None
             }
         } else {
-            None
+            if cfg!(feature = "dirs_in_secondary") {
+                Some(vec![Span::raw(".")])
+            } else {
+                None
+            }
         };
 
         if cfg!(feature = "dirs_in_secondary") {
