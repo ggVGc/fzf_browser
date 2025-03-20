@@ -255,6 +255,8 @@ fn run_git(
         .take(1024 * 1024)
         .read_to_end(&mut buf)?;
 
+    buf.retain(|&b| b != b'\r');
+
     let mut text = indent(&buf, b" ")?;
     text.lines
         .insert(0, preview_header(&format!("g {sub_cmd}"), path));
