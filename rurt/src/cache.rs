@@ -34,21 +34,31 @@ where
             }
         });
 
-        if entry
-            .handle
-            .as_mut()
-            .map(|h| h.is_finished())
-            .unwrap_or_default()
-        {
-            entry.value = entry
-                .handle
-                .take()
-                .expect("just checked")
-                .join()
-                .ok()
-                .flatten();
-        }
+        try_complete(entry);
 
         entry.value.as_ref()
+    }
+
+    pub fn get(&mut self, key: &K) -> Option<&V> {
+        let entry = self.map.get_mut(key)?;
+        try_complete(entry);
+        entry.value.as_ref()
+    }
+}
+
+fn try_complete<V>(entry: &mut Entry<V>) {
+    if entry
+        .handle
+        .as_mut()
+        .map(|h| h.is_finished())
+        .unwrap_or_default()
+    {
+        entry.value = entry
+            .handle
+            .take()
+            .expect("just checked")
+            .join()
+            .ok()
+            .flatten();
     }
 }

@@ -1,6 +1,5 @@
 use crate::item::Item;
 use crate::ui_state::{SortedItems, Ui};
-use log::info;
 use nucleo::Snapshot;
 
 pub fn ui_item_range<'s>(ui: &mut Ui, snap: &'s Snapshot<Item>, len: u32) -> Snapped<'s> {
@@ -50,11 +49,6 @@ pub fn revalidate_cursor(ui: &mut Ui, snap: &Snapshot<Item>, len: u32) {
     }
 
     ui.cursor.last_pos = pos;
-
-    info!(
-        "revalidate_cursor: {pos}/{list_end}, {}",
-        ui.sorted_items.until
-    );
 
     ui.cursor_showing = item_range(snap, pos, 1, should_sort(ui), &mut ui.sorted_items)
         .items

@@ -1,4 +1,5 @@
 use crate::colour::Colour;
+use crate::git::Letter;
 use anyhow::{anyhow, Context, Result};
 use crossterm::style::ContentStyle;
 use ignore::DirEntry;
@@ -75,7 +76,13 @@ impl Item {
     }
 
     // rot: 0: fresh, 1: stale
-    pub fn as_spans(&self, styling: &Styling, rot: f32, git_info: Option<&str>) -> Columns {
+    pub fn as_spans(
+        &self,
+        styling: &Styling,
+        rot: f32,
+        git_status: Option<Letter>,
+        git_info: Option<&str>,
+    ) -> Columns {
         let (name, info) = match self {
             Item::WalkError { msg } => {
                 return Columns {
@@ -142,6 +149,13 @@ impl Item {
                     cols.primary.push(Span::raw(indents));
                 }
             }
+        }
+
+        if let Some(git_status) = git_status {
+            cols.primary
+                .push(Span::styled(format!("{git_status:?} "), styling.git_info));
+        } else {
+            cols.primary.push(Span::raw("   "));
         }
 
         if let Some(style) = styling.item(info.as_ref()) {
