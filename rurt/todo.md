@@ -1,3 +1,7 @@
+* Feat: Stable tree file listing
+  - Similar to running tree | fzf --no-sort
+  - Filter input list based on full file paths, but don't change ordering
+  - Keep directories in list, if any contained files are in the list
 * Bug: Second listing is broken. But maybe it's a very bad feature?
 * Bug: Everything is easily scrambled in "git show" preview mode
 * Bug: Colors don't work in bat in preview when opened inside neovim (but only the second time...)
