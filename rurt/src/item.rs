@@ -76,7 +76,91 @@ impl Item {
     }
 
     // rot: 0: fresh, 1: stale
-    pub fn as_spans(
+    #[cfg(not(feature = "dirs_in_secondary"))]
+    pub fn get_columns(
+        &self,
+        styling: &Styling,
+        rot: f32,
+        git_status: Option<Letter>,
+        git_info: Option<&str>,
+    ) -> Columns {
+        let (name, info) = match self {
+            Item::WalkError { msg } => {
+                return Columns {
+                    primary: vec![Span::styled(format!("error walking: {msg}"), styling.error)],
+                    secondary: None,
+                    extra: None,
+                };
+            }
+            Item::FileEntry { name, info, .. } => (name, info),
+        };
+
+        let full = name.display().to_string();
+        let (dir, path) = match full.rfind('/') {
+            Some(pos) => {
+                let (dir, name) = full.split_at(pos + 1);
+                let mut dir = dir.to_string();
+                let _trailing_slash = dir.pop();
+                (Some(dir), name.to_string())
+            }
+            None => (None, full),
+        };
+
+        let mut cols = Columns {
+            primary: Vec::with_capacity(4),
+            secondary: None,
+            extra: None,
+        };
+
+        if let Some(dir) = dir.clone() {
+            for part in dir.split('/') {
+                cols.primary
+                    .push(Span::styled(part.to_string(), styling.dir));
+                cols.primary.push(Span::styled("|", styling.path_separator));
+            }
+        }
+
+        if let Some(git_status) = git_status {
+            cols.primary
+                .push(Span::styled(format!("{git_status:?} "), styling.git_info));
+        } else {
+            cols.primary.push(Span::raw("   "));
+        }
+
+        if let Some(style) = styling.item(info.as_ref()) {
+            let style = LsStyle::to_crossterm_style(style);
+            cols.primary.push(Span::styled(path.to_string(), style));
+        } else {
+            cols.primary.push(Span::raw(path.to_string()));
+        }
+
+        if let Some(link_dest) = &info.link_dest {
+            let link_dest = pathdiff::diff_paths(&info.path, link_dest)
+                .unwrap_or_else(|| link_dest.to_path_buf());
+            cols.primary.push(Span::styled(" -> ", styling.symlink));
+            cols.primary
+                .push(Span::raw(link_dest.display().to_string()));
+        }
+        for span in &mut cols.primary {
+            if let Some(colour) = span.style.fg {
+                if let Ok(colour) = Colour::try_from(colour) {
+                    span.style.fg = Some(colour.desaturate(rot).into());
+                }
+            }
+        }
+
+        if let Some(git_info) = git_info {
+            cols.extra = Some(vec![Span::styled(
+                format!("  {git_info}"),
+                styling.git_info,
+            )]);
+        }
+
+        cols
+    }
+
+    #[cfg(feature = "dirs_in_secondary")]
+    pub fn get_columns(
         &self,
         styling: &Styling,
         rot: f32,
@@ -112,42 +196,25 @@ impl Item {
         };
 
         cols.secondary = if let Some(dir) = dir.clone() {
-            if cfg!(feature = "dirs_in_secondary") {
-                let mut secondary = Vec::with_capacity(4);
-                secondary.push(Span::raw("["));
-                secondary.push(Span::raw(dir.to_string()));
-                secondary.push(Span::raw("]"));
-                Some(secondary)
-            } else {
-                for part in dir.split('/') {
-                    cols.primary
-                        .push(Span::styled(part.to_string(), styling.dir));
-                    cols.primary.push(Span::styled("|", styling.path_separator));
-                }
-
-                None
-            }
+            let mut secondary = Vec::with_capacity(4);
+            secondary.push(Span::raw("["));
+            secondary.push(Span::raw(dir.to_string()));
+            secondary.push(Span::raw("]"));
+            Some(secondary)
         } else {
-            if cfg!(feature = "dirs_in_secondary") {
-                Some(vec![Span::raw(".")])
-            } else {
-                None
-            }
+            Some(vec![Span::raw(".")])
         };
 
-        if cfg!(feature = "dirs_in_secondary") {
-            if info.file_type.is_dir() {
-                if let Some(dir) = dir {
-                    let mut indentation = 1;
-                    for ch in dir.chars() {
-                        if ch == '/' {
-                            indentation = indentation + 1;
-                        }
+        if info.file_type.is_dir() {
+            if let Some(dir) = dir {
+                let mut indentation = 1;
+                for ch in dir.chars() {
+                    if ch == '/' {
+                        indentation = indentation + 1;
                     }
-                    let indents =
-                        String::from_utf8(vec![b' '; (indentation * 2) as usize]).unwrap();
-                    cols.primary.push(Span::raw(indents));
                 }
+                let indents = String::from_utf8(vec![b' '; (indentation * 2) as usize]).unwrap();
+                cols.primary.push(Span::raw(indents));
             }
         }
 

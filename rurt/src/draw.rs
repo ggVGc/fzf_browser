@@ -234,7 +234,7 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
             .path()
             .and_then(|p| ui.git_info.as_ref().and_then(|gi| gi.resolve(p)));
 
-        let columns = item.as_spans(&styling, rot, git_status, git_info.as_deref());
+        let columns = item.get_columns(&styling, rot, git_status, git_info.as_deref());
         primary_lines.push(Line::from(
             vec![vec![current_indicator.clone()], columns.primary].concat(),
         ));
@@ -318,7 +318,7 @@ fn draw_second_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
             .path()
             .and_then(|p| ui.git_info.as_ref().and_then(|gi| gi.resolve(p)));
 
-        let columns = item.as_spans(&styling, rot, git_status, git_info.as_deref());
+        let columns = item.get_columns(&styling, rot, git_status, git_info.as_deref());
         spans.extend(columns.primary);
         primary_lines.push(Line::from(spans));
         secondary_lines.push(if let Some(spans) = columns.secondary {
