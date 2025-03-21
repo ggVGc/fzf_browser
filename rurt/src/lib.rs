@@ -31,13 +31,15 @@ pub struct ResultOpts {
     pub force_absolute_path: bool,
 }
 
+pub type Binding = (KeyModifiers, KeyCode, Action);
+
 pub struct App {
     pub here: PathBuf,
     pub dir_stack: DirStack<PathBuf>,
     pub read_opts: ReadOpts,
     pub view_opts: ViewOpts,
     pub result_opts: ResultOpts,
-    pub bindings: Vec<(KeyModifiers, KeyCode, Action)>,
+    pub bindings: Vec<Binding>,
 }
 
 impl App {
@@ -47,4 +49,12 @@ impl App {
             .then(|| Git::new(&self.here))
             .flatten()
     }
+}
+
+pub fn filter_bindings<'b>(bindings: &'b [Binding], search: &str) -> Vec<&'b Binding> {
+    let search = search.to_ascii_lowercase();
+    bindings
+        .iter()
+        .filter(|(_, _, action)| format!("{action:?}").to_ascii_lowercase().contains(&search))
+        .collect()
 }

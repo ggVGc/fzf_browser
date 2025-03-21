@@ -1,15 +1,15 @@
-use crate::action::{handle_action, matches_binding, ActionResult};
+use crate::action::{handle_action, matches_binding, Action, ActionResult};
 use crate::alt_screen::enter_alt_screen;
 use crate::draw::RightPane;
 use crate::preview::Previews;
 use crate::snapped::revalidate_cursor;
 use crate::store::Store;
 use crate::tui_log::LogWidgetState;
-use crate::ui_state::{Cursor, SortedItems, Ui};
-use crate::{draw, snapped, ui_state, App};
+use crate::ui_state::{CommandPalette, Cursor, SortedItems, Ui};
+use crate::{draw, filter_bindings, snapped, ui_state, App};
 use anyhow::Result;
 use crossterm::event;
-use crossterm::event::Event;
+use crossterm::event::{Event, KeyCode};
 use lscolors::LsColors;
 use nucleo::pattern::{CaseMatching, Normalization};
 use ratatui::prelude::*;
@@ -43,6 +43,7 @@ pub fn run(
         preview_cursor: 0,
         preview_colours: true,
         ls_colors: LsColors::from_env().unwrap_or_default(),
+        command_palette: CommandPalette::default(),
     };
 
     store.start_scan(app)?;
@@ -73,7 +74,7 @@ pub fn run(
                 let items_required = area.items_required(&app.view_opts);
                 revalidate_cursor(&mut ui, snap, items_required);
                 let items = snapped::ui_item_range(&mut ui, snap, items_required);
-                draw::draw_ui(f, area, &ui, &app.view_opts, &items, log_state.clone())
+                draw::draw_ui(f, area, &ui, &app, &items, log_state.clone())
             })?
             .area;
 
@@ -83,10 +84,31 @@ pub fn run(
 
         let ev = event::read()?;
 
-        let binding_action = match ev {
+        let mut binding_action = match ev {
             Event::Key(key) => matches_binding(&app.bindings, key),
             _ => None,
         };
+
+        if ui.command_palette.showing
+            && ![Action::CyclePalette, Action::Abort]
+                .map(|v| Some(v))
+                .contains(&binding_action)
+        {
+            if matches!(ev, Event::Key(key) if key.code == KeyCode::Enter) {
+                if let Some((_, _, action)) =
+                    filter_bindings(&app.bindings, &ui.command_palette.input.value()).first()
+                {
+                    binding_action = Some(*action);
+                }
+                ui.command_palette.showing = false;
+                ui.command_palette.input.reset();
+            } else {
+                if let Some(req) = to_input_request(&ev) {
+                    ui.command_palette.input.handle(req);
+                }
+                continue;
+            }
+        }
 
         match binding_action {
             Some(action) => {

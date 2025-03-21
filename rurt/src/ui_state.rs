@@ -25,6 +25,7 @@ pub struct Ui {
     pub preview_cursor: usize,
     pub preview_colours: bool,
     pub ls_colors: LsColors,
+    pub command_palette: CommandPalette,
 }
 
 impl Ui {
@@ -41,6 +42,13 @@ impl Ui {
 pub struct Cursor {
     pub last_pos: u32,
     pub pending_move: Option<isize>,
+}
+
+#[derive(Default)]
+pub struct CommandPalette {
+    pub showing: bool,
+    pub input: Input,
+    pub selected: usize,
 }
 
 pub fn matching_preview(ui: &Ui, mode: PreviewMode) -> Option<&Preview> {

@@ -3,11 +3,12 @@ use crate::item::Styling;
 use crate::preview::{preview_header, PreviewCommand};
 use crate::snapped::Snapped;
 use crate::tui_log::{LogWidget, LogWidgetState};
-use crate::ui_state::{matching_preview, URect, Ui};
-use ratatui::layout::{Constraint, Direction, Layout, Rect};
+use crate::ui_state::{matching_preview, CommandPalette, URect, Ui};
+use crate::{filter_bindings, App, Binding};
+use ratatui::layout::{Constraint, Direction, Flex, Layout, Rect};
 use ratatui::prelude::{Line, Span, Style, Stylize, Text};
 use ratatui::style::Color;
-use ratatui::widgets::{Block, Borders, Paragraph, Wrap};
+use ratatui::widgets::{Block, Borders, Clear, Paragraph, Wrap};
 use ratatui::Frame;
 use std::ops::Deref;
 use std::path::Path;
@@ -55,6 +56,7 @@ impl ViewOpts {
 
 #[derive(Copy, Clone, Debug)]
 pub struct Areas {
+    pub main_area: Rect,
     pub info_line: Rect,
     pub main_pane: Rect,
     pub side_pane: Rect,
@@ -102,6 +104,7 @@ pub fn setup_screen(screen: Rect, view_opts: &ViewOpts) -> Areas {
         .expect("static constraints");
 
     Areas {
+        main_area,
         info_line,
         main_pane,
         side_pane,
@@ -126,7 +129,7 @@ pub fn draw_ui(
     f: &mut Frame,
     area: Areas,
     ui: &Ui,
-    view_opts: &ViewOpts,
+    app: &App,
     snap: &Snapped,
     log_state: Arc<Mutex<LogWidgetState>>,
 ) {
@@ -135,16 +138,20 @@ pub fn draw_ui(
 
     draw_listing(f, ui, snap, area.main_pane);
 
-    match view_opts.right_pane() {
+    match app.view_opts.right_pane() {
         RightPane::Hidden => (),
         RightPane::Preview => {
             draw_divider(f, area.divider);
-            draw_preview(f, ui, view_opts.preview_mode(), area.side_pane);
+            draw_preview(f, ui, app.view_opts.preview_mode(), area.side_pane);
         }
         RightPane::SecondListing => {
             draw_divider(f, area.divider);
             draw_second_listing(f, ui, snap, area.side_pane);
         }
+    }
+
+    if ui.command_palette.showing {
+        draw_palette(f, &ui.command_palette, &app.bindings, area.main_area);
     }
 
     if !area.log.is_empty() {
@@ -156,12 +163,38 @@ pub fn draw_ui(
     }
 }
 
+fn draw_palette(f: &mut Frame, palette: &CommandPalette, bindings: &[Binding], area: Rect) {
+    let block = Block::bordered().title("palette");
+    let area = popup_area(area, 60, 60);
+    f.render_widget(Clear, area); //this clears out the background
+    f.render_widget(block, area);
+    let area = edge_inset(area, 1);
+    draw_input_line(f, "> ", &palette.input, area);
+    let lines = filter_bindings(bindings, palette.input.value())
+        .into_iter()
+        .enumerate()
+        .map(|(i, (mods, key, action))| {
+            Line::raw(format!(
+                "{} {:?} + {:?} => {:?}",
+                if i == 0 { ">" } else { " " },
+                mods,
+                key,
+                action
+            ))
+        })
+        .collect::<Vec<_>>();
+    let mut area = area;
+    area.y += 1;
+    area.height -= 1;
+    f.render_widget(Text::from(lines), area);
+}
+
 fn edge_inset(area: Rect, margin: u16) -> Rect {
     let mut inset_area = area;
     inset_area.x += margin;
     inset_area.y += margin;
-    inset_area.height -= margin;
-    inset_area.width -= margin;
+    inset_area.height -= margin * 2;
+    inset_area.width -= margin * 2;
 
     inset_area
 }
@@ -227,10 +260,7 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
                 Constraint::Percentage(45),
                 Constraint::Fill(1),
             ])
-            .split(area)
-            .deref()
-            .try_into()
-            .expect("static constraints");
+            .areas(area);
 
         f.render_widget(Text::from(primary_lines), primary);
         f.render_widget(Text::from(secondary_lines), secondary);
@@ -239,10 +269,7 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
         let [primary, extra] = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Percentage(70), Constraint::Fill(3)])
-            .split(area)
-            .deref()
-            .try_into()
-            .expect("static constraints");
+            .areas(area);
 
         f.render_widget(Text::from(primary_lines), primary);
         f.render_widget(Text::from(extra_lines), extra);
@@ -337,7 +364,7 @@ fn draw_input_line(f: &mut Frame, prompt: &str, input: &Input, input_line_area: 
     f.render_widget(Paragraph::new(prompt), input_line_area);
 
     let text_area = Rect::new(
-        prompt_used,
+        input_line_area.x + prompt_used,
         input_line_area.y,
         input_line_remainder,
         input_line_area.height,
@@ -444,4 +471,12 @@ fn as_raw_preview(
 
 fn draw_no_preview(f: &mut Frame, area: Rect) {
     f.render_widget(Paragraph::new("S").wrap(Wrap::default()), area);
+}
+
+fn popup_area(area: Rect, percent_x: u16, percent_y: u16) -> Rect {
+    let vertical = Layout::vertical([Constraint::Percentage(percent_y)]).flex(Flex::Center);
+    let horizontal = Layout::horizontal([Constraint::Percentage(percent_x)]).flex(Flex::Center);
+    let [area] = vertical.areas(area);
+    let [area] = horizontal.areas(area);
+    area
 }

@@ -19,6 +19,7 @@ pub enum Action {
     // positive is *flips coin* towards the bottom of the screen
     MoveCursor(isize),
     MovePreview(isize),
+    CyclePalette,
     CycleHidden,
     CycleIgnored,
     CycleMode,
@@ -97,6 +98,10 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
             *here =
                 dirs::home_dir().ok_or_else(|| anyhow!("but you don't even have a home dir"))?;
             ActionResult::Navigated
+        }
+        Action::CyclePalette => {
+            ui.command_palette.showing = !ui.command_palette.showing;
+            ActionResult::Ignored
         }
         Action::CycleHidden => {
             read_opts.show_hidden = !read_opts.show_hidden;

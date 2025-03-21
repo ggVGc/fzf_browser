@@ -83,6 +83,7 @@ fn main() -> Result<ExitCode> {
         (KeyModifiers::CONTROL, KeyCode::Char('j'), Action::MoveCursor(1)),
         (KeyModifiers::CONTROL, KeyCode::Char('k'), Action::MoveCursor(-1)),
         (KeyModifiers::CONTROL, KeyCode::Char('d'), Action::Home),
+        (KeyModifiers::ALT | KeyModifiers::SHIFT, KeyCode::Char('A'), Action::CyclePalette),
         (KeyModifiers::CONTROL, KeyCode::Char('a'), Action::CycleHidden,),
         (KeyModifiers::CONTROL, KeyCode::Char('y'), Action::CycleIgnored,),
         (KeyModifiers::CONTROL, KeyCode::Char('f'), Action::CycleMode),
