@@ -112,19 +112,19 @@ impl Item {
             extra: None,
         };
 
+        if let Some(git_status) = git_status {
+            cols.primary
+                .push(Span::styled(format!("{git_status:?} "), styling.git_info));
+        } else {
+            cols.primary.push(Span::raw("   "));
+        }
+
         if let Some(dir) = dir.clone() {
             for part in dir.split('/') {
                 cols.primary
                     .push(Span::styled(part.to_string(), styling.dir));
                 cols.primary.push(Span::styled("|", styling.path_separator));
             }
-        }
-
-        if let Some(git_status) = git_status {
-            cols.primary
-                .push(Span::styled(format!("{git_status:?} "), styling.git_info));
-        } else {
-            cols.primary.push(Span::raw("   "));
         }
 
         if let Some(style) = styling.item(info.as_ref()) {
