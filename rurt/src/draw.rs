@@ -1,4 +1,6 @@
-use crate::draw::RightPane::{Hidden, Preview, SecondListing};
+#[cfg(feature = "second_listing")]
+use crate::draw::RightPane::SecondListing;
+use crate::draw::RightPane::{Hidden, Preview};
 use crate::item::Styling;
 use crate::preview::{preview_header, PreviewCommand};
 use crate::snapped::Snapped;
@@ -19,6 +21,7 @@ use tui_input::Input;
 pub enum RightPane {
     Preview,
     Hidden,
+    #[cfg(feature = "second_listing")]
     SecondListing,
 }
 
@@ -29,8 +32,16 @@ pub enum PreviewMode {
     GitShow,
 }
 
+#[cfg(feature = "second_listing")]
 pub const RIGHT_PANE: [RightPane; 3] = [Preview, SecondListing, Hidden];
+#[cfg(feature = "second_listing")]
 pub const RIGHT_PANE_HIDDEN: [RightPane; 3] = [Hidden, Preview, SecondListing];
+
+#[cfg(not(feature = "second_listing"))]
+pub const RIGHT_PANE: [RightPane; 2] = [Preview, Hidden];
+#[cfg(not(feature = "second_listing"))]
+pub const RIGHT_PANE_HIDDEN: [RightPane; 2] = [Hidden, Preview];
+
 pub const PREVIEW_MODE: [PreviewMode; 3] = [
     PreviewMode::Content,
     PreviewMode::GitLg,
@@ -39,7 +50,10 @@ pub const PREVIEW_MODE: [PreviewMode; 3] = [
 
 #[derive(Copy, Clone)]
 pub struct ViewOpts {
+    #[cfg(feature = "second_listing")]
     pub right_pane_mode: [RightPane; 3],
+    #[cfg(not(feature = "second_listing"))]
+    pub right_pane_mode: [RightPane; 2],
     pub preview_mode_flag: [PreviewMode; 3],
     pub log_pane: bool,
     pub git_info: bool,
@@ -115,6 +129,12 @@ pub fn setup_screen(screen: Rect, view_opts: &ViewOpts) -> Areas {
 }
 
 impl Areas {
+    #[cfg(not(feature = "second_listing"))]
+    pub(crate) fn items_required(&self, _view_opts: &ViewOpts) -> u32 {
+        u32::from(self.main_pane.height)
+    }
+
+    #[cfg(feature = "second_listing")]
     pub(crate) fn items_required(&self, view_opts: &ViewOpts) -> u32 {
         u32::from(self.main_pane.height)
             * if view_opts.right_pane() == RightPane::SecondListing {
@@ -144,6 +164,7 @@ pub fn draw_ui(
             draw_divider(f, area.divider);
             draw_preview(f, ui, app.view_opts.preview_mode(), area.side_pane);
         }
+        #[cfg(feature = "second_listing")]
         RightPane::SecondListing => {
             draw_divider(f, area.divider);
             draw_second_listing(f, ui, snap, area.side_pane);
@@ -284,6 +305,7 @@ fn compute_rot(searching: bool, i: u32) -> f32 {
     }
 }
 
+#[cfg(feature = "second_listing")]
 fn draw_second_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
     let mut lines = Vec::new();
 
