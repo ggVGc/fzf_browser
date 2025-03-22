@@ -1,3 +1,4 @@
+* Bug: Renders error for broken symlink. Should show the symlink as broken instead.
 * Feat: Stable tree file listing
   - Similar to running tree | fzf --no-sort
   - Filter input list based on full file paths, but don't change ordering
