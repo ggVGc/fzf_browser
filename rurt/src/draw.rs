@@ -222,11 +222,30 @@ fn edge_inset(area: Rect, margin: u16) -> Rect {
 
 const STATUS_LINES: usize = 1;
 
-fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
-    let mut primary_lines: Vec<Line<'_>> = Vec::new();
-    let mut secondary_lines: Vec<Line<'_>> = Vec::new();
-    let mut extra_lines: Vec<Line<'_>> = Vec::new();
+#[derive(Default, Clone)]
+struct ColumnEntry<'a> {
+    primary: Vec<Span<'a>>,
+    secondary: Vec<Span<'a>>,
+    extra: Vec<Span<'a>>,
+}
 
+#[derive(Default)]
+struct Columns<'a> {
+    primary_lines: Vec<Line<'a>>,
+    secondary_lines: Vec<Line<'a>>,
+    extra_lines: Vec<Line<'a>>,
+}
+
+impl<'a> Columns<'a> {
+    fn add(&mut self, entry: ColumnEntry<'a>) {
+        self.primary_lines.push(Line::from(entry.primary));
+        self.secondary_lines.push(Line::from(entry.secondary));
+        self.extra_lines.push(Line::from(entry.extra));
+    }
+}
+
+fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
+    let mut columns = Columns::default();
     let searching = ui.is_searching();
 
     let styling = Styling::new(&ui.ls_colors);
@@ -241,12 +260,6 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
         let selected = ui.cursor_showing.as_ref() == Some(&item);
         let rot = compute_rot(searching, i);
 
-        let current_indicator = if selected {
-            Span::styled("> ", Style::new().light_red())
-        } else {
-            Span::from("  ")
-        };
-
         let git_status = item
             .path()
             .and_then(|p| ui.git_info.as_ref().and_then(|gi| gi.status(p)));
@@ -255,22 +268,36 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
             .path()
             .and_then(|p| ui.git_info.as_ref().and_then(|gi| gi.resolve(p)));
 
-        let columns = item.get_columns(&styling, rot, git_status, git_info.as_deref());
-        primary_lines.push(Line::from(
-            vec![vec![current_indicator.clone()], columns.primary].concat(),
-        ));
+        let view = item.render(&styling, rot, git_status, git_info.as_deref());
 
-        secondary_lines.push(if let Some(spans) = columns.secondary {
-            Line::from(vec![vec![current_indicator], spans].concat())
+        let current_indicator = if selected {
+            Span::styled("> ", Style::new().light_red())
         } else {
-            Line::raw("")
-        });
+            Span::raw("  ")
+        };
 
-        extra_lines.push(if let Some(spans) = columns.extra {
-            Line::from(spans)
+        let mut entry = ColumnEntry::default();
+
+        entry.primary.push(current_indicator.clone());
+        entry.primary.extend(view.primary);
+
+        if let Some(secondary) = view.secondary {
+            entry.secondary.push(current_indicator.clone());
+            entry.secondary.extend(secondary);
+        }
+
+        entry.extra = if let Some(annotation) = view.annotation {
+            annotation
         } else {
-            Line::raw("")
-        });
+            vec![Span::raw("    ")]
+        };
+
+        if let Some(extra) = view.extra {
+            entry.extra.push(current_indicator);
+            entry.extra.extend(extra)
+        }
+
+        columns.add(entry);
     }
 
     if cfg!(feature = "dirs_in_secondary") {
@@ -283,17 +310,17 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
             ])
             .areas(area);
 
-        f.render_widget(Text::from(primary_lines), primary);
-        f.render_widget(Text::from(secondary_lines), secondary);
-        f.render_widget(Text::from(extra_lines), extra);
+        f.render_widget(Text::from(columns.primary_lines), primary);
+        f.render_widget(Text::from(columns.secondary_lines), secondary);
+        f.render_widget(Text::from(columns.extra_lines), extra);
     } else {
         let [primary, extra] = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Percentage(70), Constraint::Fill(3)])
             .areas(area);
 
-        f.render_widget(Text::from(primary_lines), primary);
-        f.render_widget(Text::from(extra_lines), extra);
+        f.render_widget(Text::from(columns.primary_lines), primary);
+        f.render_widget(Text::from(columns.extra_lines), extra);
     };
 }
 

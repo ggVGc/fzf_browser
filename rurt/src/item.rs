@@ -54,9 +54,11 @@ impl Colorable for ItemInfo {
     }
 }
 
-pub struct Columns<'a> {
+#[derive(Default)]
+pub struct ItemView<'a> {
     pub primary: Vec<Span<'a>>,
     pub secondary: Option<Vec<Span<'a>>>,
+    pub annotation: Option<Vec<Span<'a>>>,
     pub extra: Option<Vec<Span<'a>>>,
 }
 
@@ -77,19 +79,18 @@ impl Item {
 
     // rot: 0: fresh, 1: stale
     #[cfg(not(feature = "dirs_in_secondary"))]
-    pub fn get_columns(
+    pub fn render(
         &self,
         styling: &Styling,
         rot: f32,
         git_status: Option<Letter>,
         git_info: Option<&str>,
-    ) -> Columns {
+    ) -> ItemView {
         let (name, info) = match self {
             Item::WalkError { msg } => {
-                return Columns {
+                return ItemView {
                     primary: vec![Span::styled(format!("error walking: {msg}"), styling.error)],
-                    secondary: None,
-                    extra: None,
+                    ..Default::default()
                 };
             }
             Item::FileEntry { name, info, .. } => (name, info),
@@ -106,18 +107,10 @@ impl Item {
             None => (None, full),
         };
 
-        let mut cols = Columns {
+        let mut cols = ItemView {
             primary: Vec::with_capacity(4),
-            secondary: None,
-            extra: None,
+            ..Default::default()
         };
-
-        if let Some(git_status) = git_status {
-            cols.primary
-                .push(Span::styled(format!("{git_status:?} "), styling.git_info));
-        } else {
-            cols.primary.push(Span::raw("   "));
-        }
 
         if let Some(dir) = dir.clone() {
             for part in dir.split('/') {
@@ -149,27 +142,31 @@ impl Item {
             }
         }
 
-        if let Some(git_info) = git_info {
-            cols.extra = Some(vec![Span::styled(
-                format!("  {git_info}"),
+        if let Some(git_status) = git_status {
+            cols.annotation = Some(vec![Span::styled(
+                format!("[{git_status:?}]"),
                 styling.git_info,
-            )]);
+            )])
+        }
+
+        if let Some(git_info) = git_info {
+            cols.extra = Some(vec![Span::styled(format!("{git_info}"), styling.git_info)])
         }
 
         cols
     }
 
     #[cfg(feature = "dirs_in_secondary")]
-    pub fn get_columns(
+    pub fn render(
         &self,
         styling: &Styling,
         rot: f32,
         git_status: Option<Letter>,
         git_info: Option<&str>,
-    ) -> Columns {
+    ) -> ItemView {
         let (name, info) = match self {
             Item::WalkError { msg } => {
-                return Columns {
+                return ItemView {
                     primary: vec![Span::styled(format!("error walking: {msg}"), styling.error)],
                     secondary: None,
                     extra: None,
@@ -189,7 +186,7 @@ impl Item {
             None => (None, full),
         };
 
-        let mut cols = Columns {
+        let mut cols = ItemView {
             primary: Vec::with_capacity(4),
             secondary: None,
             extra: None,
