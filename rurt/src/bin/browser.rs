@@ -93,8 +93,8 @@ fn main() -> Result<ExitCode> {
         (KeyModifiers::CONTROL, KeyCode::Char('t'), Action::SetTarget),
         (KeyModifiers::CONTROL, KeyCode::Char('g'), Action::Open),
         (KeyModifiers::CONTROL, KeyCode::Char('p'), Action::TogglePreview),
-        (KeyModifiers::ALT | KeyModifiers::SHIFT, KeyCode::Char('P'), Action::TogglePreviewMode),
-        (KeyModifiers::ALT, KeyCode::Char('p'), Action::TogglePreviewColour),
+        (KeyModifiers::ALT, KeyCode::Char('p'), Action::TogglePreviewMode),
+        (KeyModifiers::ALT | KeyModifiers::SHIFT, KeyCode::Char('P'), Action::TogglePreviewColour),
         (KeyModifiers::CONTROL, KeyCode::Char('o'), Action::DirBack),
         (KeyModifiers::CONTROL, KeyCode::Char('u'), Action::DirForward),
     ];
