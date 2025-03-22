@@ -286,11 +286,7 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
             entry.secondary.extend(secondary);
         }
 
-        entry.extra = if let Some(annotation) = view.annotation {
-            annotation
-        } else {
-            vec![Span::raw("    ")]
-        };
+        entry.extra = view.annotation;
 
         if let Some(extra) = view.extra {
             entry.extra.push(current_indicator);

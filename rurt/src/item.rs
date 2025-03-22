@@ -58,7 +58,7 @@ impl Colorable for ItemInfo {
 pub struct ItemView<'a> {
     pub primary: Vec<Span<'a>>,
     pub secondary: Option<Vec<Span<'a>>>,
-    pub annotation: Option<Vec<Span<'a>>>,
+    pub annotation: Vec<Span<'a>>,
     pub extra: Option<Vec<Span<'a>>>,
 }
 
@@ -142,12 +142,11 @@ impl Item {
             }
         }
 
-        if let Some(git_status) = git_status {
-            cols.annotation = Some(vec![Span::styled(
-                format!("[{git_status:?}]"),
-                styling.git_info,
-            )])
-        }
+        cols.annotation = if let Some(git_status) = git_status {
+            vec![Span::styled(format!("[{git_status:?}]"), styling.git_info)]
+        } else {
+            vec![Span::raw("    ")]
+        };
 
         if let Some(git_info) = git_info {
             cols.extra = Some(vec![Span::styled(format!("{git_info}"), styling.git_info)])
