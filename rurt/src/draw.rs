@@ -7,6 +7,7 @@ use crate::snapped::Snapped;
 use crate::tui_log::{LogWidget, LogWidgetState};
 use crate::ui_state::{matching_preview, CommandPalette, URect, Ui};
 use crate::{filter_bindings, App, Binding};
+use crossterm::event::KeyModifiers;
 use ratatui::layout::{Constraint, Direction, Flex, Layout, Rect};
 use ratatui::prelude::{Line, Span, Style, Stylize, Text};
 use ratatui::style::Color;
@@ -196,11 +197,12 @@ fn draw_palette(f: &mut Frame, palette: &CommandPalette, bindings: &[Binding], a
         .enumerate()
         .map(|(i, (mods, key, action))| {
             Line::raw(format!(
-                "{} {:?} + {:?} => {:?}",
+                "{} {:>3}{}{:10} => {}",
                 if i == 0 { ">" } else { " " },
-                mods,
-                key,
-                action
+                render_mods(*mods),
+                if mods.is_empty() { " " } else { "+" },
+                format!("{key}"),
+                action.name()
             ))
         })
         .collect::<Vec<_>>();
@@ -208,6 +210,20 @@ fn draw_palette(f: &mut Frame, palette: &CommandPalette, bindings: &[Binding], a
     area.y += 1;
     area.height -= 1;
     f.render_widget(Text::from(lines), area);
+}
+
+fn render_mods(mods: KeyModifiers) -> String {
+    let mut out = String::with_capacity(3);
+    if mods.contains(KeyModifiers::CONTROL) {
+        out.push('C');
+    }
+    if mods.contains(KeyModifiers::ALT) {
+        out.push('A');
+    }
+    if mods.contains(KeyModifiers::SHIFT) {
+        out.push('S');
+    }
+    out
 }
 
 fn edge_inset(area: Rect, margin: u16) -> Rect {

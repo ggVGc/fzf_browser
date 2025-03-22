@@ -105,6 +105,14 @@ pub fn run(
             } else {
                 if let Some(req) = to_input_request(&ev) {
                     ui.command_palette.input.handle(req);
+                } else if ui.command_palette.input.value().is_empty() {
+                    if let Some(action) = binding_action {
+                        // why is this move?!
+                        ui.command_palette.input = ui
+                            .command_palette
+                            .input
+                            .with_value(action.name().to_string())
+                    }
                 }
                 continue;
             }

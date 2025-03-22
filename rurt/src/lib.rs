@@ -55,6 +55,6 @@ pub fn filter_bindings<'b>(bindings: &'b [Binding], search: &str) -> Vec<&'b Bin
     let search = search.to_ascii_lowercase();
     bindings
         .iter()
-        .filter(|(_, _, action)| format!("{action:?}").to_ascii_lowercase().contains(&search))
+        .filter(|(_, _, action)| action.name().to_ascii_lowercase().contains(&search))
         .collect()
 }

@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -6,6 +7,7 @@ use crate::ui_state::{matching_preview, Ui};
 use crate::walk::{Mode, MODES, RECURSION};
 use crate::App;
 use anyhow::{anyhow, bail};
+use convert_case::{Case, Casing};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -34,6 +36,30 @@ pub enum Action {
     DirBack,
     DirForward,
     Abort,
+}
+
+impl Action {
+    pub fn name(&self) -> Cow<'static, str> {
+        match self {
+            Action::MoveCursor(delta) => format!("move cursor {}", show_delta(*delta)).into(),
+            Action::MovePreview(delta) => format!("move preview {}", show_delta(*delta)).into(),
+            other => format!("{:?}", other).to_case(Case::Lower).into(),
+        }
+    }
+}
+
+fn show_delta(delta: isize) -> Cow<'static, str> {
+    match delta {
+        isize::MIN => return "to start".into(),
+        isize::MAX => return "to end".into(),
+        _ => (),
+    }
+
+    if delta < 0 {
+        format!("up by {}", -delta).into()
+    } else {
+        format!("down by {}", delta).into()
+    }
 }
 
 pub enum ActionResult {

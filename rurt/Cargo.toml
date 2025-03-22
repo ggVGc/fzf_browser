@@ -10,6 +10,7 @@ anyhow = "1"
 bat = "0.25"
 clap = { version = "4", features = ["derive"] }
 content_inspector = "0.2"
+convert_case = "0.8"
 crossterm = "0.28"
 dirs = "6"
 file_type = "0.7"
