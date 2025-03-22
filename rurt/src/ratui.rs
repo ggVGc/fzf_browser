@@ -98,7 +98,7 @@ pub fn run(
                 if let Some((_, _, action)) =
                     filter_bindings(&app.bindings, &ui.command_palette.input.value()).first()
                 {
-                    binding_action = Some(*action);
+                    binding_action = Some(action.clone());
                 }
                 ui.command_palette.showing = false;
                 ui.command_palette.input.reset();

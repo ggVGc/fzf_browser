@@ -17,7 +17,7 @@ pub struct ReadOpts {
     pub expansions: HashSet<PathBuf>,
 }
 
-#[derive(Copy, Clone, clap::ValueEnum, PartialEq, Eq)]
+#[derive(Copy, Clone, clap::ValueEnum, PartialEq, Eq, Debug)]
 pub enum Mode {
     Mixed = 0,
     Files = 1,

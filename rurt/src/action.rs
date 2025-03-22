@@ -3,12 +3,12 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use crate::ui_state::{matching_preview, Ui};
-use crate::walk::{MODES, RECURSION};
+use crate::walk::{Mode, MODES, RECURSION};
 use crate::App;
 use anyhow::{anyhow, bail};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub enum Action {
     Activate,
     AcceptCurrentDirectory,
@@ -22,7 +22,8 @@ pub enum Action {
     CyclePalette,
     CycleHidden,
     CycleIgnored,
-    CycleMode,
+    CycleModeSkipping(Vec<Mode>),
+    SetMode(Mode),
     CycleRecursion,
     TogglePreview,
     TogglePreviewMode,
@@ -111,8 +112,23 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
             read_opts.show_ignored = !read_opts.show_ignored;
             ActionResult::Navigated
         }
-        Action::CycleMode => {
-            read_opts.mode_index = (read_opts.mode_index + 1) % MODES.len();
+        Action::CycleModeSkipping(skipped_modes) => {
+            let mut new_index = (read_opts.mode_index + 1) % MODES.len();
+            let mut skipped_indices = vec![];
+            for skipped in skipped_modes {
+                skipped_indices.push(MODES.iter().position(|m| *m == skipped).unwrap());
+            }
+
+            while skipped_indices.contains(&new_index) {
+                new_index = (new_index + 1) % MODES.len();
+            }
+
+            read_opts.mode_index = new_index;
+
+            ActionResult::Navigated
+        }
+        Action::SetMode(mode) => {
+            read_opts.mode_index = MODES.iter().position(|m| *m == mode).unwrap();
             ActionResult::Navigated
         }
         Action::CycleRecursion => {
@@ -231,7 +247,7 @@ pub fn matches_binding(
 ) -> Option<Action> {
     bindings.iter().find_map(|(modifier, key, action)| {
         if final_key.code == *key && final_key.modifiers == *modifier {
-            Some(*action)
+            Some(action.clone())
         } else {
             None
         }
