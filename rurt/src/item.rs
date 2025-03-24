@@ -7,6 +7,7 @@ use lscolors::{Colorable, LsColors, Style as LsStyle};
 use ratatui::prelude::Style as RStyle;
 use ratatui::prelude::*;
 use std::borrow::Cow;
+use std::collections::HashSet;
 use std::ffi::OsString;
 use std::fs;
 use std::fs::FileType;
@@ -60,6 +61,7 @@ pub struct ItemView<'a> {
     pub secondary: Option<Vec<Span<'a>>>,
     pub annotation: Vec<Span<'a>>,
     pub extra: Option<Vec<Span<'a>>>,
+    pub directory: Option<String>,
 }
 
 impl Item {
@@ -79,13 +81,7 @@ impl Item {
 
     // rot: 0: fresh, 1: stale
     #[cfg(not(feature = "dirs_in_secondary"))]
-    pub fn render(
-        &self,
-        styling: &Styling,
-        rot: f32,
-        git_status: Option<Letter>,
-        git_info: Option<&str>,
-    ) -> ItemView {
+    pub fn render(&self, styling: &Styling, rot: f32, context: &ViewContext) -> ItemView {
         match self {
             Item::WalkError { msg } => {
                 return ItemView {
@@ -94,10 +90,16 @@ impl Item {
                 };
             }
             Item::FileEntry { name, info, .. } => {
-                return render_file_entry(name, info, styling, rot, git_status, git_info)
+                return render_file_entry(name, info, styling, rot, context)
             }
         };
     }
+}
+
+pub struct ViewContext<'a> {
+    pub git_status: Option<Letter>,
+    pub git_info: Option<&'a str>,
+    pub seen_dirs: &'a HashSet<String>,
 }
 
 // rot: 0: fresh, 1: stale
@@ -107,8 +109,7 @@ fn render_file_entry<'a>(
     info: &Arc<ItemInfo>,
     styling: &Styling,
     rot: f32,
-    git_status: Option<Letter>,
-    git_info: Option<&str>,
+    context: &ViewContext,
 ) -> ItemView<'a> {
     let full = name.display().to_string();
     let (dir, path) = match full.rfind('/') {
@@ -121,34 +122,35 @@ fn render_file_entry<'a>(
         None => (None, full),
     };
 
-    let mut cols = ItemView {
+    let mut view = ItemView {
         primary: Vec::with_capacity(4),
+        directory: dir.clone(),
         ..Default::default()
     };
 
     if let Some(dir) = dir.clone() {
-        for part in dir.split('/') {
-            cols.primary
-                .push(Span::styled(part.to_string(), styling.dir));
-            cols.primary.push(Span::styled("|", styling.path_separator));
+            for part in dir.split('/') {
+                view.primary
+                    .push(Span::styled(part.to_string(), styling.dir));
+                view.primary.push(Span::styled("|", styling.path_separator));
         }
     }
 
     if let Some(style) = styling.item(info.as_ref()) {
         let style = LsStyle::to_crossterm_style(style);
-        cols.primary.push(Span::styled(path.to_string(), style));
+        view.primary.push(Span::styled(path.to_string(), style));
     } else {
-        cols.primary.push(Span::raw(path.to_string()));
+        view.primary.push(Span::raw(path.to_string()));
     }
 
     if let Some(link_dest) = &info.link_dest {
         let link_dest =
             pathdiff::diff_paths(&info.path, link_dest).unwrap_or_else(|| link_dest.to_path_buf());
-        cols.primary.push(Span::styled(" -> ", styling.symlink));
-        cols.primary
+        view.primary.push(Span::styled(" -> ", styling.symlink));
+        view.primary
             .push(Span::raw(link_dest.display().to_string()));
     }
-    for span in &mut cols.primary {
+    for span in &mut view.primary {
         if let Some(colour) = span.style.fg {
             if let Ok(colour) = Colour::try_from(colour) {
                 span.style.fg = Some(colour.desaturate(rot).into());
@@ -156,17 +158,17 @@ fn render_file_entry<'a>(
         }
     }
 
-    cols.annotation = if let Some(git_status) = git_status {
+    view.annotation = if let Some(git_status) = context.git_status {
         vec![Span::styled(format!("[{git_status:?}]"), styling.git_info)]
     } else {
         vec![Span::raw("    ")]
     };
 
-    if let Some(git_info) = git_info {
-        cols.extra = Some(vec![Span::styled(format!("{git_info}"), styling.git_info)])
+    if let Some(git_info) = context.git_info {
+        view.extra = Some(vec![Span::styled(format!("{git_info}"), styling.git_info)])
     }
 
-    cols
+    view
 }
 
 #[cfg(feature = "dirs_in_secondary")]

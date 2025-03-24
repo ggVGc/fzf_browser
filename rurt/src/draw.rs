@@ -1,7 +1,7 @@
 #[cfg(feature = "second_listing")]
 use crate::draw::RightPane::SecondListing;
 use crate::draw::RightPane::{Hidden, Preview};
-use crate::item::Styling;
+use crate::item::{Styling, ViewContext};
 use crate::preview::{preview_header, PreviewCommand};
 use crate::snapped::Snapped;
 use crate::tui_log::{LogWidget, LogWidgetState};
@@ -13,6 +13,7 @@ use ratatui::prelude::{Line, Span, Style, Stylize, Text};
 use ratatui::style::Color;
 use ratatui::widgets::{Block, Borders, Clear, Paragraph, Wrap};
 use ratatui::Frame;
+use std::collections::HashSet;
 use std::ops::Deref;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -266,6 +267,8 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
 
     let styling = Styling::new(&ui.ls_colors);
 
+    let mut seen_dirs = HashSet::new();
+
     for (i, item) in snap
         .items
         .iter()
@@ -284,7 +287,17 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
             .path()
             .and_then(|p| ui.git_info.as_ref().and_then(|gi| gi.resolve(p)));
 
-        let view = item.render(&styling, rot, git_status, git_info.as_deref());
+        let context = ViewContext{
+            seen_dirs: &seen_dirs,
+            git_status, 
+            git_info: git_info.as_deref(),
+        };
+
+        let view = item.render(&styling, rot, &context);
+
+        if let Some(dir) = view.directory {
+            seen_dirs.insert(dir);
+        }
 
         let current_indicator = if selected {
             Span::styled("> ", Style::new().light_red())
