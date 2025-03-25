@@ -287,9 +287,9 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
             .path()
             .and_then(|p| ui.git_info.as_ref().and_then(|gi| gi.resolve(p)));
 
-        let context = ViewContext{
+        let context = ViewContext {
             seen_dirs: &seen_dirs,
-            git_status, 
+            git_status,
             git_info: git_info.as_deref(),
         };
 

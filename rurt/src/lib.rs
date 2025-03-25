@@ -1,12 +1,13 @@
 use std::path::PathBuf;
 
-use crossterm::event::{KeyCode, KeyModifiers};
-
 use crate::action::Action;
 use crate::dir_stack::DirStack;
 use crate::git::Git;
 use crate::walk::ReadOpts;
+use crossterm::event::{KeyCode, KeyModifiers};
 use draw::ViewOpts;
+use nucleo::pattern::{CaseMatching, Normalization, Pattern};
+use nucleo::{Config, Matcher};
 
 pub mod action;
 mod alt_screen;
@@ -51,10 +52,33 @@ impl App {
     }
 }
 
+// couldn't get this to borrow check with inner.name()
+struct BindingWrap<'b> {
+    inner: &'b Binding,
+    name: String,
+}
+
+impl<'b> BindingWrap<'b> {
+    fn new(inner: &'b Binding) -> Self {
+        Self {
+            name: inner.2.name().to_string(),
+            inner,
+        }
+    }
+}
+
+impl<'b> AsRef<str> for BindingWrap<'b> {
+    fn as_ref(&self) -> &str {
+        self.name.as_ref()
+    }
+}
+
 pub fn filter_bindings<'b>(bindings: &'b [Binding], search: &str) -> Vec<&'b Binding> {
-    let search = search.to_ascii_lowercase();
-    bindings
-        .iter()
-        .filter(|(_, _, action)| action.name().to_ascii_lowercase().contains(&search))
+    let mut matcher = Matcher::new(Config::DEFAULT);
+    let pattern = Pattern::parse(search, CaseMatching::Smart, Normalization::Smart);
+    pattern
+        .match_list(bindings.iter().map(BindingWrap::new), &mut matcher)
+        .into_iter()
+        .map(|(m, _)| m.inner)
         .collect()
 }

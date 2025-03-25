@@ -129,10 +129,10 @@ fn render_file_entry<'a>(
     };
 
     if let Some(dir) = dir.clone() {
-            for part in dir.split('/') {
-                view.primary
-                    .push(Span::styled(part.to_string(), styling.dir));
-                view.primary.push(Span::styled("|", styling.path_separator));
+        for part in dir.split('/') {
+            view.primary
+                .push(Span::styled(part.to_string(), styling.dir));
+            view.primary.push(Span::styled("|", styling.path_separator));
         }
     }
 
