@@ -199,7 +199,7 @@ fn draw_palette(f: &mut Frame, palette: &CommandPalette, bindings: &[Binding], a
         .map(|(i, (mods, key, action))| {
             Line::raw(format!(
                 "{} {:>3}{}{:10} => {}",
-                if i == 0 { ">" } else { " " },
+                if i == palette.selected { ">" } else { " " },
                 render_mods(*mods),
                 if mods.is_empty() { " " } else { "+" },
                 format!("{key}"),

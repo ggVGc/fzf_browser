@@ -94,27 +94,50 @@ pub fn run(
                 .map(|v| Some(v))
                 .contains(&binding_action)
         {
-            if matches!(ev, Event::Key(key) if key.code == KeyCode::Enter) {
-                if let Some((_, _, action)) =
-                    filter_bindings(&app.bindings, &ui.command_palette.input.value()).first()
-                {
-                    binding_action = Some(action.clone());
+            let matches = filter_bindings(&app.bindings, &ui.command_palette.input.value());
+            match ev {
+                Event::Key(key) if key.code == KeyCode::Enter => {
+                    if let Some((_, _, action)) = matches.iter().nth(ui.command_palette.selected) {
+                        binding_action = Some(action.clone());
+                    }
+                    ui.command_palette.showing = false;
+                    ui.command_palette.input.reset();
+                    ui.command_palette.selected = 0;
                 }
-                ui.command_palette.showing = false;
-                ui.command_palette.input.reset();
-            } else {
-                if let Some(req) = to_input_request(&ev) {
-                    ui.command_palette.input.handle(req);
-                } else if ui.command_palette.input.value().is_empty() {
-                    if let Some(action) = binding_action {
-                        // why is this move?!
-                        ui.command_palette.input = ui
+                Event::Key(key) if key.code == KeyCode::Up => {
+                    ui.command_palette.selected = ui.command_palette.selected.saturating_sub(1);
+                    continue;
+                }
+                Event::Key(key) if key.code == KeyCode::Down => {
+                    let available = matches.len().saturating_sub(1);
+                    ui.command_palette.selected =
+                        ui.command_palette.selected.saturating_add(1).min(available);
+                    continue;
+                }
+                ev => {
+                    if let Some(req) = to_input_request(&ev) {
+                        if ui
                             .command_palette
                             .input
-                            .with_value(action.name().to_string())
+                            .handle(req)
+                            .map(|change_of| change_of.value)
+                            .unwrap_or_default()
+                        {
+                            let available = matches.len().saturating_sub(1);
+                            ui.command_palette.selected =
+                                ui.command_palette.selected.min(available);
+                        }
+                    } else if ui.command_palette.input.value().is_empty() {
+                        if let Some(action) = binding_action {
+                            // why is this move?!
+                            ui.command_palette.input = ui
+                                .command_palette
+                                .input
+                                .with_value(action.name().to_string())
+                        }
                     }
+                    continue;
                 }
-                continue;
             }
         }
 
