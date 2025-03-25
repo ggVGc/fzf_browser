@@ -1,5 +1,5 @@
 use crate::cache::Cache;
-use anyhow::Result;
+use anyhow::{anyhow, ensure, Result};
 use gix::bstr::{BString, ByteSlice};
 use gix::diff::index::ChangeRef;
 use gix::path::try_into_bstr;
@@ -9,7 +9,7 @@ use gix::status::index_worktree::Item as IndexItem;
 use gix::status::Item as StatusItem;
 use gix::Repository;
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 pub struct Git {
@@ -126,4 +126,48 @@ pub fn status(repo: &Repository) -> Result<HashMap<BString, Letter>> {
     }
 
     Ok(status)
+}
+
+struct MItem {
+    full: PathBuf,
+}
+
+pub fn m_m_m_multi_log(
+    repo: &Repository,
+    targets: impl IntoIterator<Item = impl AsRef<Path>>,
+) -> Result<()> {
+    let wd = repo.work_dir().ok_or_else(|| anyhow!("no work dir"))?;
+    let mut targets = targets.into_iter().peekable();
+    let shared_parent = targets
+        .peek()
+        .and_then(|target| target.as_ref().parent())
+        .ok_or_else(|| anyhow!("no item / no parent"))?
+        .strip_prefix(&wd)?
+        .to_path_buf();
+    let mut outstsanding = HashSet::new();
+    for target in targets {
+        let target = target.as_ref();
+        let rel = target.strip_prefix(&shared_parent)?;
+        ensure!(rel.components().count() == 1, "not a direct child");
+        outstsanding.insert(rel.to_path_buf());
+    }
+    
+    // shared_parent.components()
+
+    for info in repo
+        .rev_walk([repo.head()?.into_peeled_id()?])
+        .sorting(Sorting::ByCommitTime(Default::default()))
+        .all()? {
+        let info = info?;
+        let commit = repo.find_commit(info.id)?;
+        let tree = commit.tree()?;
+        if let Some(tree) = tree.lookup_entry_by_path(&shared_parent)? {
+            if let Some(tree) = tree.object()?.try_into_tree().ok() {
+                
+            }
+            
+        }
+    }
+    
+    Ok(())
 }
