@@ -1,6 +1,6 @@
 use crate::action::{handle_action, matches_binding, Action, ActionResult};
 use crate::alt_screen::enter_alt_screen;
-use crate::draw::RightPane;
+use crate::git_but_bad::Logs;
 use crate::preview::Previews;
 use crate::snapped::revalidate_cursor;
 use crate::store::Store;
@@ -40,6 +40,7 @@ pub fn run(
         sorted_items: SortedItems::default(),
         previews: Previews::default(),
         git_info: app.git_info(),
+        bad_git_log: Logs::default(),
         preview_cursor: 0,
         preview_colours: true,
         ls_colors: LsColors::from_env().unwrap_or_default(),
@@ -67,9 +68,7 @@ pub fn run(
         let last_area = terminal
             .draw(|f| {
                 let area = draw::setup_screen(f.area(), &app.view_opts);
-                if app.view_opts.right_pane() == RightPane::Preview {
-                    ui_state::fire_preview(&mut ui, app.view_opts.preview_mode(), area.side_pane);
-                }
+                ui_state::trigger_right_pane(&mut ui, app.view_opts, area.side_pane);
 
                 let items_required = area.items_required(&app.view_opts);
                 revalidate_cursor(&mut ui, snap, items_required);
@@ -152,13 +151,7 @@ pub fn run(
                         revalidate_cursor(&mut ui, snap, items_required);
                         ui.preview_cursor = 0;
 
-                        if app.view_opts.right_pane() == RightPane::Preview {
-                            ui_state::fire_preview(
-                                &mut ui,
-                                app.view_opts.preview_mode(),
-                                next_screen.side_pane,
-                            );
-                        }
+                        ui_state::trigger_right_pane(&mut ui, app.view_opts, next_screen.side_pane);
                         reparse(store, &ui);
                     }
 

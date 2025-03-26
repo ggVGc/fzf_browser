@@ -1,6 +1,6 @@
 #[cfg(feature = "second_listing")]
 use crate::draw::RightPane::SecondListing;
-use crate::draw::RightPane::{Hidden, Preview};
+use crate::draw::RightPane::{Hidden, InteractiveGitLog, Preview};
 use crate::item::{Styling, ViewContext};
 use crate::preview::{preview_header, PreviewCommand};
 use crate::snapped::Snapped;
@@ -23,6 +23,7 @@ use tui_input::Input;
 pub enum RightPane {
     Preview,
     Hidden,
+    InteractiveGitLog,
     #[cfg(feature = "second_listing")]
     SecondListing,
 }
@@ -35,14 +36,14 @@ pub enum PreviewMode {
 }
 
 #[cfg(feature = "second_listing")]
-pub const RIGHT_PANE: [RightPane; 3] = [Preview, SecondListing, Hidden];
+pub const RIGHT_PANE: [RightPane; 4] = [Preview, SecondListing, Hidden, InteractiveGitLog];
 #[cfg(feature = "second_listing")]
-pub const RIGHT_PANE_HIDDEN: [RightPane; 3] = [Hidden, Preview, SecondListing];
+pub const RIGHT_PANE_HIDDEN: [RightPane; 4] = [Hidden, Preview, SecondListing, InteractiveGitLog];
 
 #[cfg(not(feature = "second_listing"))]
-pub const RIGHT_PANE: [RightPane; 2] = [Preview, Hidden];
+pub const RIGHT_PANE: [RightPane; 3] = [Preview, Hidden, InteractiveGitLog];
 #[cfg(not(feature = "second_listing"))]
-pub const RIGHT_PANE_HIDDEN: [RightPane; 2] = [Hidden, Preview];
+pub const RIGHT_PANE_HIDDEN: [RightPane; 3] = [Hidden, Preview, InteractiveGitLog];
 
 pub const PREVIEW_MODE: [PreviewMode; 3] = [
     PreviewMode::Content,
@@ -53,9 +54,9 @@ pub const PREVIEW_MODE: [PreviewMode; 3] = [
 #[derive(Copy, Clone)]
 pub struct ViewOpts {
     #[cfg(feature = "second_listing")]
-    pub right_pane_mode: [RightPane; 3],
+    pub right_pane_mode: [RightPane; 4],
     #[cfg(not(feature = "second_listing"))]
-    pub right_pane_mode: [RightPane; 2],
+    pub right_pane_mode: [RightPane; 3],
     pub preview_mode_flag: [PreviewMode; 3],
     pub log_pane: bool,
     pub git_info: bool,
@@ -183,6 +184,10 @@ pub fn draw_ui(
         RightPane::Preview => {
             draw_divider(f, area.divider);
             draw_preview(f, ui, app.view_opts.preview_mode(), area.side_pane);
+        }
+        RightPane::InteractiveGitLog => {
+            draw_divider(f, area.divider);
+            draw_git_logs(f, ui, area.side_pane);
         }
         #[cfg(feature = "second_listing")]
         RightPane::SecondListing => {
@@ -528,6 +533,25 @@ fn as_raw_preview(
 
 fn draw_no_preview(f: &mut Frame, area: Rect) {
     f.render_widget(Paragraph::new("S").wrap(Wrap::default()), area);
+}
+
+fn draw_git_logs(f: &mut Frame, ui: &Ui, area: Rect) {
+    let mut cache = ui.bad_git_log.cache.borrow_mut();
+    let log_data = match ui
+        .cursor_showing_path()
+        .and_then(|p| cache.get(&p.to_path_buf()))
+    {
+        Some(v) => v,
+        None => return,
+    };
+
+    let lines = log_data
+        .entries
+        .iter()
+        .map(|entry| Line::from(entry.as_spans()))
+        .collect::<Vec<_>>();
+
+    f.render_widget(Text::from(lines), area);
 }
 
 fn popup_area(area: Rect, percent_x: u16, percent_y: u16) -> Rect {

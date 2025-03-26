@@ -17,6 +17,7 @@ pub mod dir_stack;
 pub mod draw;
 pub mod fuzz;
 mod git;
+mod git_but_bad;
 pub mod item;
 mod line_stop;
 mod preview;

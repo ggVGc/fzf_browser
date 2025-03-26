@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::thread::JoinHandle;
 
+#[derive(Default)]
 pub struct Cache<K, V> {
     map: HashMap<K, Entry<V>>,
 }

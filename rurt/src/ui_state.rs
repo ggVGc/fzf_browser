@@ -1,5 +1,6 @@
-use crate::draw::PreviewMode;
+use crate::draw::{PreviewMode, RightPane, ViewOpts};
 use crate::git::Git;
+use crate::git_but_bad::{bad_log, LogData, Logs};
 use crate::item::Item;
 use crate::preview::{run_preview, Preview, PreviewedData, Previews};
 use log::info;
@@ -22,6 +23,7 @@ pub struct Ui {
     pub sorted_items: SortedItems,
     pub previews: Previews,
     pub git_info: Option<Git>,
+    pub bad_git_log: Logs,
     pub preview_cursor: usize,
     pub preview_colours: bool,
     pub ls_colors: LsColors,
@@ -59,11 +61,30 @@ pub fn matching_preview(ui: &Ui, mode: PreviewMode) -> Option<&Preview> {
     })
 }
 
-pub fn fire_preview(ui: &mut Ui, mode: PreviewMode, preview_area: Rect) {
-    if preview_area.width == 0 || preview_area.height == 0 {
+pub fn trigger_right_pane(ui: &mut Ui, view_opts: ViewOpts, pane_area: Rect) {
+    if pane_area.width == 0 || pane_area.height == 0 {
         return;
     }
+    match view_opts.right_pane() {
+        RightPane::Preview => {
+            fire_preview(ui, view_opts.preview_mode(), pane_area);
+        }
+        RightPane::InteractiveGitLog => {
+            if let Some(here) = ui.cursor_showing_path() {
+                let key = here.to_path_buf();
+                let here = here.to_path_buf();
+                ui.bad_git_log.cache.borrow_mut().compute(key, move || {
+                    bad_log(here, usize::from(pane_area.height) * 4)
+                        .ok()
+                        .map(|entries| LogData { entries })
+                });
+            }
+        }
+        _ => (),
+    }
+}
 
+pub fn fire_preview(ui: &mut Ui, mode: PreviewMode, preview_area: Rect) {
     let mut area = URect::from(preview_area);
 
     // to facilitate scrolling
