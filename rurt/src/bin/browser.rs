@@ -114,6 +114,7 @@ fn main() -> Result<ExitCode> {
             preview_mode_flag: PREVIEW_MODE,
             log_pane: cfg!(feature = "log_pane"),
             git_info: cfg!(feature = "git_info"),
+            input_bottom: cfg!(feature = "input_bottom"),
         },
         result_opts: ResultOpts {
             force_absolute_path: cli.force_absolute_path,

@@ -59,6 +59,7 @@ pub struct ViewOpts {
     pub preview_mode_flag: [PreviewMode; 3],
     pub log_pane: bool,
     pub git_info: bool,
+    pub input_bottom: bool,
 }
 
 impl ViewOpts {
@@ -82,22 +83,39 @@ pub struct Areas {
 }
 
 pub fn setup_screen(screen: Rect, view_opts: &ViewOpts) -> Areas {
-    let [info_line, input_line, main_area, log] = Layout::default()
+    let log_constraint = if view_opts.log_pane {
+        Constraint::Percentage(20)
+    } else {
+        Constraint::Length(0)
+    };
+
+    let [info_line, line_main_top, line_main_bottom, log] = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(1),
-            Constraint::Length(1),
-            Constraint::Min(0),
-            if view_opts.log_pane {
-                Constraint::Percentage(20)
-            } else {
-                Constraint::Length(0)
-            },
-        ])
+        .constraints(if view_opts.input_bottom {
+            [
+                Constraint::Length(1),
+                Constraint::Min(0),
+                Constraint::Length(1),
+                log_constraint,
+            ]
+        } else {
+            [
+                Constraint::Length(1),
+                Constraint::Length(1),
+                Constraint::Min(0),
+                log_constraint,
+            ]
+        })
         .split(screen)
         .deref()
         .try_into()
         .expect("static constraints");
+
+    let (main_area, input_line) = if view_opts.input_bottom {
+        (line_main_top, line_main_bottom)
+    } else {
+        (line_main_bottom, line_main_top)
+    };
 
     let [main_pane, divider, side_pane] = Layout::default()
         .direction(Direction::Horizontal)
