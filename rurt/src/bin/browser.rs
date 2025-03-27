@@ -25,11 +25,9 @@ use std::process::ExitCode;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-#[derive(ValueEnum, Copy, Clone, Default)]
+#[derive(ValueEnum, Copy, Clone)]
 #[clap(rename_all = "kebab_case")]
 enum QuoteFor {
-    #[default]
-    None,
     Bash,
     Fish,
 }
@@ -58,7 +56,7 @@ struct Cli {
     mode: Option<Mode>,
 
     #[clap(long, value_enum)]
-    quote: QuoteFor,
+    quote: Option<QuoteFor>,
 
     #[clap(long)]
     force_absolute_path: bool,
@@ -163,9 +161,9 @@ fn main() -> Result<ExitCode> {
             file.flush()?;
         } else {
             let msg = match cli.quote {
-                QuoteFor::None => msg,
-                QuoteFor::Bash => shell_quote::Bash::quote(&msg),
-                QuoteFor::Fish => shell_quote::Fish::quote(&msg),
+                None => msg,
+                Some(QuoteFor::Bash) => shell_quote::Bash::quote(&msg),
+                Some(QuoteFor::Fish) => shell_quote::Fish::quote(&msg),
             };
             println!("{}", msg);
         }
