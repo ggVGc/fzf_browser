@@ -1,8 +1,10 @@
 use crate::colour::Colour;
 use crate::git::Letter;
+use crate::walk::DResult;
 use anyhow::{anyhow, Context, Result};
 use crossterm::style::ContentStyle;
-use ignore::DirEntry;
+use ignore::{DirEntry, Error as DError};
+use log::info;
 use lscolors::{Colorable, LsColors, Style as LsStyle};
 use ratatui::prelude::Style as RStyle;
 use ratatui::prelude::*;
@@ -144,8 +146,17 @@ fn render_file_entry<'a>(
     }
 
     if let Some(link_dest) = &info.link_dest {
-        let link_dest =
-            pathdiff::diff_paths(&info.path, link_dest).unwrap_or_else(|| link_dest.to_path_buf());
+        let diff = info
+            .path
+            .parent()
+            .and_then(|parent| pathdiff::diff_paths(link_dest, parent));
+        let link_dest = match diff {
+            Some(diff) if diff.components().count() > link_dest.components().count() => {
+                link_dest.to_path_buf()
+            }
+            Some(diff) => diff,
+            None => link_dest.to_path_buf(),
+        };
         view.primary.push(Span::styled(" -> ", styling.symlink));
         view.primary
             .push(Span::raw(link_dest.display().to_string()));
@@ -301,7 +312,7 @@ impl Ord for Item {
     }
 }
 
-pub fn convert(root: impl AsRef<Path>, f: Result<DirEntry>) -> Option<Item> {
+pub fn convert(root: impl AsRef<Path>, f: DResult) -> Option<Item> {
     convert_resolution(root, f).unwrap_or_else(|e| {
         Some(Item::WalkError {
             msg: cerialise_error(e),
@@ -312,39 +323,76 @@ pub fn convert(root: impl AsRef<Path>, f: Result<DirEntry>) -> Option<Item> {
 fn cerialise_error(e: anyhow::Error) -> String {
     let mut msg = String::new();
     for cause in e.chain() {
-        msg.push_str(&format!("{} -- ", cause));
+        msg.push_str(&format!("{:?} -- ", cause));
     }
     msg
 }
 
-fn convert_resolution(root: impl AsRef<Path>, f: Result<DirEntry>) -> Result<Option<Item>> {
-    let f = f?;
-    let name = f.path().strip_prefix(root)?.as_os_str().to_owned();
+fn convert_resolution(root: impl AsRef<Path>, f: DResult) -> Result<Option<Item>> {
+    match f {
+        Ok(f) => convert_resolution_entry(root, f),
+        // it's assumed that these are almost exclusively broken symlinks
+        Err(DError::WithPath { path, .. }) => convert_resolution_path(root, path),
+        Err(e) => Err(e.into()),
+    }
+}
+
+fn convert_resolution_entry(root: impl AsRef<Path>, f: DirEntry) -> Result<Option<Item>> {
+    let path = f.path().to_path_buf();
+
+    let name = path.strip_prefix(root)?.as_os_str().to_owned();
     let file_type = f
         .file_type()
         .with_context(|| anyhow!("retrieving type of {:?}", &name))?;
 
     // Skip root directory
-    if f.depth() != 0 {
-        let link_dest = if f.path_is_symlink() {
-            fs::canonicalize(f.path()).ok()
-        } else {
-            None
-        };
-
-        Ok(Some(Item::FileEntry {
-            name,
-            info: Arc::new(ItemInfo {
-                path: f.path().to_path_buf(),
-                filename: f.file_name().to_os_string(),
-                metadata: f.metadata().ok(),
-                file_type,
-                link_dest,
-            }),
-        }))
-    } else {
-        Ok(None)
+    if f.depth() == 0 {
+        return Ok(None);
     }
+
+    let link_dest = if f.path_is_symlink() {
+        fs::canonicalize(&path).ok()
+    } else {
+        None
+    };
+
+    Ok(Some(Item::FileEntry {
+        name,
+        info: Arc::new(ItemInfo {
+            path,
+            filename: f.file_name().to_os_string(),
+            metadata: f.metadata().ok(),
+            file_type,
+            link_dest,
+        }),
+    }))
+}
+
+fn convert_resolution_path(root: impl AsRef<Path>, path: PathBuf) -> Result<Option<Item>> {
+    let name = path.strip_prefix(root)?.as_os_str().to_owned();
+    let filename = path
+        .file_name()
+        .ok_or_else(|| anyhow!("unexpected non-regular path in directory walk: {path:?}"))?
+        .to_os_string();
+
+    if name.is_empty() {
+        return Ok(None);
+    }
+
+    let metadata = path
+        .symlink_metadata()
+        .context("metadata on an entry that's already in error")?;
+
+    Ok(Some(Item::FileEntry {
+        name,
+        info: Arc::new(ItemInfo {
+            filename,
+            file_type: metadata.file_type(),
+            link_dest: fs::read_link(&path).ok(),
+            metadata: Some(metadata),
+            path,
+        }),
+    }))
 }
 
 pub struct Styling {

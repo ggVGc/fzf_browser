@@ -4,8 +4,10 @@ use std::path::{Path, PathBuf};
 use crate::fuzz::AddItem;
 use crate::item::{convert, Item};
 
-use anyhow::{Context, Result};
-use ignore::{DirEntry, Error, WalkBuilder, WalkState};
+use anyhow::Result;
+use ignore::{DirEntry, Error as DirEntryError, WalkBuilder, WalkState};
+
+pub type DResult = Result<DirEntry, DirEntryError>;
 
 #[derive(Default, Clone)]
 pub struct ReadOpts {
@@ -95,8 +97,8 @@ pub fn stream_rel_content(
     walk.build_parallel().run(|| {
         let tx = tx.clone();
         let root = root.clone();
-        Box::new(move |f: Result<DirEntry, Error>| {
-            if let Some(item) = convert(&root, f.context("parallel walker")) {
+        Box::new(move |f: DResult| {
+            if let Some(item) = convert(&root, f) {
                 if maybe_send(&tx, item) {
                     WalkState::Quit
                 } else {
