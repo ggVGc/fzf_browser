@@ -22,6 +22,7 @@ nucleo = "0.5"
 open = "5"
 pathdiff = "0.2"
 ratatui = "0.29"
+shell-quote = { default-features = false, version = "0.7", features = ["bash", "fish"] }
 tui-input = "0.11"
 
 [dependencies.lscolors]

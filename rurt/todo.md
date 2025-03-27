@@ -1,5 +1,3 @@
-* Result should be quoted if it containes spaces:
-  - Could be extended to other special characters, but the escaping would be shell specific?
 * Bug: Renders error for broken symlink. Should show the symlink as broken instead.
 * Toggle action and CLI option for git information
 * Feat: Stable tree file listing

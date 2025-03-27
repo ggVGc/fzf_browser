@@ -1,6 +1,6 @@
 use anyhow::Context;
 use anyhow::Result;
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use crossterm::event::{KeyCode, KeyModifiers};
 use log::LevelFilter;
 use nucleo::Nucleo;
@@ -16,6 +16,7 @@ use rurt::tui_log::TuiLogger;
 use rurt::walk::{Mode, ReadOpts, Recursion};
 use rurt::App;
 use rurt::ResultOpts;
+use shell_quote::Quote;
 use std::ffi::OsString;
 use std::fs;
 use std::fs::File;
@@ -23,6 +24,15 @@ use std::io::Write;
 use std::process::ExitCode;
 use std::sync::Arc;
 use std::sync::Mutex;
+
+#[derive(ValueEnum, Copy, Clone, Default)]
+#[clap(rename_all = "kebab_case")]
+enum QuoteFor {
+    #[default]
+    None,
+    Bash,
+    Fish,
+}
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -46,6 +56,9 @@ struct Cli {
     /// default: mixed (when non-recursive), files (when recursive)
     #[clap(short, long)]
     mode: Option<Mode>,
+
+    #[clap(long, value_enum)]
+    quote: QuoteFor,
 
     #[clap(long)]
     force_absolute_path: bool,
@@ -145,9 +158,15 @@ fn main() -> Result<ExitCode> {
     let (msg, code) = ratui::run(&mut store, &mut app, log_state)?;
     if let Some(msg) = msg {
         if let Some(path) = cli.output_path {
-            let mut file = File::create(path).unwrap();
-            file.write_all(msg.as_bytes()).unwrap();
+            let mut file = File::create(path)?;
+            file.write_all(msg.as_bytes())?;
+            file.flush()?;
         } else {
+            let msg = match cli.quote {
+                QuoteFor::None => msg,
+                QuoteFor::Bash => shell_quote::Bash::quote(&msg),
+                QuoteFor::Fish => shell_quote::Fish::quote(&msg),
+            };
             println!("{}", msg);
         }
     }
