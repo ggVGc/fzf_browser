@@ -4,7 +4,6 @@ use crate::walk::DResult;
 use anyhow::{anyhow, Context, Result};
 use crossterm::style::ContentStyle;
 use ignore::{DirEntry, Error as DError};
-use log::info;
 use lscolors::{Colorable, LsColors, Style as LsStyle};
 use ratatui::prelude::Style as RStyle;
 use ratatui::prelude::*;

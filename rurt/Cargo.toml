@@ -7,6 +7,7 @@ default-run = "browser"
 [dependencies]
 ansi-to-tui = "7"
 anyhow = "1"
+arboard = { version = "3", default-features = false }
 bat = "0.25"
 clap = { version = "4", features = ["derive"] }
 content_inspector = "0.2"

@@ -3,6 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
+use crate::draw::RightPane;
 use crate::ui_state::{matching_preview, Ui};
 use crate::walk::{Mode, MODES, RECURSION};
 use crate::App;
@@ -33,6 +34,7 @@ pub enum Action {
     SetTarget,
     Expand,
     Open,
+    FocusGit,
     DirBack,
     DirForward,
     Abort,
@@ -156,6 +158,16 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
         Action::SetMode(mode) => {
             read_opts.mode_index = MODES.iter().position(|m| *m == mode).unwrap();
             ActionResult::Navigated
+        }
+        Action::FocusGit => {
+            let i = view_opts
+                .right_pane_mode
+                .iter()
+                .position(|p| *p == RightPane::InteractiveGitLog)
+                .expect("git log mode present");
+            view_opts.right_pane_mode.rotate_left(i);
+            ui.bad_git_log.focus = true;
+            ActionResult::Ignored
         }
         Action::CycleRecursion => {
             read_opts.recursion_index = (read_opts.recursion_index + 1) % RECURSION.len();

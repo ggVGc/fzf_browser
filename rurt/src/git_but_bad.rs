@@ -1,11 +1,14 @@
 use crate::cache::Cache;
 use anyhow::Result;
+use nucleo::pattern::{CaseMatching, Normalization, Pattern};
+use nucleo::{Config, Matcher};
 use ratatui::style::Color;
 use ratatui::text::Span;
 use std::cell::RefCell;
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
+use tui_input::Input;
 
 #[derive(Default)]
 pub struct LogEntry {
@@ -17,22 +20,32 @@ pub struct LogEntry {
 }
 
 impl LogEntry {
-    pub fn as_spans(&self) -> Vec<Span> {
-        let mut spans = vec![
+    pub fn as_spans(&self, matching: bool) -> Vec<Span> {
+        let mut spans = Vec::new();
+
+        let wm = |s: Color| {
+            if matching {
+                s
+            } else {
+                Color::DarkGray
+            }
+        };
+
+        spans.extend(vec![
             Span::raw("* "),
-            Span::styled(&self.hash, Color::Red),
+            Span::styled(&self.hash, wm(Color::Red)),
             Span::raw(" - "),
-        ];
+        ]);
         if !self.decorate.is_empty() {
             spans.push(Span::styled(
                 format!("({}) ", &self.decorate),
-                Color::Yellow,
+                wm(Color::Yellow),
             ));
         }
         spans.extend(vec![
-            Span::styled(&self.subject, Color::White),
-            Span::styled(format!(" ({})", self.rel_date), Color::Green),
-            Span::styled(format!(" <{}>", self.author), Color::Blue),
+            Span::styled(&self.subject, wm(Color::White)),
+            Span::styled(format!(" ({})", self.rel_date), wm(Color::Green)),
+            Span::styled(format!(" <{}>", self.author), wm(Color::Blue)),
         ]);
 
         spans
@@ -79,9 +92,33 @@ pub fn bad_log(path: impl AsRef<Path>, max_count: usize) -> Result<Vec<LogEntry>
     Ok(entries)
 }
 
+pub fn git_log_matches(log_data: &LogData, input: &str) -> Vec<usize> {
+    struct LogEntryWrap<'l>((usize, &'l LogEntry));
+
+    impl AsRef<str> for LogEntryWrap<'_> {
+        fn as_ref(&self) -> &str {
+            self.0 .1.subject.as_str()
+        }
+    }
+
+    let mut matcher = Matcher::new(Config::DEFAULT);
+    let pattern = Pattern::parse(input, CaseMatching::Smart, Normalization::Smart);
+
+    pattern
+        .match_list(
+            log_data.entries.iter().enumerate().map(LogEntryWrap),
+            &mut matcher,
+        )
+        .into_iter()
+        .map(|(m, _)| m.0 .0)
+        .collect()
+}
+
 #[derive(Default)]
 pub struct Logs {
     pub cache: RefCell<Cache<PathBuf, LogData>>,
+    pub focus: bool,
+    pub input: Input,
 }
 
 #[derive(Default)]

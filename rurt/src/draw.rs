@@ -1,6 +1,7 @@
 #[cfg(feature = "second_listing")]
 use crate::draw::RightPane::SecondListing;
 use crate::draw::RightPane::{Hidden, InteractiveGitLog, Preview};
+use crate::git_but_bad::git_log_matches;
 use crate::item::{Styling, ViewContext};
 use crate::preview::{preview_header, PreviewCommand};
 use crate::snapped::Snapped;
@@ -536,6 +537,18 @@ fn draw_no_preview(f: &mut Frame, area: Rect) {
 }
 
 fn draw_git_logs(f: &mut Frame, ui: &Ui, area: Rect) {
+    let [input, area] =
+        Layout::vertical([Constraint::Length(1), Constraint::Percentage(100)]).areas(area);
+
+    if ui.bad_git_log.focus {
+        draw_input_line(f, "> ", &ui.bad_git_log.input, input);
+    } else {
+        f.render_widget(
+            Span::styled("  - yo, hit alt+g again to focus me", Color::DarkGray),
+            input,
+        );
+    }
+
     let mut cache = ui.bad_git_log.cache.borrow_mut();
     let log_data = match ui
         .cursor_showing_path()
@@ -545,10 +558,24 @@ fn draw_git_logs(f: &mut Frame, ui: &Ui, area: Rect) {
         None => return,
     };
 
+    let matches = git_log_matches(log_data, ui.bad_git_log.input.value());
+
+    // amusingly not necessarily the first (list order) item
+    let selected = matches.get(0).copied().unwrap_or_default();
+
     let lines = log_data
         .entries
         .iter()
-        .map(|entry| Line::from(entry.as_spans()))
+        .enumerate()
+        .map(|(idx, entry)| {
+            let mut spans = entry.as_spans(matches.contains(&idx));
+            if selected == idx {
+                spans.insert(0, Span::styled("> ", Style::new().light_red()));
+            } else {
+                spans.insert(0, Span::raw("  "));
+            };
+            Line::from(spans)
+        })
         .collect::<Vec<_>>();
 
     f.render_widget(Text::from(lines), area);

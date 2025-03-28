@@ -1,6 +1,6 @@
 use crate::action::{handle_action, matches_binding, Action, ActionResult};
 use crate::alt_screen::enter_alt_screen;
-use crate::git_but_bad::Logs;
+use crate::git_but_bad::{git_log_matches, Logs};
 use crate::preview::Previews;
 use crate::snapped::revalidate_cursor;
 use crate::store::Store;
@@ -8,8 +8,10 @@ use crate::tui_log::LogWidgetState;
 use crate::ui_state::{CommandPalette, Cursor, SortedItems, Ui};
 use crate::{draw, filter_bindings, snapped, ui_state, App};
 use anyhow::Result;
+use arboard::Clipboard;
 use crossterm::event;
 use crossterm::event::{Event, KeyCode};
+use log::info;
 use lscolors::LsColors;
 use nucleo::pattern::{CaseMatching, Normalization};
 use ratatui::prelude::*;
@@ -87,6 +89,36 @@ pub fn run(
             Event::Key(key) => matches_binding(&app.bindings, key),
             _ => None,
         };
+
+        if ui.bad_git_log.focus && ![Action::Abort].map(|v| Some(v)).contains(&binding_action) {
+            match ev {
+                Event::Key(key) if key.code == KeyCode::Enter => {
+                    let mut borrow = ui.bad_git_log.cache.borrow_mut();
+                    if let Some(log_data) = ui
+                        .cursor_showing_path()
+                        .and_then(|item| borrow.get(&item.to_path_buf()))
+                    {
+                        if let Some(idx) = git_log_matches(log_data, ui.bad_git_log.input.value())
+                            .first()
+                            .copied()
+                        {
+                            let hash = &log_data.entries[idx].hash;
+                            Clipboard::new()?.set_text(hash)?;
+                            info!("Copied {hash} to clipboard");
+                            ui.bad_git_log.focus = false;
+                            ui.bad_git_log.input.reset();
+                        }
+                    }
+                }
+                ev => {
+                    if let Some(req) = to_input_request(&ev) {
+                        ui.bad_git_log.input.handle(req);
+                    }
+                }
+            }
+
+            continue;
+        }
 
         if ui.command_palette.showing
             && ![Action::CyclePalette, Action::Abort]
