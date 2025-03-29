@@ -558,7 +558,7 @@ fn draw_git_logs(f: &mut Frame, ui: &Ui, area: Rect) {
         None => return,
     };
 
-    let matches = git_log_matches(log_data, ui.bad_git_log.input.value());
+    let matches = git_log_matches(log_data, ui.bad_git_log.input.value(), area.height.into());
 
     // amusingly not necessarily the first (list order) item
     let selected = matches.get(0).copied().unwrap_or_default();

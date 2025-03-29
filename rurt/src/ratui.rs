@@ -83,6 +83,8 @@ pub fn run(
             continue;
         }
 
+        let next_screen = draw::setup_screen(last_area, &app.view_opts);
+
         let ev = event::read()?;
 
         let mut binding_action = match ev {
@@ -98,9 +100,15 @@ pub fn run(
                         .cursor_showing_path()
                         .and_then(|item| borrow.get(&item.to_path_buf()))
                     {
-                        if let Some(idx) = git_log_matches(log_data, ui.bad_git_log.input.value())
-                            .first()
-                            .copied()
+                        let approximate_height_ignoring_status =
+                            next_screen.side_pane.height.into();
+                        if let Some(idx) = git_log_matches(
+                            log_data,
+                            ui.bad_git_log.input.value(),
+                            approximate_height_ignoring_status,
+                        )
+                        .first()
+                        .copied()
                         {
                             let hash = &log_data.entries[idx].hash;
                             Clipboard::new()?.set_text(hash)?;
@@ -178,7 +186,6 @@ pub fn run(
                 match action {
                     ActionResult::Ignored => (),
                     ActionResult::Configured => {
-                        let next_screen = draw::setup_screen(last_area, &app.view_opts);
                         let items_required = next_screen.items_required(&app.view_opts);
                         revalidate_cursor(&mut ui, snap, items_required);
                         ui.preview_cursor = 0;

@@ -92,7 +92,7 @@ pub fn bad_log(path: impl AsRef<Path>, max_count: usize) -> Result<Vec<LogEntry>
     Ok(entries)
 }
 
-pub fn git_log_matches(log_data: &LogData, input: &str) -> Vec<usize> {
+pub fn git_log_matches(log_data: &LogData, input: &str, limit: usize) -> Vec<usize> {
     struct LogEntryWrap<'l>((usize, &'l LogEntry));
 
     impl AsRef<str> for LogEntryWrap<'_> {
@@ -106,7 +106,12 @@ pub fn git_log_matches(log_data: &LogData, input: &str) -> Vec<usize> {
 
     pattern
         .match_list(
-            log_data.entries.iter().enumerate().map(LogEntryWrap),
+            log_data
+                .entries
+                .iter()
+                .take(limit)
+                .enumerate()
+                .map(LogEntryWrap),
             &mut matcher,
         )
         .into_iter()
