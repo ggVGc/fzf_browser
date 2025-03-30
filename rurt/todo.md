@@ -8,7 +8,6 @@
 * Bug: Colors don't work in bat in preview when opened inside neovim (but only the second time...)
 * Bug: If you hit return during startup, colours don't work in bat in preview
 * Bug: Keep cursor position when expanding a directory (ctrl-e)
-* CLI option for saving result to a target file instead of printing
 * Multi selection
 * Separate toggle for showing preview window, and preview window "mode"
 * Feat: Alternative listing mode which doesn't reduce the list, but disables and grays out entries instead
