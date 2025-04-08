@@ -35,7 +35,7 @@ pub enum Letter {
 impl Git {
     pub fn new(here: impl AsRef<Path>) -> Option<Self> {
         let repo = gix::discover(&here).ok()?;
-        let root = repo.work_dir()?.to_path_buf();
+        let root = repo.workdir()?.to_path_buf();
         let g = Self {
             root: root.clone(),
             repo: repo.clone(),
