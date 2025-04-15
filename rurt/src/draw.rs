@@ -310,10 +310,12 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
         }
 
         entry.extra = view.annotation;
-        entry.extra.push(current_indicator);
 
         if let Some(extra) = view.extra {
+            entry.extra.push(current_indicator);
             entry.extra.extend(extra)
+        }else {
+            entry.extra.push(Span::raw(" "));
         }
 
         columns.add(entry);
