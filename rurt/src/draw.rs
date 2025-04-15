@@ -1,5 +1,3 @@
-#[cfg(feature = "second_listing")]
-use crate::draw::RightPane::SecondListing;
 use crate::draw::RightPane::{Hidden, InteractiveGitLog, Preview};
 use crate::git_but_bad::git_log_matches;
 use crate::item::{Styling, ViewContext};
@@ -24,9 +22,7 @@ use tui_input::Input;
 pub enum RightPane {
     Preview,
     Hidden,
-    InteractiveGitLog,
-    #[cfg(feature = "second_listing")]
-    SecondListing,
+    InteractiveGitLog
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -36,14 +32,7 @@ pub enum PreviewMode {
     GitShow,
 }
 
-#[cfg(feature = "second_listing")]
-pub const RIGHT_PANE: [RightPane; 4] = [Preview, SecondListing, Hidden, InteractiveGitLog];
-#[cfg(feature = "second_listing")]
-pub const RIGHT_PANE_HIDDEN: [RightPane; 4] = [Hidden, Preview, SecondListing, InteractiveGitLog];
-
-#[cfg(not(feature = "second_listing"))]
 pub const RIGHT_PANE: [RightPane; 3] = [Preview, Hidden, InteractiveGitLog];
-#[cfg(not(feature = "second_listing"))]
 pub const RIGHT_PANE_HIDDEN: [RightPane; 3] = [Hidden, Preview, InteractiveGitLog];
 
 pub const PREVIEW_MODE: [PreviewMode; 3] = [
@@ -54,9 +43,6 @@ pub const PREVIEW_MODE: [PreviewMode; 3] = [
 
 #[derive(Copy, Clone)]
 pub struct ViewOpts {
-    #[cfg(feature = "second_listing")]
-    pub right_pane_mode: [RightPane; 4],
-    #[cfg(not(feature = "second_listing"))]
     pub right_pane_mode: [RightPane; 3],
     pub preview_mode_flag: [PreviewMode; 3],
     pub log_pane: bool,
@@ -151,19 +137,8 @@ pub fn setup_screen(screen: Rect, view_opts: &ViewOpts) -> Areas {
 }
 
 impl Areas {
-    #[cfg(not(feature = "second_listing"))]
     pub(crate) fn items_required(&self, _view_opts: &ViewOpts) -> u32 {
         u32::from(self.main_pane.height)
-    }
-
-    #[cfg(feature = "second_listing")]
-    pub(crate) fn items_required(&self, view_opts: &ViewOpts) -> u32 {
-        u32::from(self.main_pane.height)
-            * if view_opts.right_pane() == RightPane::SecondListing {
-                2
-            } else {
-                1
-            }
     }
 }
 
@@ -189,11 +164,6 @@ pub fn draw_ui(
         RightPane::InteractiveGitLog => {
             draw_divider(f, area.divider);
             draw_git_logs(f, ui, area.side_pane);
-        }
-        #[cfg(feature = "second_listing")]
-        RightPane::SecondListing => {
-            draw_divider(f, area.divider);
-            draw_second_listing(f, ui, snap, area.side_pane);
         }
     }
 
@@ -379,39 +349,6 @@ fn compute_rot(searching: bool, i: u32) -> f32 {
     } else {
         0.
     }
-}
-
-#[cfg(feature = "second_listing")]
-fn draw_second_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
-    let mut lines = Vec::new();
-
-    let searching = ui.is_searching();
-
-    let styling = Styling::new(&ui.ls_colors);
-
-    for (i, item) in snap
-        .items
-        .iter()
-        .enumerate()
-        .map(|(i, item)| (i as u32 + snap.start, item))
-        .skip(usize::from(area.height).saturating_sub(STATUS_LINES))
-    {
-        let selected = ui.cursor_showing.as_ref() == Some(&item);
-        let rot = compute_rot(searching, i);
-
-        let mut spans = Vec::new();
-        if selected {
-            spans.push(Span::styled("> ", Style::new().light_red()));
-        } else {
-            spans.push(Span::from("  "));
-        }
-
-        let columns = item.get_columns(&styling, rot, None, None);
-        spans.extend(columns.primary);
-        lines.push(Line::from(spans));
-    }
-    // area.y += area.height.saturating_sub(lines.len() as u16);
-    f.render_widget(Text::from(lines), area);
 }
 
 fn draw_input_line(f: &mut Frame, prompt: &str, input: &Input, input_line_area: Rect) {
