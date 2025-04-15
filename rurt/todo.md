@@ -1,3 +1,5 @@
+* Feat: Sort by modification time
+* Feat: Some kind of image preview
 * Toggle action and CLI option for git information
 * Feat: Stable tree file listing
   - Similar to running tree | fzf --no-sort
