@@ -214,6 +214,7 @@ pub fn run(
             None => {
                 if let Some(req) = to_input_request(&ev) {
                     if ui.input.handle(req).map(|v| v.value).unwrap_or_default() {
+                        ui.cursor_showing = None;
                         reparse(store, &ui);
                     }
                 }
