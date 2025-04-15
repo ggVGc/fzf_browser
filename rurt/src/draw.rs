@@ -22,7 +22,7 @@ use tui_input::Input;
 pub enum RightPane {
     Preview,
     Hidden,
-    InteractiveGitLog
+    InteractiveGitLog,
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -270,6 +270,12 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
         .map(|(i, item)| (i as u32 + snap.start, item))
         .take(usize::from(area.height).saturating_sub(STATUS_LINES))
     {
+        if i == 0 {
+            let mut barrier = ColumnEntry::default();
+            barrier.primary = vec![Span::raw("----------")];
+            columns.add(barrier);
+        }
+
         let selected = ui.cursor_showing.as_ref() == Some(&item);
         let rot = compute_rot(searching, i);
 
@@ -314,11 +320,16 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
         if let Some(extra) = view.extra {
             entry.extra.push(current_indicator);
             entry.extra.extend(extra)
-        }else {
+        } else {
             entry.extra.push(Span::raw(" "));
         }
 
         columns.add(entry);
+        if i == 0 {
+            let mut barrier = ColumnEntry::default();
+            barrier.primary = vec![Span::raw("----------")];
+            columns.add(barrier);
+        }
     }
 
     if cfg!(feature = "dirs_in_secondary") {
