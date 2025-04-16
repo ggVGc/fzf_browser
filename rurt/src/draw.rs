@@ -236,6 +236,7 @@ const STATUS_LINES: usize = 1;
 #[derive(Default, Clone)]
 struct ColumnEntry<'a> {
     primary: Vec<Span<'a>>,
+    short: Vec<Span<'a>>,
     secondary: Vec<Span<'a>>,
     extra: Vec<Span<'a>>,
 }
@@ -243,6 +244,7 @@ struct ColumnEntry<'a> {
 #[derive(Default)]
 struct Columns<'a> {
     primary_lines: Vec<Line<'a>>,
+    short_lines: Vec<Line<'a>>,
     secondary_lines: Vec<Line<'a>>,
     extra_lines: Vec<Line<'a>>,
 }
@@ -250,9 +252,16 @@ struct Columns<'a> {
 impl<'a> Columns<'a> {
     fn add(&mut self, entry: ColumnEntry<'a>) {
         self.primary_lines.push(Line::from(entry.primary));
+        self.short_lines.push(Line::from(entry.short));
         self.secondary_lines.push(Line::from(entry.secondary));
         self.extra_lines.push(Line::from(entry.extra));
     }
+}
+
+fn add_short_barrier(columns: &mut Columns) {
+    let mut barrier = ColumnEntry::default();
+    barrier.short = vec![Span::raw("-----------------------------")];
+    columns.add(barrier);
 }
 
 fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
@@ -271,9 +280,7 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
         .take(usize::from(area.height).saturating_sub(STATUS_LINES))
     {
         if i == 0 {
-            let mut barrier = ColumnEntry::default();
-            barrier.primary = vec![Span::raw("----------")];
-            columns.add(barrier);
+            // add_short_barrier(&mut columns);
         }
 
         let selected = ui.cursor_showing.as_ref() == Some(&item);
@@ -305,10 +312,21 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
             Span::raw("  ")
         };
 
+        let current_indicator_right = if selected {
+            Span::styled(" <", Style::new().light_red())
+        } else {
+            Span::raw("  ")
+        };
+
         let mut entry = ColumnEntry::default();
 
-        entry.primary.push(current_indicator.clone());
-        entry.primary.extend(view.primary);
+        entry.short.push(current_indicator.clone());
+        entry.short.extend(view.short);
+
+        if view.primary.len() > 0 {
+            entry.primary.extend(view.primary);
+            entry.primary.push(current_indicator_right);
+        }
 
         if let Some(secondary) = view.secondary {
             entry.secondary.push(current_indicator.clone());
@@ -326,9 +344,7 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
 
         columns.add(entry);
         if i == 0 {
-            let mut barrier = ColumnEntry::default();
-            barrier.primary = vec![Span::raw("----------")];
-            columns.add(barrier);
+            // add_short_barrier(&mut columns);
         }
     }
 
@@ -346,11 +362,16 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
         f.render_widget(Text::from(columns.secondary_lines), secondary);
         f.render_widget(Text::from(columns.extra_lines), extra);
     } else {
-        let [primary, extra] = Layout::default()
+        let [short, primary, extra] = Layout::default()
             .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(70), Constraint::Fill(3)])
+            .constraints([
+                Constraint::Length(35),
+                Constraint::Percentage(70),
+                Constraint::Fill(3),
+            ])
             .areas(area);
 
+        f.render_widget(Text::from(columns.short_lines), short);
         f.render_widget(Text::from(columns.primary_lines), primary);
         f.render_widget(Text::from(columns.extra_lines), extra);
     };

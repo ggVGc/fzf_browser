@@ -59,6 +59,7 @@ impl Colorable for ItemInfo {
 #[derive(Default)]
 pub struct ItemView<'a> {
     pub primary: Vec<Span<'a>>,
+    pub short: Vec<Span<'a>>,
     pub secondary: Option<Vec<Span<'a>>>,
     pub annotation: Vec<Span<'a>>,
     pub extra: Option<Vec<Span<'a>>>,
@@ -123,25 +124,33 @@ fn render_file_entry<'a>(
         None => (None, full),
     };
 
+    let push_styled_path = |out: &mut Vec<Span<'a>>| {
+        if let Some(style) = styling.item(info.as_ref()) {
+            let style = LsStyle::to_crossterm_style(style);
+            out.push(Span::styled(path.to_string(), style));
+        } else {
+            out.push(Span::raw(path.to_string()));
+        }
+    };
+
     let mut view = ItemView {
         primary: Vec::with_capacity(4),
         directory: dir.clone(),
         ..Default::default()
     };
 
+    push_styled_path(&mut view.short);
+
     if let Some(dir) = dir.clone() {
+        view.primary.push(Span::raw(" ["));
         for part in dir.split('/') {
             view.primary
                 .push(Span::styled(part.to_string(), styling.dir));
             view.primary.push(Span::styled("|", styling.path_separator));
         }
-    }
 
-    if let Some(style) = styling.item(info.as_ref()) {
-        let style = LsStyle::to_crossterm_style(style);
-        view.primary.push(Span::styled(path.to_string(), style));
-    } else {
-        view.primary.push(Span::raw(path.to_string()));
+        push_styled_path(&mut view.primary);
+        view.primary.push(Span::raw("]"));
     }
 
     if let Some(link_dest) = &info.link_dest {
