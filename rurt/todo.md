@@ -1,3 +1,4 @@
+* Feat: Populate initial view from input file, instead of filesystem listing
 * Feat: Sort by modification time
 * Feat: Some kind of image preview
 * Toggle action and CLI option for git information
