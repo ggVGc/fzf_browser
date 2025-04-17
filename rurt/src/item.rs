@@ -141,17 +141,17 @@ fn render_file_entry<'a>(
 
     push_styled_path(&mut view.short);
 
+    view.primary.push(Span::raw(" ["));
     if let Some(dir) = dir.clone() {
-        view.primary.push(Span::raw(" ["));
         for part in dir.split('/') {
             view.primary
                 .push(Span::styled(part.to_string(), styling.dir));
             view.primary.push(Span::styled("|", styling.path_separator));
         }
-
-        push_styled_path(&mut view.primary);
-        view.primary.push(Span::raw("]"));
     }
+
+    push_styled_path(&mut view.primary);
+    view.primary.push(Span::raw("]"));
 
     if let Some(link_dest) = &info.link_dest {
         let diff = info
