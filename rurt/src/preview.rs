@@ -4,6 +4,7 @@ use crate::ui_state::URect;
 use ansi_to_tui::IntoText;
 use anyhow::{anyhow, Result};
 use content_inspector::ContentType;
+use image::{DynamicImage, GenericImageView};
 use ratatui::prelude::*;
 use std::collections::VecDeque;
 use std::ffi::OsStr;
@@ -154,30 +155,10 @@ fn interpret_file(
     use ansi_to_tui::IntoText as _;
 
     Ok(match content_inspector::inspect(&content) {
-        ContentType::BINARY => {
-            let mut v = LineStopIoWrite::new(area.height);
-            let panels = (area.width.saturating_sub(10) / 35).max(1);
-            // TODO: expecting suspicious broken pipe on writer full
-            let _ = hexyl::PrinterBuilder::new(&mut v)
-                .num_panels(panels as u64)
-                .show_color(coloured)
-                .build()
-                .print_all(io::Cursor::new(&content));
-            let mut ret = v.inner.into_text()?;
-            ret.lines.insert(0, preview_header("hexyl", &showing));
-
-            let media_type = file_type::FileType::from_bytes(&content);
-            if !media_type.extensions().is_empty() {
-                ret.lines.insert(0, preview_header("file", &showing));
-                ret.lines.insert(
-                    1,
-                    Line::from(Span::styled(media_type.name(), Style::new().dim())),
-                );
-                ret.lines.insert(2, Line::default());
-            }
-
-            ret
-        }
+        ContentType::BINARY => match show_image(&showing, area)? {
+            Some(image_content) => image_content,
+            None => show_binary(&content, &showing, area, coloured)?,
+        },
         _ => {
             let mut writer = LineStopFmtWrite::new(area.height);
             content.retain(|&b| b != b'\r');
@@ -196,6 +177,62 @@ fn interpret_file(
             ret
         }
     })
+}
+
+fn show_image<'a>(
+    showing: &impl AsRef<Path>,
+    area: URect,
+) -> Result<Option<Text<'a>>, anyhow::Error> {
+    use termimage::ops;
+
+    let image: Option<DynamicImage> = {
+        let description = (String::new(), showing.as_ref().to_path_buf());
+        if let Some(format) = ops::guess_format(&description).ok() {
+            ops::load_image(&description, format).ok()
+        } else {
+            None
+        }
+    };
+
+    if let Some(image) = image {
+        let size = (area.width as u32, area.height as u32);
+        let img_s = ops::image_resized_size(image.dimensions(), size, true);
+        let resized = ops::resize_image(&image, img_s);
+
+        let mut writer = LineStopIoWrite::new(area.height);
+        ops::write_ansi_truecolor(&mut writer, &resized);
+
+        Ok(Some(writer.inner.into_text()?))
+    } else {
+        Ok(None)
+    }
+}
+
+fn show_binary<'a>(
+    content: &Vec<u8>,
+    showing: &impl AsRef<Path>,
+    area: URect,
+    coloured: bool,
+) -> Result<Text<'a>, anyhow::Error> {
+    let mut v = LineStopIoWrite::new(area.height);
+    let panels = (area.width.saturating_sub(10) / 35).max(1);
+    let _ = hexyl::PrinterBuilder::new(&mut v)
+        .num_panels(panels as u64)
+        .show_color(coloured)
+        .build()
+        .print_all(io::Cursor::new(content));
+    let mut ret = v.inner.into_text()?;
+    ret.lines.insert(0, preview_header("hexyl", showing));
+    let media_type = file_type::FileType::from_bytes(content);
+    if !media_type.extensions().is_empty() {
+        ret.lines.insert(0, preview_header("file", showing));
+        ret.lines.insert(
+            1,
+            Line::from(Span::styled(media_type.name(), Style::new().dim())),
+        );
+        ret.lines.insert(2, Line::default());
+    }
+    Ok(ret)
 }
 
 pub fn preview_header(command: &str, showing: impl AsRef<Path>) -> Line<'static> {

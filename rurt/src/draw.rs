@@ -302,17 +302,18 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect, recursive_li
         if recursive_listing {
             entry.short.push(current_indicator.clone());
             entry.short.extend(view.short);
+            entry.short.push(current_indicator_right.clone());
 
             if view.primary.len() > 0 {
                 entry.primary.push(Span::raw("  |"));
                 entry.primary.push(current_indicator.clone());
                 entry.primary.extend(view.primary);
-                entry.primary.push(current_indicator_right);
+                entry.primary.push(current_indicator_right.clone());
             }
         } else {
             entry.primary.push(current_indicator.clone());
             entry.primary.extend(view.primary);
-            entry.primary.push(current_indicator_right);
+            entry.primary.push(current_indicator_right.clone());
         }
 
         if let Some(secondary) = view.secondary {
