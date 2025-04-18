@@ -82,24 +82,29 @@ impl Item {
 
     // rot: 0: fresh, 1: stale
     #[cfg(not(feature = "dirs_in_secondary"))]
-    pub fn render(&self, styling: &Styling, rot: f32, context: &ViewContext) -> ItemView {
+    pub fn render(&self, context: &ViewContext) -> ItemView {
         match self {
             Item::WalkError { msg } => {
                 return ItemView {
-                    primary: vec![Span::styled(format!("error walking: {msg}"), styling.error)],
+                    primary: vec![Span::styled(
+                        format!("error walking: {msg}"),
+                        context.styling.error,
+                    )],
                     ..Default::default()
                 };
             }
             Item::FileEntry { name, info, .. } => {
-                return render_file_entry(name, info, styling, rot, context)
+                return render_file_entry(name, info, context.styling, context.rot, context)
             }
         };
     }
 }
 
-pub struct ViewContext {
+pub struct ViewContext<'a> {
     pub git_status: Option<Letter>,
-    pub git_info: Option<String>
+    pub git_info: Option<String>,
+    pub rot: f32,
+    pub styling: &'a Styling,
 }
 
 // rot: 0: fresh, 1: stale

@@ -1,4 +1,5 @@
 use crate::draw::RightPane::{Hidden, InteractiveGitLog, Preview};
+use crate::git::Git;
 use crate::git_but_bad::git_log_matches;
 use crate::item::{Item, ItemView, Styling, ViewContext};
 use crate::preview::{preview_header, PreviewCommand};
@@ -263,6 +264,8 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
     let mut columns = Columns::default();
     let searching = ui.is_searching();
 
+    let styling = Styling::new(&ui.ls_colors);
+
     for (i, item) in snap
         .items
         .iter()
@@ -271,7 +274,7 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
         .take(usize::from(area.height).saturating_sub(STATUS_LINES))
     {
         let rot = compute_rot(searching, i);
-        let view = render_item(item, ui, rot);
+        let view = render_item(item, &ui.git_info, &styling, rot);
 
         let selected = ui.cursor_showing.as_ref() == Some(&item);
 
@@ -317,22 +320,23 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
     display_columns(f, area, columns)
 }
 
-fn render_item<'a>(item: &'a Item, ui: &Ui, rot: f32) -> ItemView<'a> {
+fn render_item<'a>(item: &'a Item, git: &Option<Git>, styling: &Styling, rot: f32) -> ItemView<'a> {
     let git_status = item
         .path()
-        .and_then(|p| ui.git_info.as_ref().and_then(|gi| gi.status(p)));
+        .and_then(|p| git.as_ref().and_then(|gi| gi.status(p)));
 
     let git_info = item
         .path()
-        .and_then(|p| ui.git_info.as_ref().and_then(|gi| gi.resolve(p)));
+        .and_then(|p| git.as_ref().and_then(|gi| gi.resolve(p)));
 
     let context = ViewContext {
         git_status,
         git_info,
+        rot,
+        styling: &styling,
     };
 
-    let styling = Styling::new(&ui.ls_colors);
-    item.render(&styling, rot, &context)
+    item.render(&context)
 }
 
 fn display_columns(f: &mut Frame, area: Rect, columns: Columns) {
