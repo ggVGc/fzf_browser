@@ -81,7 +81,6 @@ impl Item {
     }
 
     // rot: 0: fresh, 1: stale
-    #[cfg(not(feature = "dirs_in_secondary"))]
     pub fn render(&self, context: &ViewContext) -> ItemView {
         match self {
             Item::WalkError { msg } => {
@@ -106,7 +105,6 @@ pub struct ViewContext<'a> {
 }
 
 // rot: 0: fresh, 1: stale
-#[cfg(not(feature = "dirs_in_secondary"))]
 fn render_file_entry<'a>(
     name: &OsString,
     info: &Arc<ItemInfo>,
@@ -193,104 +191,6 @@ fn render_file_entry<'a>(
     }
 
     view
-}
-
-#[cfg(feature = "dirs_in_secondary")]
-pub fn render(
-    &self,
-    styling: &Styling,
-    rot: f32,
-    git_status: Option<Letter>,
-    git_info: Option<&str>,
-) -> ItemView {
-    let (name, info) = match self {
-        Item::WalkError { msg } => {
-            return ItemView {
-                primary: vec![Span::styled(format!("error walking: {msg}"), styling.error)],
-                secondary: None,
-                extra: None,
-            };
-        }
-        Item::FileEntry { name, info, .. } => (name, info),
-    };
-
-    let full = name.display().to_string();
-    let (dir, path) = match full.rfind('/') {
-        Some(pos) => {
-            let (dir, name) = full.split_at(pos + 1);
-            let mut dir = dir.to_string();
-            let _trailing_slash = dir.pop();
-            (Some(dir), name.to_string())
-        }
-        None => (None, full),
-    };
-
-    let mut cols = ItemView {
-        primary: Vec::with_capacity(4),
-        secondary: None,
-        extra: None,
-    };
-
-    cols.secondary = if let Some(dir) = dir.clone() {
-        let mut secondary = Vec::with_capacity(4);
-        secondary.push(Span::raw("["));
-        secondary.push(Span::raw(dir.to_string()));
-        secondary.push(Span::raw("]"));
-        Some(secondary)
-    } else {
-        Some(vec![Span::raw(".")])
-    };
-
-    if info.file_type.is_dir() {
-        if let Some(dir) = dir {
-            let mut indentation = 1;
-            for ch in dir.chars() {
-                if ch == '/' {
-                    indentation = indentation + 1;
-                }
-            }
-            let indents = String::from_utf8(vec![b' '; (indentation * 2) as usize]).unwrap();
-            cols.primary.push(Span::raw(indents));
-        }
-    }
-
-    if let Some(git_status) = git_status {
-        cols.primary
-            .push(Span::styled(format!("{git_status:?} "), styling.git_info));
-    } else {
-        cols.primary.push(Span::raw("   "));
-    }
-
-    if let Some(style) = styling.item(info.as_ref()) {
-        let style = LsStyle::to_crossterm_style(style);
-        cols.primary.push(Span::styled(path.to_string(), style));
-    } else {
-        cols.primary.push(Span::raw(path.to_string()));
-    }
-
-    if let Some(link_dest) = &info.link_dest {
-        let link_dest =
-            pathdiff::diff_paths(&info.path, link_dest).unwrap_or_else(|| link_dest.to_path_buf());
-        cols.primary.push(Span::styled(" -> ", styling.symlink));
-        cols.primary
-            .push(Span::raw(link_dest.display().to_string()));
-    }
-    for span in &mut cols.primary {
-        if let Some(colour) = span.style.fg {
-            if let Ok(colour) = Colour::try_from(colour) {
-                span.style.fg = Some(colour.desaturate(rot).into());
-            }
-        }
-    }
-
-    if let Some(git_info) = git_info {
-        cols.extra = Some(vec![Span::styled(
-            format!("  {git_info}"),
-            styling.git_info,
-        )]);
-    }
-
-    cols
 }
 
 impl PartialOrd for Item {

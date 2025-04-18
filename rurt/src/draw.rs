@@ -348,40 +348,25 @@ fn render_item<'a>(item: &'a Item, git: &Option<Git>, styling: &Styling, rot: f3
         git_status,
         git_info,
         rot,
-        styling: &styling
+        styling: &styling,
     };
 
     item.render(&context)
 }
 
 fn display_columns(f: &mut Frame, area: Rect, columns: Columns, with_short: bool) {
-    if cfg!(feature = "dirs_in_secondary") {
-        let [primary, secondary, extra] = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([
-                Constraint::Percentage(30),
-                Constraint::Percentage(45),
-                Constraint::Fill(1),
-            ])
-            .areas(area);
+    let [short, primary, extra] = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Length(if with_short { 35 } else { 0 }),
+            Constraint::Percentage(70),
+            Constraint::Fill(3),
+        ])
+        .areas(area);
 
-        f.render_widget(Text::from(columns.primary_lines), primary);
-        f.render_widget(Text::from(columns.secondary_lines), secondary);
-        f.render_widget(Text::from(columns.extra_lines), extra);
-    } else {
-        let [short, primary, extra] = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([
-                Constraint::Length(if with_short { 35 } else { 0 }),
-                Constraint::Percentage(70),
-                Constraint::Fill(3),
-            ])
-            .areas(area);
-
-        f.render_widget(Text::from(columns.short_lines), short);
-        f.render_widget(Text::from(columns.primary_lines), primary);
-        f.render_widget(Text::from(columns.extra_lines), extra);
-    };
+    f.render_widget(Text::from(columns.short_lines), short);
+    f.render_widget(Text::from(columns.primary_lines), primary);
+    f.render_widget(Text::from(columns.extra_lines), extra);
 }
 
 fn compute_rot(searching: bool, i: u32) -> f32 {
