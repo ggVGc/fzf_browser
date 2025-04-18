@@ -8,7 +8,6 @@ use lscolors::{Colorable, LsColors, Style as LsStyle};
 use ratatui::prelude::Style as RStyle;
 use ratatui::prelude::*;
 use std::borrow::Cow;
-use std::collections::HashSet;
 use std::ffi::OsString;
 use std::fs;
 use std::fs::FileType;
@@ -98,10 +97,9 @@ impl Item {
     }
 }
 
-pub struct ViewContext<'a> {
+pub struct ViewContext {
     pub git_status: Option<Letter>,
-    pub git_info: Option<&'a str>,
-    pub seen_dirs: &'a HashSet<String>,
+    pub git_info: Option<String>
 }
 
 // rot: 0: fresh, 1: stale
@@ -183,7 +181,7 @@ fn render_file_entry<'a>(
         vec![Span::raw("    ")]
     };
 
-    if let Some(git_info) = context.git_info {
+    if let Some(git_info) = &context.git_info {
         view.extra = Some(vec![Span::styled(format!("{git_info}"), styling.git_info)])
     }
 

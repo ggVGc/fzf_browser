@@ -1,6 +1,6 @@
 use crate::draw::RightPane::{Hidden, InteractiveGitLog, Preview};
 use crate::git_but_bad::git_log_matches;
-use crate::item::{Styling, ViewContext};
+use crate::item::{Item, ItemView, Styling, ViewContext};
 use crate::preview::{preview_header, PreviewCommand};
 use crate::snapped::Snapped;
 use crate::tui_log::{LogWidget, LogWidgetState};
@@ -12,7 +12,6 @@ use ratatui::prelude::{Line, Span, Style, Stylize, Text};
 use ratatui::style::Color;
 use ratatui::widgets::{Block, Borders, Clear, Paragraph, Wrap};
 use ratatui::Frame;
-use std::collections::HashSet;
 use std::ops::Deref;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -68,6 +67,39 @@ pub struct Areas {
     pub input_line: Rect,
     pub log: Rect,
     pub divider: Rect,
+}
+
+impl Areas {
+    pub(crate) fn items_required(&self, _view_opts: &ViewOpts) -> u32 {
+        u32::from(self.main_pane.height)
+    }
+}
+
+const STATUS_LINES: usize = 1;
+
+#[derive(Default, Clone)]
+struct ColumnEntry<'a> {
+    primary: Vec<Span<'a>>,
+    short: Vec<Span<'a>>,
+    secondary: Vec<Span<'a>>,
+    extra: Vec<Span<'a>>,
+}
+
+#[derive(Default)]
+struct Columns<'a> {
+    primary_lines: Vec<Line<'a>>,
+    short_lines: Vec<Line<'a>>,
+    secondary_lines: Vec<Line<'a>>,
+    extra_lines: Vec<Line<'a>>,
+}
+
+impl<'a> Columns<'a> {
+    fn add(&mut self, entry: ColumnEntry<'a>) {
+        self.primary_lines.push(Line::from(entry.primary));
+        self.short_lines.push(Line::from(entry.short));
+        self.secondary_lines.push(Line::from(entry.secondary));
+        self.extra_lines.push(Line::from(entry.extra));
+    }
 }
 
 pub fn setup_screen(screen: Rect, view_opts: &ViewOpts) -> Areas {
@@ -136,12 +168,6 @@ pub fn setup_screen(screen: Rect, view_opts: &ViewOpts) -> Areas {
     }
 }
 
-impl Areas {
-    pub(crate) fn items_required(&self, _view_opts: &ViewOpts) -> u32 {
-        u32::from(self.main_pane.height)
-    }
-}
-
 pub fn draw_ui(
     f: &mut Frame,
     area: Areas,
@@ -152,20 +178,8 @@ pub fn draw_ui(
 ) {
     draw_input_line(f, &ui.prompt, &ui.input, area.input_line);
     draw_info_line(f, ui, snap, area.info_line);
-
     draw_listing(f, ui, snap, area.main_pane);
-
-    match app.view_opts.right_pane() {
-        RightPane::Hidden => (),
-        RightPane::Preview => {
-            draw_divider(f, area.divider);
-            draw_preview(f, ui, app.view_opts.preview_mode(), area.side_pane);
-        }
-        RightPane::InteractiveGitLog => {
-            draw_divider(f, area.divider);
-            draw_git_logs(f, ui, area.side_pane);
-        }
-    }
+    draw_right_pane(f, area, ui, app);
 
     if ui.command_palette.showing {
         draw_palette(f, &ui.command_palette, &app.bindings, area.main_area);
@@ -176,6 +190,20 @@ pub fn draw_ui(
             f.render_widget(Block::new().borders(Borders::ALL), area.log);
             let log_inset = edge_inset(area.log, 1);
             f.render_stateful_widget(LogWidget { boot: ui.boot }, log_inset, log_state);
+        }
+    }
+}
+
+fn draw_right_pane(f: &mut Frame<'_>, area: Areas, ui: &Ui, app: &App) {
+    match app.view_opts.right_pane() {
+        RightPane::Hidden => (),
+        RightPane::Preview => {
+            draw_divider(f, area.divider);
+            draw_preview(f, ui, app.view_opts.preview_mode(), area.side_pane);
+        }
+        RightPane::InteractiveGitLog => {
+            draw_divider(f, area.divider);
+            draw_git_logs(f, ui, area.side_pane);
         }
     }
 }
@@ -231,46 +259,9 @@ fn edge_inset(area: Rect, margin: u16) -> Rect {
     inset_area
 }
 
-const STATUS_LINES: usize = 1;
-
-#[derive(Default, Clone)]
-struct ColumnEntry<'a> {
-    primary: Vec<Span<'a>>,
-    short: Vec<Span<'a>>,
-    secondary: Vec<Span<'a>>,
-    extra: Vec<Span<'a>>,
-}
-
-#[derive(Default)]
-struct Columns<'a> {
-    primary_lines: Vec<Line<'a>>,
-    short_lines: Vec<Line<'a>>,
-    secondary_lines: Vec<Line<'a>>,
-    extra_lines: Vec<Line<'a>>,
-}
-
-impl<'a> Columns<'a> {
-    fn add(&mut self, entry: ColumnEntry<'a>) {
-        self.primary_lines.push(Line::from(entry.primary));
-        self.short_lines.push(Line::from(entry.short));
-        self.secondary_lines.push(Line::from(entry.secondary));
-        self.extra_lines.push(Line::from(entry.extra));
-    }
-}
-
-fn add_short_barrier(columns: &mut Columns) {
-    let mut barrier = ColumnEntry::default();
-    barrier.short = vec![Span::raw("-----------------------------")];
-    columns.add(barrier);
-}
-
 fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
     let mut columns = Columns::default();
     let searching = ui.is_searching();
-
-    let styling = Styling::new(&ui.ls_colors);
-
-    let mut seen_dirs = HashSet::new();
 
     for (i, item) in snap
         .items
@@ -279,32 +270,10 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
         .map(|(i, item)| (i as u32 + snap.start, item))
         .take(usize::from(area.height).saturating_sub(STATUS_LINES))
     {
-        if i == 0 {
-            // add_short_barrier(&mut columns);
-        }
+        let rot = compute_rot(searching, i);
+        let view = render_item(item, ui, rot);
 
         let selected = ui.cursor_showing.as_ref() == Some(&item);
-        let rot = compute_rot(searching, i);
-
-        let git_status = item
-            .path()
-            .and_then(|p| ui.git_info.as_ref().and_then(|gi| gi.status(p)));
-
-        let git_info = item
-            .path()
-            .and_then(|p| ui.git_info.as_ref().and_then(|gi| gi.resolve(p)));
-
-        let context = ViewContext {
-            seen_dirs: &seen_dirs,
-            git_status,
-            git_info: git_info.as_deref(),
-        };
-
-        let view = item.render(&styling, rot, &context);
-
-        if let Some(dir) = view.directory {
-            seen_dirs.insert(dir);
-        }
 
         let current_indicator = if selected {
             Span::styled("> ", Style::new().light_red())
@@ -343,11 +312,30 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
         }
 
         columns.add(entry);
-        if i == 0 {
-            // add_short_barrier(&mut columns);
-        }
     }
 
+    display_columns(f, area, columns)
+}
+
+fn render_item<'a>(item: &'a Item, ui: &Ui, rot: f32) -> ItemView<'a> {
+    let git_status = item
+        .path()
+        .and_then(|p| ui.git_info.as_ref().and_then(|gi| gi.status(p)));
+
+    let git_info = item
+        .path()
+        .and_then(|p| ui.git_info.as_ref().and_then(|gi| gi.resolve(p)));
+
+    let context = ViewContext {
+        git_status,
+        git_info,
+    };
+
+    let styling = Styling::new(&ui.ls_colors);
+    item.render(&styling, rot, &context)
+}
+
+fn display_columns(f: &mut Frame, area: Rect, columns: Columns) {
     if cfg!(feature = "dirs_in_secondary") {
         let [primary, secondary, extra] = Layout::default()
             .direction(Direction::Horizontal)
