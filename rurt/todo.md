@@ -1,3 +1,4 @@
+* Feat: Monitor directory, and delete old files if the total disk space usage of the volume goes above 90%
 * Feat: Populate initial view from input file, instead of filesystem listing
 * Feat: Sort by modification time
 * Feat: Some kind of image preview
