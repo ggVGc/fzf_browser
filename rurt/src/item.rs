@@ -103,7 +103,6 @@ pub struct ViewContext<'a> {
     pub git_info: Option<String>,
     pub rot: f32,
     pub styling: &'a Styling,
-    pub max_short_length: usize,
 }
 
 // rot: 0: fresh, 1: stale
@@ -150,16 +149,6 @@ fn render_file_entry<'a>(
         }
     }
     push_styled_path(&mut view.primary);
-    /*
-    else {
-        if tail.len() > context.max_short_length - 3 {
-            view.short.push(Span::raw("..."));
-            view.primary.push(Span::raw(" ["));
-            push_styled_path(&mut view.primary);
-            view.primary.push(Span::raw("]"));
-        }
-    }
-    */
 
     if let Some(link_dest) = &info.link_dest {
         let diff = info

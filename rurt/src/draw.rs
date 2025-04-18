@@ -299,16 +299,20 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect, recursive_li
 
         let mut entry = ColumnEntry::default();
 
-        entry.short.push(current_indicator.clone());
-        entry.short.extend(view.short);
-
         if recursive_listing {
+            entry.short.push(current_indicator.clone());
+            entry.short.extend(view.short);
+
             if view.primary.len() > 0 {
-                entry.primary.push(Span::raw("  ["));
+                entry.primary.push(Span::raw("  |"));
+                entry.primary.push(current_indicator.clone());
                 entry.primary.extend(view.primary);
-                entry.primary.push(Span::raw("]"));
                 entry.primary.push(current_indicator_right);
             }
+        } else {
+            entry.primary.push(current_indicator.clone());
+            entry.primary.extend(view.primary);
+            entry.primary.push(current_indicator_right);
         }
 
         if let Some(secondary) = view.secondary {
@@ -328,7 +332,7 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect, recursive_li
         columns.add(entry);
     }
 
-    display_columns(f, area, columns)
+    display_columns(f, area, columns, recursive_listing)
 }
 
 fn render_item<'a>(item: &'a Item, git: &Option<Git>, styling: &Styling, rot: f32) -> ItemView<'a> {
@@ -344,15 +348,13 @@ fn render_item<'a>(item: &'a Item, git: &Option<Git>, styling: &Styling, rot: f3
         git_status,
         git_info,
         rot,
-        styling: &styling,
-        max_short_length: 30, // TODO: Number of characters matching the length in display_columns,
-                              // which depends on font size...
+        styling: &styling
     };
 
     item.render(&context)
 }
 
-fn display_columns(f: &mut Frame, area: Rect, columns: Columns) {
+fn display_columns(f: &mut Frame, area: Rect, columns: Columns, with_short: bool) {
     if cfg!(feature = "dirs_in_secondary") {
         let [primary, secondary, extra] = Layout::default()
             .direction(Direction::Horizontal)
@@ -370,7 +372,7 @@ fn display_columns(f: &mut Frame, area: Rect, columns: Columns) {
         let [short, primary, extra] = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
-                Constraint::Length(35),
+                Constraint::Length(if with_short { 35 } else { 0 }),
                 Constraint::Percentage(70),
                 Constraint::Fill(3),
             ])
