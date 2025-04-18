@@ -6,6 +6,7 @@ use crate::preview::{preview_header, PreviewCommand};
 use crate::snapped::Snapped;
 use crate::tui_log::{LogWidget, LogWidgetState};
 use crate::ui_state::{matching_preview, CommandPalette, URect, Ui};
+use crate::walk::Recursion;
 use crate::{filter_bindings, App, Binding};
 use crossterm::event::KeyModifiers;
 use ratatui::layout::{Constraint, Direction, Flex, Layout, Rect};
@@ -179,7 +180,13 @@ pub fn draw_ui(
 ) {
     draw_input_line(f, &ui.prompt, &ui.input, area.input_line);
     draw_info_line(f, ui, snap, area.info_line);
-    draw_listing(f, ui, snap, area.main_pane);
+    draw_listing(
+        f,
+        ui,
+        snap,
+        area.main_pane,
+        app.read_opts.recursion != Recursion::None,
+    );
     draw_right_pane(f, area, ui, app);
 
     if ui.command_palette.showing {
@@ -260,7 +267,7 @@ fn edge_inset(area: Rect, margin: u16) -> Rect {
     inset_area
 }
 
-fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
+fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect, recursive_listing: bool) {
     let mut columns = Columns::default();
     let searching = ui.is_searching();
 
@@ -295,9 +302,11 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect) {
         entry.short.push(current_indicator.clone());
         entry.short.extend(view.short);
 
-        if view.primary.len() > 0 {
-            entry.primary.extend(view.primary);
-            entry.primary.push(current_indicator_right);
+        if recursive_listing {
+            if view.primary.len() > 0 {
+                entry.primary.extend(view.primary);
+                entry.primary.push(current_indicator_right);
+            }
         }
 
         if let Some(secondary) = view.secondary {
