@@ -144,7 +144,7 @@ fn main() -> Result<ExitCode> {
     }
 
     if cli.recursive {
-        app.read_opts.recursion_index = Recursion::All as usize;
+        app.read_opts.recursion = Recursion::All;
     }
 
     let mut store = Store::new(Nucleo::<Item>::new(

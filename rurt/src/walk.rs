@@ -14,7 +14,7 @@ pub struct ReadOpts {
     pub show_hidden: bool,
     pub show_ignored: bool,
     pub mode_index: usize,
-    pub recursion_index: usize,
+    pub recursion: Recursion,
     pub target_dir: PathBuf,
     pub expansions: HashSet<PathBuf>,
 }
@@ -34,11 +34,24 @@ pub enum Recursion {
     All = 1,
 }
 
-pub const RECURSION: [Recursion; 2] = [Recursion::None, Recursion::All];
+impl Default for Recursion {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+impl Recursion {
+    pub fn next(&self) -> Self {
+        match self {
+            Self::None => Self::All,
+            Self::All => Self::None,
+        }
+    }
+}
 
 pub fn stream_content(tx: AddItem, src: impl AsRef<Path>, read_opts: &ReadOpts) -> Result<()> {
     let src = src.as_ref();
-    if RECURSION[read_opts.recursion_index] == Recursion::None {
+    if read_opts.recursion == Recursion::None {
         for exp in &read_opts.expansions {
             stream_rel_content(tx.clone(), src, exp, read_opts);
         }
@@ -77,7 +90,7 @@ pub fn stream_rel_content(
         tx.send(f).is_err()
     };
 
-    let max_depth = match RECURSION[read_opts.recursion_index] {
+    let max_depth = match read_opts.recursion {
         Recursion::None => Some(1),
         Recursion::All => None,
     };

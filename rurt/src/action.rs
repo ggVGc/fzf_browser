@@ -5,7 +5,7 @@ use std::process::ExitCode;
 
 use crate::draw::RightPane;
 use crate::ui_state::{matching_preview, Ui};
-use crate::walk::{Mode, MODES, RECURSION};
+use crate::walk::{Mode, MODES};
 use crate::App;
 use anyhow::{anyhow, bail};
 use convert_case::{Case, Casing};
@@ -170,7 +170,7 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
             ActionResult::Ignored
         }
         Action::CycleRecursion => {
-            read_opts.recursion_index = (read_opts.recursion_index + 1) % RECURSION.len();
+            read_opts.recursion = read_opts.recursion.next();
             ActionResult::Navigated
         }
         Action::TogglePreview => {
