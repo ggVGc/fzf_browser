@@ -304,7 +304,9 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect, recursive_li
 
         if recursive_listing {
             if view.primary.len() > 0 {
+                entry.primary.push(Span::raw("  ["));
                 entry.primary.extend(view.primary);
+                entry.primary.push(Span::raw("]"));
                 entry.primary.push(current_indicator_right);
             }
         }
@@ -343,6 +345,8 @@ fn render_item<'a>(item: &'a Item, git: &Option<Git>, styling: &Styling, rot: f3
         git_info,
         rot,
         styling: &styling,
+        max_short_length: 30, // TODO: Number of characters matching the length in display_columns,
+                              // which depends on font size...
     };
 
     item.render(&context)

@@ -93,9 +93,7 @@ impl Item {
                     ..Default::default()
                 };
             }
-            Item::FileEntry { name, info, .. } => {
-                return render_file_entry(name, info, context.styling, context.rot, context)
-            }
+            Item::FileEntry { name, info, .. } => return render_file_entry(name, info, context),
         };
     }
 }
@@ -105,6 +103,7 @@ pub struct ViewContext<'a> {
     pub git_info: Option<String>,
     pub rot: f32,
     pub styling: &'a Styling,
+    pub max_short_length: usize,
 }
 
 // rot: 0: fresh, 1: stale
@@ -112,12 +111,10 @@ pub struct ViewContext<'a> {
 fn render_file_entry<'a>(
     name: &OsString,
     info: &Arc<ItemInfo>,
-    styling: &Styling,
-    rot: f32,
     context: &ViewContext,
 ) -> ItemView<'a> {
     let full = name.display().to_string();
-    let (dir, path) = match full.rfind('/') {
+    let (dir, tail) = match full.rfind('/') {
         Some(pos) => {
             let (dir, name) = full.split_at(pos + 1);
             let mut dir = dir.to_string();
@@ -128,11 +125,11 @@ fn render_file_entry<'a>(
     };
 
     let push_styled_path = |out: &mut Vec<Span<'a>>| {
-        if let Some(style) = styling.item(info.as_ref()) {
+        if let Some(style) = context.styling.item(info.as_ref()) {
             let style = LsStyle::to_crossterm_style(style);
-            out.push(Span::styled(path.to_string(), style));
+            out.push(Span::styled(tail.to_string(), style));
         } else {
-            out.push(Span::raw(path.to_string()));
+            out.push(Span::raw(tail.to_string()));
         }
     };
 
@@ -144,17 +141,25 @@ fn render_file_entry<'a>(
 
     push_styled_path(&mut view.short);
 
-    view.primary.push(Span::raw(" ["));
     if let Some(dir) = dir.clone() {
         for part in dir.split('/') {
             view.primary
-                .push(Span::styled(part.to_string(), styling.dir));
-            view.primary.push(Span::styled("|", styling.path_separator));
+                .push(Span::styled(part.to_string(), context.styling.dir));
+            view.primary
+                .push(Span::styled("|", context.styling.path_separator));
         }
     }
-
     push_styled_path(&mut view.primary);
-    view.primary.push(Span::raw("]"));
+    /*
+    else {
+        if tail.len() > context.max_short_length - 3 {
+            view.short.push(Span::raw("..."));
+            view.primary.push(Span::raw(" ["));
+            push_styled_path(&mut view.primary);
+            view.primary.push(Span::raw("]"));
+        }
+    }
+    */
 
     if let Some(link_dest) = &info.link_dest {
         let diff = info
@@ -168,26 +173,34 @@ fn render_file_entry<'a>(
             Some(diff) => diff,
             None => link_dest.to_path_buf(),
         };
-        view.primary.push(Span::styled(" -> ", styling.symlink));
+        view.primary
+            .push(Span::styled(" -> ", context.styling.symlink));
         view.primary
             .push(Span::raw(link_dest.display().to_string()));
     }
+
     for span in &mut view.primary {
         if let Some(colour) = span.style.fg {
             if let Ok(colour) = Colour::try_from(colour) {
-                span.style.fg = Some(colour.desaturate(rot).into());
+                span.style.fg = Some(colour.desaturate(context.rot).into());
             }
         }
     }
 
     view.annotation = if let Some(git_status) = context.git_status {
-        vec![Span::styled(format!("[{git_status:?}]"), styling.git_info)]
+        vec![Span::styled(
+            format!("[{git_status:?}]"),
+            context.styling.git_info,
+        )]
     } else {
         vec![Span::raw("    ")]
     };
 
     if let Some(git_info) = &context.git_info {
-        view.extra = Some(vec![Span::styled(format!("{git_info}"), styling.git_info)])
+        view.extra = Some(vec![Span::styled(
+            format!("{git_info}"),
+            context.styling.git_info,
+        )])
     }
 
     view
