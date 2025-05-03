@@ -8,7 +8,7 @@ default-run = "browser"
 ansi-to-tui = "7"
 anyhow = "1"
 arboard = { version = "3", default-features = false }
-bat = "0.25"
+bat = { version = "0.25", default-features = false, features = ["regex-onig"] }
 clap = { version = "4", features = ["derive"] }
 content_inspector = "0.2"
 convert_case = "0.8"
