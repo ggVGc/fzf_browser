@@ -15,7 +15,7 @@ convert_case = "0.8"
 crossterm = "0.28"
 dirs = "6"
 file_type = "0.8"
-gix = "0.72"
+gix = "0.73"
 hexyl = "0.16"
 ignore = "0.4"
 log = { version = "0.4.25", features = ["std"] }
