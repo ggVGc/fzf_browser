@@ -281,9 +281,23 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect, recursive_li
         .take(usize::from(area.height).saturating_sub(STATUS_LINES))
     {
         let rot = compute_rot(searching, i);
-        let view = render_item(item, &ui.git_info, &styling, rot);
+        let is_marked = item.path().map(|p| ui.is_selected(p)).unwrap_or(false);
+        let mut view = render_item(item, &ui.git_info, &styling, rot, is_marked);
 
         let selected = ui.cursor_showing.as_ref() == Some(&item);
+
+        // Apply cyan background to marked items
+        if is_marked {
+            let c = 40;
+            let bg = Color::Rgb(c, c, c);
+
+            for span in &mut view.primary {
+                span.style = span.style.bg(bg);
+            }
+            for span in &mut view.short {
+                span.style = span.style.bg(bg);
+            }
+        }
 
         let current_indicator = if selected {
             Span::styled("> ", Style::new().light_red())
@@ -336,7 +350,7 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect, recursive_li
     display_columns(f, area, columns, recursive_listing)
 }
 
-fn render_item<'a>(item: &'a Item, git: &Option<Git>, styling: &Styling, rot: f32) -> ItemView<'a> {
+fn render_item<'a>(item: &'a Item, git: &Option<Git>, styling: &Styling, rot: f32, is_selected: bool) -> ItemView<'a> {
     let (git_status, git_info) = (|| {
         let path = item.path()?;
         let git = git.as_ref()?;
@@ -349,6 +363,7 @@ fn render_item<'a>(item: &'a Item, git: &Option<Git>, styling: &Styling, rot: f3
         git_info,
         rot,
         styling: &styling,
+        is_selected
     };
 
     item.render(&context)

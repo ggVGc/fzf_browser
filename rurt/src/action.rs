@@ -31,6 +31,7 @@ pub enum Action {
     TogglePreview,
     TogglePreviewMode,
     TogglePreviewColour,
+    ToggleSelection,
     SetTarget,
     Expand,
     Open,
@@ -185,6 +186,10 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
             ui.preview_colours = !ui.preview_colours;
             ActionResult::Configured
         }
+        Action::ToggleSelection => {
+            ui.toggle_selection();
+            ActionResult::Ignored
+        }
         Action::SetTarget => {
             read_opts.target_dir.clone_from(here);
             ActionResult::Configured
@@ -224,7 +229,24 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
         }
         Action::Abort => ActionResult::Exit(None, ExitCode::FAILURE),
         Action::Activate => {
-            if let Some(name) = ui.cursor_showing_path() {
+            // If there are selected items, output all of them
+            if !ui.selected_items.is_empty() {
+                let selected_paths: Vec<String> = ui.selected_items
+                    .iter()
+                    .map(|path| {
+                        let mut cand = path.clone();
+                        if !app.result_opts.force_absolute_path {
+                            if let Ok(cwd) = std::env::current_dir() {
+                                if let Ok(stripped) = cand.strip_prefix(&cwd) {
+                                    cand = stripped.to_path_buf();
+                                }
+                            }
+                        }
+                        cand.display().to_string()
+                    })
+                    .collect();
+                ActionResult::Exit(Some(selected_paths.join("\n")), ExitCode::SUCCESS)
+            } else if let Some(name) = ui.cursor_showing_path() {
                 if let Ok(cand) = ensure_directory(here.join(name)) {
                     ui.input.reset();
                     dir_stack.push(here.to_path_buf());

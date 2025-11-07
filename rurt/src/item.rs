@@ -102,6 +102,7 @@ pub struct ViewContext<'a> {
     pub git_info: Option<String>,
     pub rot: f32,
     pub styling: &'a Styling,
+    pub is_selected: bool
 }
 
 // rot: 0: fresh, 1: stale

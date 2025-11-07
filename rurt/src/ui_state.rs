@@ -6,7 +6,8 @@ use crate::preview::{run_preview, Preview, PreviewedData, Previews};
 use log::info;
 use lscolors::LsColors;
 use ratatui::layout::Rect;
-use std::path::Path;
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Instant;
@@ -28,6 +29,7 @@ pub struct Ui {
     pub preview_colours: bool,
     pub ls_colors: LsColors,
     pub command_palette: CommandPalette,
+    pub selected_items: HashSet<PathBuf>,
 }
 
 impl Ui {
@@ -37,6 +39,23 @@ impl Ui {
 
     pub fn cursor_showing_path(&self) -> Option<&Path> {
         self.cursor_showing.as_ref().and_then(|v| v.path())
+    }
+
+    pub fn toggle_selection(&mut self) {
+        if let Some(path) = self.cursor_showing_path() {
+            let path = path.to_path_buf();
+            if !self.selected_items.remove(&path) {
+                self.selected_items.insert(path);
+            }
+        }
+    }
+
+    pub fn is_selected(&self, path: &Path) -> bool {
+        self.selected_items.contains(path)
+    }
+
+    pub fn get_selected_paths(&self) -> Vec<PathBuf> {
+        self.selected_items.iter().cloned().collect()
     }
 }
 

@@ -47,6 +47,7 @@ pub fn run(
         preview_colours: true,
         ls_colors: LsColors::from_env().unwrap_or_default(),
         command_palette: CommandPalette::default(),
+        selected_items: std::collections::HashSet::new(),
     };
 
     store.start_scan(app)?;
