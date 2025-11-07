@@ -9,6 +9,7 @@ ansi-to-tui = "7"
 anyhow = "1"
 arboard = { version = "3", default-features = false }
 bat = { version = "0.25", default-features = false, features = ["regex-onig"] }
+onig_sys = {version = "69.9.1"}
 clap = { version = "4", features = ["derive"] }
 content_inspector = "0.2"
 convert_case = "0.8"
