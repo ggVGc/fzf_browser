@@ -15,6 +15,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 pub enum Action {
     Activate,
     AcceptCurrentDirectory,
+    AcceptSelectedItems,
     Ignore,
     Up,
     Down,
@@ -31,6 +32,7 @@ pub enum Action {
     TogglePreview,
     TogglePreviewMode,
     TogglePreviewColour,
+    ToggleSelection,
     SetTarget,
     Expand,
     Open,
@@ -185,6 +187,14 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
             ui.preview_colours = !ui.preview_colours;
             ActionResult::Configured
         }
+        Action::ToggleSelection => {
+            if let Some(path) = ui.cursor_showing_path() {
+                app.toggle_selection(path);
+                handle_action(Action::MoveCursor(1), app, ui)?
+            } else {
+                ActionResult::Ignored
+            }
+        }
         Action::SetTarget => {
             read_opts.target_dir.clone_from(here);
             ActionResult::Configured
@@ -231,18 +241,44 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
                     *here = cand;
                     ActionResult::Navigated
                 } else {
-                    let mut cand = here.join(name);
-                    if !app.result_opts.force_absolute_path {
-                        if let Ok(cwd) = std::env::current_dir() {
-                            if let Ok(stripped) = cand.strip_prefix(&cwd) {
-                                cand = stripped.to_path_buf();
+                    if !app.selected_items.is_empty() {
+                        handle_action(Action::ToggleSelection, app, ui)?
+                    } else {
+                        let mut cand = here.join(name);
+                        if !app.result_opts.force_absolute_path {
+                            if let Ok(cwd) = std::env::current_dir() {
+                                if let Ok(stripped) = cand.strip_prefix(&cwd) {
+                                    cand = stripped.to_path_buf();
+                                }
                             }
                         }
+                        ActionResult::Exit(Some(cand.display().to_string()), ExitCode::SUCCESS)
                     }
-                    ActionResult::Exit(Some(cand.display().to_string()), ExitCode::SUCCESS)
                 }
             } else {
                 ActionResult::Exit(None, ExitCode::FAILURE)
+            }
+        }
+        Action::AcceptSelectedItems => {
+            if !app.selected_items.is_empty() {
+                let selected_paths: Vec<String> = app
+                    .selected_items
+                    .iter()
+                    .map(|path| {
+                        let mut cand = path.clone();
+                        if !app.result_opts.force_absolute_path {
+                            if let Ok(cwd) = std::env::current_dir() {
+                                if let Ok(stripped) = cand.strip_prefix(&cwd) {
+                                    cand = stripped.to_path_buf();
+                                }
+                            }
+                        }
+                        cand.display().to_string()
+                    })
+                    .collect();
+                ActionResult::Exit(Some(selected_paths.join("\n")), ExitCode::SUCCESS)
+            } else {
+                ActionResult::Ignored
             }
         }
         Action::AcceptCurrentDirectory => {
