@@ -283,17 +283,25 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect, recursive_li
         // TODO: How much does this slow down the normal case where no multi-select is active?
         let is_selected = item.path().map(|p| ui.is_selected(p)).unwrap_or(false);
         let rot = compute_rot(searching, i);
-        let view = render_item(item, &ui.git_info, &styling, rot, is_selected);
+        let view = render_item(item, &ui.git_info, &styling, rot);
 
-        let selected = ui.cursor_showing.as_ref() == Some(&item);
+        let at_cursor = ui.cursor_showing.as_ref() == Some(&item);
 
-        let current_indicator = if selected {
-            Span::styled("> ", Style::new().light_red())
+        let current_indicator = if at_cursor {
+            if is_selected {
+                Span::styled("X ", Style::new().light_red())
+            } else {
+                Span::styled("> ", Style::new().light_red())
+            }
         } else {
-            Span::raw("  ")
+            if is_selected {
+                Span::styled("x ", Style::new().light_red())
+            } else {
+                Span::raw("  ")
+            }
         };
 
-        let current_indicator_right = if selected {
+        let current_indicator_right = if at_cursor {
             Span::styled(" <", Style::new().light_red())
         } else {
             Span::raw("  ")
@@ -338,13 +346,7 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect, recursive_li
     display_columns(f, area, columns, recursive_listing)
 }
 
-fn render_item<'a>(
-    item: &'a Item,
-    git: &Option<Git>,
-    styling: &Styling,
-    rot: f32,
-    is_selected: bool,
-) -> ItemView<'a> {
+fn render_item<'a>(item: &'a Item, git: &Option<Git>, styling: &Styling, rot: f32) -> ItemView<'a> {
     let (git_status, git_info) = (|| {
         let path = item.path()?;
         let git = git.as_ref()?;
@@ -357,7 +359,6 @@ fn render_item<'a>(
         git_info,
         rot,
         styling: &styling,
-        is_selected,
     };
 
     item.render(&context)
