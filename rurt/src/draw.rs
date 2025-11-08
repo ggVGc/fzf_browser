@@ -14,8 +14,9 @@ use ratatui::prelude::{Line, Span, Style, Stylize, Text};
 use ratatui::style::Color;
 use ratatui::widgets::{Block, Borders, Clear, Paragraph, Wrap};
 use ratatui::Frame;
+use std::collections::HashSet;
 use std::ops::Deref;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tui_input::Input;
 
@@ -186,6 +187,7 @@ pub fn draw_ui(
         snap,
         area.main_pane,
         app.read_opts.recursion != Recursion::None,
+        &app.selected_items
     );
     draw_right_pane(f, area, ui, app);
 
@@ -267,7 +269,14 @@ fn edge_inset(area: Rect, margin: u16) -> Rect {
     inset_area
 }
 
-fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect, recursive_listing: bool) {
+fn draw_listing(
+    f: &mut Frame,
+    ui: &Ui,
+    snap: &Snapped,
+    area: Rect,
+    recursive_listing: bool,
+    selected_paths: &HashSet<PathBuf>,
+) {
     let mut columns = Columns::default();
     let searching = ui.is_searching();
 
@@ -281,7 +290,7 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect, recursive_li
         .take(usize::from(area.height).saturating_sub(STATUS_LINES))
     {
         // TODO: How much does this slow down the normal case where no multi-select is active?
-        let is_selected = item.path().map(|p| ui.is_selected(p)).unwrap_or(false);
+        let is_selected = item.path().map(|p| selected_paths.contains(p)).unwrap_or(false);
         let rot = compute_rot(searching, i);
         let view = render_item(item, &ui.git_info, &styling, rot);
 

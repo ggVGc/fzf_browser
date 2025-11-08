@@ -188,8 +188,12 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
             ActionResult::Configured
         }
         Action::ToggleSelection => {
-            ui.toggle_selection();
-            handle_action(Action::MoveCursor(1), app, ui)?
+            if let Some(path) = ui.cursor_showing_path() {
+                app.toggle_selection(path);
+                handle_action(Action::MoveCursor(1), app, ui)?
+            } else {
+                ActionResult::Ignored
+            }
         }
         Action::SetTarget => {
             read_opts.target_dir.clone_from(here);
@@ -237,7 +241,7 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
                     *here = cand;
                     ActionResult::Navigated
                 } else {
-                    if !ui.selected_items.is_empty() {
+                    if !app.selected_items.is_empty() {
                         handle_action(Action::ToggleSelection, app, ui)?
                     } else {
                         let mut cand = here.join(name);
@@ -256,8 +260,8 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
             }
         }
         Action::AcceptSelectedItems => {
-            if !ui.selected_items.is_empty() {
-                let selected_paths: Vec<String> = ui
+            if !app.selected_items.is_empty() {
+                let selected_paths: Vec<String> = app
                     .selected_items
                     .iter()
                     .map(|path| {
