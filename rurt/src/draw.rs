@@ -289,13 +289,13 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect, recursive_li
 
         let current_indicator = if at_cursor {
             if is_selected {
-                Span::styled("X ", Style::new().light_red())
+                Span::styled("x ", Style::new().light_red())
             } else {
                 Span::styled("> ", Style::new().light_red())
             }
         } else {
             if is_selected {
-                Span::styled("x ", Style::new().light_red())
+                Span::styled("x ", Style::new().yellow())
             } else {
                 Span::raw("  ")
             }
