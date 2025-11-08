@@ -280,24 +280,12 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect, recursive_li
         .map(|(i, item)| (i as u32 + snap.start, item))
         .take(usize::from(area.height).saturating_sub(STATUS_LINES))
     {
+        // TODO: How much does this slow down the normal case where no multi-select is active?
+        let is_selected = item.path().map(|p| ui.is_selected(p)).unwrap_or(false);
         let rot = compute_rot(searching, i);
-        let is_marked = item.path().map(|p| ui.is_selected(p)).unwrap_or(false);
-        let mut view = render_item(item, &ui.git_info, &styling, rot, is_marked);
+        let view = render_item(item, &ui.git_info, &styling, rot, is_selected);
 
         let selected = ui.cursor_showing.as_ref() == Some(&item);
-
-        // Apply cyan background to marked items
-        if is_marked {
-            let c = 40;
-            let bg = Color::Rgb(c, c, c);
-
-            for span in &mut view.primary {
-                span.style = span.style.bg(bg);
-            }
-            for span in &mut view.short {
-                span.style = span.style.bg(bg);
-            }
-        }
 
         let current_indicator = if selected {
             Span::styled("> ", Style::new().light_red())
@@ -350,7 +338,13 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect, recursive_li
     display_columns(f, area, columns, recursive_listing)
 }
 
-fn render_item<'a>(item: &'a Item, git: &Option<Git>, styling: &Styling, rot: f32, is_selected: bool) -> ItemView<'a> {
+fn render_item<'a>(
+    item: &'a Item,
+    git: &Option<Git>,
+    styling: &Styling,
+    rot: f32,
+    is_selected: bool,
+) -> ItemView<'a> {
     let (git_status, git_info) = (|| {
         let path = item.path()?;
         let git = git.as_ref()?;
@@ -363,7 +357,7 @@ fn render_item<'a>(item: &'a Item, git: &Option<Git>, styling: &Styling, rot: f3
         git_info,
         rot,
         styling: &styling,
-        is_selected
+        is_selected,
     };
 
     item.render(&context)
