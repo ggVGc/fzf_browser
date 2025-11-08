@@ -15,6 +15,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 pub enum Action {
     Activate,
     AcceptCurrentDirectory,
+    AcceptSelectedItems,
     Ignore,
     Up,
     Down,
@@ -188,7 +189,7 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
         }
         Action::ToggleSelection => {
             ui.toggle_selection();
-            ActionResult::Ignored
+            handle_action(Action::MoveCursor(1), app, ui)?
         }
         Action::SetTarget => {
             read_opts.target_dir.clone_from(here);
@@ -230,8 +231,35 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
         Action::Abort => ActionResult::Exit(None, ExitCode::FAILURE),
         Action::Activate => {
             // If there are selected items, output all of them
+            if let Some(name) = ui.cursor_showing_path() {
+                if let Ok(cand) = ensure_directory(here.join(name)) {
+                    ui.input.reset();
+                    dir_stack.push(here.to_path_buf());
+                    *here = cand;
+                    ActionResult::Navigated
+                } else {
+                    if !ui.selected_items.is_empty() {
+                        handle_action(Action::ToggleSelection, app, ui)?
+                    } else {
+                        let mut cand = here.join(name);
+                        if !app.result_opts.force_absolute_path {
+                            if let Ok(cwd) = std::env::current_dir() {
+                                if let Ok(stripped) = cand.strip_prefix(&cwd) {
+                                    cand = stripped.to_path_buf();
+                                }
+                            }
+                        }
+                        ActionResult::Exit(Some(cand.display().to_string()), ExitCode::SUCCESS)
+                    }
+                }
+            } else {
+                ActionResult::Exit(None, ExitCode::FAILURE)
+            }
+        }
+        Action::AcceptSelectedItems => {
             if !ui.selected_items.is_empty() {
-                let selected_paths: Vec<String> = ui.selected_items
+                let selected_paths: Vec<String> = ui
+                    .selected_items
                     .iter()
                     .map(|path| {
                         let mut cand = path.clone();
@@ -246,25 +274,8 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
                     })
                     .collect();
                 ActionResult::Exit(Some(selected_paths.join("\n")), ExitCode::SUCCESS)
-            } else if let Some(name) = ui.cursor_showing_path() {
-                if let Ok(cand) = ensure_directory(here.join(name)) {
-                    ui.input.reset();
-                    dir_stack.push(here.to_path_buf());
-                    *here = cand;
-                    ActionResult::Navigated
-                } else {
-                    let mut cand = here.join(name);
-                    if !app.result_opts.force_absolute_path {
-                        if let Ok(cwd) = std::env::current_dir() {
-                            if let Ok(stripped) = cand.strip_prefix(&cwd) {
-                                cand = stripped.to_path_buf();
-                            }
-                        }
-                    }
-                    ActionResult::Exit(Some(cand.display().to_string()), ExitCode::SUCCESS)
-                }
             } else {
-                ActionResult::Exit(None, ExitCode::FAILURE)
+                ActionResult::Ignored
             }
         }
         Action::AcceptCurrentDirectory => {
