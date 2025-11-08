@@ -230,7 +230,6 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
         }
         Action::Abort => ActionResult::Exit(None, ExitCode::FAILURE),
         Action::Activate => {
-            // If there are selected items, output all of them
             if let Some(name) = ui.cursor_showing_path() {
                 if let Ok(cand) = ensure_directory(here.join(name)) {
                     ui.input.reset();
