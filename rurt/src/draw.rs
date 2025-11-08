@@ -337,13 +337,12 @@ fn draw_listing(f: &mut Frame, ui: &Ui, snap: &Snapped, area: Rect, recursive_li
 }
 
 fn render_item<'a>(item: &'a Item, git: &Option<Git>, styling: &Styling, rot: f32) -> ItemView<'a> {
-    let git_status = item
-        .path()
-        .and_then(|p| git.as_ref().and_then(|gi| gi.status(p)));
-
-    let git_info = item
-        .path()
-        .and_then(|p| git.as_ref().and_then(|gi| gi.resolve(p)));
+    let (git_status, git_info) = (|| {
+        let path = item.path()?;
+        let git = git.as_ref()?;
+        Some((git.status(path), git.resolve(path)))
+    })()
+    .unwrap_or_default();
 
     let context = ViewContext {
         git_status,
