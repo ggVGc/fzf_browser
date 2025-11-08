@@ -1,4 +1,5 @@
-use std::path::PathBuf;
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
 
 use crate::action::Action;
 use crate::dir_stack::DirStack;
@@ -38,6 +39,7 @@ pub type Binding = (KeyModifiers, KeyCode, Action);
 pub struct App {
     pub here: PathBuf,
     pub dir_stack: DirStack<PathBuf>,
+    pub selected_items: HashSet<PathBuf>,
     pub read_opts: ReadOpts,
     pub view_opts: ViewOpts,
     pub result_opts: ResultOpts,
@@ -50,6 +52,17 @@ impl App {
             .git_info
             .then(|| Git::new(&self.here))
             .flatten()
+    }
+
+    pub fn toggle_selection(&mut self, path: &Path) {
+        let path = path.to_path_buf();
+        if !self.selected_items.remove(&path) {
+            self.selected_items.insert(path);
+        }
+    }
+
+    pub fn get_selected_paths(&self) -> Vec<PathBuf> {
+        self.selected_items.iter().cloned().collect()
     }
 }
 

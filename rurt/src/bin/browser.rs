@@ -17,6 +17,7 @@ use rurt::walk::{Mode, ReadOpts, Recursion};
 use rurt::App;
 use rurt::ResultOpts;
 use shell_quote::Quote;
+use std::collections::HashSet;
 use std::ffi::OsString;
 use std::fs;
 use std::fs::File;
@@ -115,6 +116,7 @@ fn main() -> Result<ExitCode> {
 
     let mut app = App {
         dir_stack: DirStack::default(),
+        selected_items: HashSet::default(),
         read_opts: ReadOpts {
             target_dir: here.clone(),
             ..Default::default()
