@@ -1,3 +1,4 @@
+* Bug: if current directory path is too long, no prefix is shown before input line. Instead, it should cut the beginning and replace with ellipsis.
 * Feat: Monitor directory, and delete old files if the total disk space usage of the volume goes above 90%
 * Feat: Populate initial view from input file, instead of filesystem listing
 * Feat: Sort by modification time
