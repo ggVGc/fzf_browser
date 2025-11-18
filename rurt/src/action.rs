@@ -85,7 +85,6 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
 
     Ok(match action {
         Action::Up => {
-            ui.input.reset();
             dir_stack.push(here.clone());
             here.pop();
             ActionResult::Navigated
