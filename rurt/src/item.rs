@@ -199,6 +199,10 @@ impl PartialOrd for Item {
     }
 }
 
+// We want:
+//  - Files in current directory on top
+//  - Rest of files sorted by directory path
+//  - Dirs in current dir sorted together with the other dirs
 impl Ord for Item {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         match (self, other) {
@@ -210,13 +214,37 @@ impl Ord for Item {
                     name: bn, info: bt, ..
                 },
             ) => {
-                let a = at.file_type.is_dir();
-                let b = bt.file_type.is_dir();
-                if a != b {
-                    b.cmp(&a)
+                let a_path = Path::new(an);
+                let b_path = Path::new(bn);
+                let a_parent = a_path.parent();
+                let b_parent = b_path.parent();
+                let a_at_root = a_parent.map_or(true, |p| p.as_os_str().is_empty());
+                let b_at_root = b_parent.map_or(true, |p| p.as_os_str().is_empty());
+                let a_is_top = a_at_root && !at.file_type.is_dir();
+                let b_is_top = b_at_root && !bt.file_type.is_dir();
+
+                let a_group: &Path = if a_at_root && at.file_type.is_dir() {
+                    a_path
                 } else {
-                    an.cmp(bn)
-                }
+                    a_parent.unwrap_or(Path::new(""))
+                };
+                let b_group: &Path = if b_at_root && bt.file_type.is_dir() {
+                    b_path
+                } else {
+                    b_parent.unwrap_or(Path::new(""))
+                };
+
+                b_is_top.cmp(&a_is_top).then_with(|| {
+                    a_group.cmp(b_group)
+                }).then_with(|| {
+                    let a = at.file_type.is_dir();
+                    let b = bt.file_type.is_dir();
+                    if a != b {
+                        b.cmp(&a)
+                    } else {
+                        an.cmp(bn)
+                    }
+                })
             }
             (Item::WalkError { msg: a }, Item::WalkError { msg: b }) => a.cmp(b),
             (Item::FileEntry { .. }, Item::WalkError { .. }) => std::cmp::Ordering::Less,
