@@ -6,7 +6,7 @@ use crate::preview::{run_preview, Preview, PreviewedData, Previews};
 use log::info;
 use lscolors::LsColors;
 use ratatui::layout::Rect;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Instant;
@@ -27,7 +27,7 @@ pub struct Ui {
     pub preview_cursor: usize,
     pub preview_colours: bool,
     pub ls_colors: LsColors,
-    pub command_palette: CommandPalette,
+    pub command_palette: CommandPalette
 }
 
 impl Ui {
