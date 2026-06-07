@@ -1,3 +1,7 @@
+* Feat: Filter file list based on file content. Essentially grep.
+  - If preview is enabled:
+    - Highlight search string in preview window
+    - Show only lines with matching string with a few lines of context. Similar to https://github.com/ggVGc/vim-BufZoom
 * Bug: if current directory path is too long, no prefix is shown before input line. Instead, it should cut the beginning and replace with ellipsis.
 * Feat: Monitor directory, and delete old files if the total disk space usage of the volume goes above 90%
 * Feat: Populate initial view from input file, instead of filesystem listing
