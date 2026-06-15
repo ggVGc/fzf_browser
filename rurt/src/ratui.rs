@@ -5,7 +5,7 @@ use crate::preview::Previews;
 use crate::snapped::revalidate_cursor;
 use crate::store::Store;
 use crate::tui_log::LogWidgetState;
-use crate::ui_state::{CommandPalette, Cursor, SortedItems, Ui};
+use crate::ui_state::{CommandPalette, Cursor, SortKey, SortedItems, Ui};
 use crate::{draw, filter_bindings, snapped, ui_state, App};
 use anyhow::Result;
 use arboard::Clipboard;
@@ -47,6 +47,7 @@ pub fn run(
         preview_colours: true,
         ls_colors: LsColors::from_env().unwrap_or_default(),
         command_palette: CommandPalette::default(),
+        sort_key: SortKey::default(),
     };
 
     store.start_scan(app)?;

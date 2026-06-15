@@ -1,5 +1,5 @@
 use crate::item::Item;
-use crate::ui_state::{SortedItems, Ui};
+use crate::ui_state::{SortKey, SortedItems, Ui};
 use nucleo::Snapshot;
 
 pub fn ui_item_range<'s>(ui: &mut Ui, snap: &'s Snapshot<Item>, len: u32) -> Snapped<'s> {
@@ -7,19 +7,24 @@ pub fn ui_item_range<'s>(ui: &mut Ui, snap: &'s Snapshot<Item>, len: u32) -> Sna
         snap,
         ui.view_start,
         len,
-        should_sort(ui),
+        sort_mode(ui),
         &mut ui.sorted_items,
     )
 }
 
 fn one_item<'s>(idx: u32, ui: &mut Ui, snap: &'s Snapshot<Item>) -> Option<&'s Item> {
-    item_range(snap, idx, 1, should_sort(ui), &mut ui.sorted_items)
+    item_range(snap, idx, 1, sort_mode(ui), &mut ui.sorted_items)
         .items
         .pop()
 }
 
-fn should_sort(ui: &Ui) -> bool {
-    ui.input.value().is_empty()
+/// `None` while searching (nucleo ranks by match score); otherwise the active sort.
+fn sort_mode(ui: &Ui) -> Option<SortKey> {
+    if ui.input.value().is_empty() {
+        Some(ui.sort_key)
+    } else {
+        None
+    }
 }
 
 pub fn revalidate_cursor(ui: &mut Ui, snap: &Snapshot<Item>, len: u32) {
@@ -30,7 +35,7 @@ pub fn revalidate_cursor(ui: &mut Ui, snap: &Snapshot<Item>, len: u32) {
             snap,
             0,
             ui.sorted_items.until.saturating_add(64),
-            should_sort(ui),
+            sort_mode(ui),
             &mut ui.sorted_items,
         )
         .items
@@ -50,7 +55,7 @@ pub fn revalidate_cursor(ui: &mut Ui, snap: &Snapshot<Item>, len: u32) {
 
     ui.cursor.last_pos = pos;
 
-    ui.cursor_showing = item_range(snap, pos, 1, should_sort(ui), &mut ui.sorted_items)
+    ui.cursor_showing = item_range(snap, pos, 1, sort_mode(ui), &mut ui.sorted_items)
         .items
         .pop()
         .cloned();
@@ -73,7 +78,7 @@ fn item_range<'s>(
     snap: &'s Snapshot<Item>,
     start: u32,
     len: u32,
-    sort: bool,
+    sort: Option<SortKey>,
     sorted_items: &mut SortedItems,
 ) -> Snapped<'s> {
     let mut end = start.saturating_add(len);
@@ -89,12 +94,12 @@ fn item_range<'s>(
         };
     }
 
-    let items = if !sort {
-        snap.matched_items(start..end)
+    let items = match sort {
+        None => snap
+            .matched_items(start..end)
             .map(|item| item.data)
-            .collect()
-    } else {
-        item_range_sorted(snap, start, end, sorted_items)
+            .collect(),
+        Some(sort_key) => item_range_sorted(snap, start, end, sort_key, sorted_items),
     };
 
     Snapped {
@@ -109,30 +114,47 @@ fn item_range_sorted<'s>(
     snap: &'s Snapshot<Item>,
     start: u32,
     end: u32,
+    sort_key: SortKey,
     sorted_items: &mut SortedItems,
 ) -> Vec<&'s Item> {
     let real_end = snap.matched_item_count();
     let cache_end = sorted_items.items.len() as u32;
     let could_extend = real_end > cache_end;
     let should_extend = end * 2 > cache_end || real_end % 64 == 0;
-    let should_sort = end > sorted_items.until;
+    let should_sort = end > sorted_items.until || sort_key != sorted_items.sorted_by;
 
     if should_sort || (could_extend && should_extend) {
         sorted_items.items.extend(cache_end..real_end);
 
         let target_until = end.min(100_000);
 
-        if target_until < real_end {
-            sorted_items
-                .items
-                .select_nth_unstable_by_key(target_until as usize, |&i| {
-                    snap.get_item(i).expect("<end").data
-                });
+        match sort_key {
+            SortKey::Default => {
+                if target_until < real_end {
+                    sorted_items
+                        .items
+                        .select_nth_unstable_by_key(target_until as usize, |&i| {
+                            snap.get_item(i).expect("<end").data
+                        });
+                }
+                sorted_items.items[0..target_until as usize]
+                    .sort_unstable_by_key(|&i| snap.get_item(i).expect("<end").data);
+            }
+            SortKey::ModifiedTime => {
+                // most recently modified first; entries without a mtime sink to the bottom
+                let key = |&i: &u32| {
+                    std::cmp::Reverse(snap.get_item(i).expect("<end").data.modified())
+                };
+                if target_until < real_end {
+                    sorted_items
+                        .items
+                        .select_nth_unstable_by_key(target_until as usize, key);
+                }
+                sorted_items.items[0..target_until as usize].sort_unstable_by_key(key);
+            }
         }
-
-        sorted_items.items[0..target_until as usize]
-            .sort_unstable_by_key(|&i| snap.get_item(i).expect("<end").data);
         sorted_items.until = target_until;
+        sorted_items.sorted_by = sort_key;
     }
 
     sorted_items.items[start as usize..end as usize]

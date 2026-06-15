@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use crate::draw::RightPane;
-use crate::ui_state::{matching_preview, Ui};
+use crate::ui_state::{matching_preview, SortKey, Ui};
 use crate::walk::{Mode, MODES};
 use crate::App;
 use anyhow::{anyhow, bail};
@@ -33,6 +33,7 @@ pub enum Action {
     TogglePreviewMode,
     TogglePreviewColour,
     ToggleSelection,
+    SortModified,
     SetTarget,
     Expand,
     Open,
@@ -193,6 +194,14 @@ pub fn handle_action(action: Action, app: &mut App, ui: &mut Ui) -> anyhow::Resu
             } else {
                 ActionResult::Ignored
             }
+        }
+        Action::SortModified => {
+            ui.sort_key = match ui.sort_key {
+                SortKey::ModifiedTime => SortKey::Default,
+                _ => SortKey::ModifiedTime,
+            };
+            ui.sorted_items.clear();
+            ActionResult::Configured
         }
         Action::SetTarget => {
             read_opts.target_dir.clone_from(here);

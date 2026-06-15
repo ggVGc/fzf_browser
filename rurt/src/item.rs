@@ -80,6 +80,15 @@ impl Item {
         }
     }
 
+    pub fn modified(&self) -> Option<std::time::SystemTime> {
+        match self {
+            Item::FileEntry { info, .. } => {
+                info.metadata.as_ref().and_then(|m| m.modified().ok())
+            }
+            Item::WalkError { .. } => None,
+        }
+    }
+
     // rot: 0: fresh, 1: stale
     pub fn render(&self, context: &ViewContext) -> ItemView {
         match self {

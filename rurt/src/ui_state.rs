@@ -27,7 +27,18 @@ pub struct Ui {
     pub preview_cursor: usize,
     pub preview_colours: bool,
     pub ls_colors: LsColors,
-    pub command_palette: CommandPalette
+    pub command_palette: CommandPalette,
+    pub sort_key: SortKey,
+}
+
+/// How the (unfiltered) item list is ordered.
+#[derive(Copy, Clone, PartialEq, Eq, Default)]
+pub enum SortKey {
+    /// Files in the current directory first, then grouped by directory.
+    #[default]
+    Default,
+    /// Most recently modified first.
+    ModifiedTime,
 }
 
 impl Ui {
@@ -164,6 +175,7 @@ impl From<Rect> for URect {
 pub struct SortedItems {
     pub items: Vec<u32>,
     pub until: u32,
+    pub sorted_by: SortKey,
 }
 
 impl SortedItems {
