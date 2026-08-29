@@ -4,7 +4,7 @@ use crate::ui_state::URect;
 use ansi_to_tui::IntoText;
 use anyhow::{anyhow, Result};
 use content_inspector::ContentType;
-use image::{DynamicImage, GenericImageView};
+use image::{DynamicImage, GenericImageView, ImageFormat, ImageReader};
 use ratatui::prelude::*;
 use std::collections::VecDeque;
 use std::ffi::OsStr;
@@ -156,8 +156,9 @@ fn interpret_file(
 
     Ok(match content_inspector::inspect(&content) {
         ContentType::BINARY => match show_image(&showing, area)? {
-            Some(image_content) => image_content,
-            None => show_binary(&content, &showing, area, coloured)?,
+            ImageOutcome::Rendered(image_content) => image_content,
+            ImageOutcome::Failed(message) => message,
+            ImageOutcome::NotAnImage => show_binary(&content, &showing, area, coloured)?,
         },
         _ => {
             let mut writer = LineStopFmtWrite::new(area.height);
@@ -179,33 +180,98 @@ fn interpret_file(
     })
 }
 
+enum ImageOutcome<'a> {
+    /// decoded and drawn
+    Rendered(Text<'a>),
+    /// it is an image, but we couldn't show it; explain why
+    Failed(Text<'a>),
+    /// not an image at all, fall back to the binary view
+    NotAnImage,
+}
+
+/// identify a file by its content, not its extension; a webp named .png must
+/// not reach the png decoder. `Ok(None)` means it isn't a recognised image.
+///
+/// note that `ImageReader::open()` would seed the format from the extension,
+/// and only replace it if sniffing succeeds, so it isn't usable here
+fn sniff_image(path: &Path) -> Result<Option<(ImageReader<io::BufReader<fs::File>>, ImageFormat)>> {
+    let reader = ImageReader::new(io::BufReader::new(fs::File::open(path)?)).with_guessed_format()?;
+
+    Ok(reader.format().map(|format| (reader, format)))
+}
+
 fn show_image<'a>(
     showing: &impl AsRef<Path>,
     area: URect,
-) -> Result<Option<Text<'a>>, anyhow::Error> {
+) -> Result<ImageOutcome<'a>, anyhow::Error> {
     use termimage::ops;
 
-    let image: Option<DynamicImage> = {
-        let description = (String::new(), showing.as_ref().to_path_buf());
-        if let Some(format) = ops::guess_format(&description).ok() {
-            ops::load_image(&description, format).ok()
-        } else {
-            None
+    let (reader, format) = match sniff_image(showing.as_ref()) {
+        Ok(Some(sniffed)) => sniffed,
+        Ok(None) => return Ok(ImageOutcome::NotAnImage),
+        Err(e) => return Ok(ImageOutcome::Failed(image_error(showing, &e.to_string()))),
+    };
+
+    // decoders are third party and not all of them are panic-free on
+    // malformed input, so treat a panic as just another decode failure
+    let image: DynamicImage = match crate::alt_screen::catch_quiet_panic(|| reader.decode()) {
+        Ok(Ok(image)) => image,
+        Ok(Err(e)) => {
+            return Ok(ImageOutcome::Failed(image_error(
+                showing,
+                &format!("{:?}: {}", format, e),
+            )))
+        }
+        Err(payload) => {
+            return Ok(ImageOutcome::Failed(image_error(
+                showing,
+                &format!(
+                    "{:?} decoder panicked: {}",
+                    format,
+                    crate::alt_screen::panic_message(&payload)
+                ),
+            )))
         }
     };
 
-    if let Some(image) = image {
+    let render = crate::alt_screen::catch_quiet_panic(|| -> Result<Text<'static>> {
         let size = (area.width as u32, area.height as u32);
         let img_s = ops::image_resized_size(image.dimensions(), size, true);
         let resized = ops::resize_image(&image, img_s);
 
-        let mut writer = LineStopIoWrite::new(area.height);
+        // not a LineStopIoWrite: termimage unwraps writer errors, and the
+        // resize above already bounds this to the preview area
+        let mut writer = Vec::with_capacity(32 * area.height);
         ops::write_ansi_truecolor(&mut writer, &resized);
 
-        Ok(Some(writer.inner.into_text()?))
-    } else {
-        Ok(None)
-    }
+        let mut text = writer.into_text()?;
+        text.lines.truncate(area.height);
+        Ok(text)
+    });
+
+    Ok(match render {
+        Ok(Ok(text)) => ImageOutcome::Rendered(text),
+        Ok(Err(e)) => ImageOutcome::Failed(image_error(showing, &e.to_string())),
+        Err(payload) => ImageOutcome::Failed(image_error(
+            showing,
+            &format!(
+                "rendering panicked: {}",
+                crate::alt_screen::panic_message(&payload)
+            ),
+        )),
+    })
+}
+
+fn image_error<'a>(showing: &impl AsRef<Path>, why: &str) -> Text<'a> {
+    Text::from(vec![
+        preview_header("image", showing),
+        Line::default(),
+        Line::from(Span::styled(
+            "can't display this image",
+            Style::new().light_red().bold(),
+        )),
+        Line::from(Span::styled(why.to_string(), Style::new().dim())),
+    ])
 }
 
 fn show_binary<'a>(
@@ -301,4 +367,71 @@ fn run_git(
     preview.lock().expect("panic").render = Some(text);
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const AREA: URect = URect {
+        x: 0,
+        y: 0,
+        width: 80,
+        height: 24,
+    };
+
+    fn write_temp(name: &str, content: &[u8]) -> PathBuf {
+        let path = std::env::temp_dir().join(format!("rurt-test-{name}"));
+        fs::write(&path, content).expect("writing fixture");
+        path
+    }
+
+    fn webp_bytes() -> Vec<u8> {
+        let image = DynamicImage::new_rgba8(8, 6);
+        let mut out = io::Cursor::new(Vec::new());
+        image
+            .write_to(&mut out, image::ImageFormat::WebP)
+            .expect("encoding");
+        out.into_inner()
+    }
+
+    /// the extension says png, the bytes say webp; the bytes win
+    #[test]
+    fn mislabelled_image_renders() {
+        let path = write_temp("mislabelled.png", &webp_bytes());
+        match show_image(&path, AREA).expect("no hard error") {
+            ImageOutcome::Rendered(text) => assert!(!text.lines.is_empty()),
+            _ => panic!("expected the webp to render"),
+        }
+    }
+
+    /// an image we can't decode explains itself instead of panicking
+    #[test]
+    fn corrupt_image_explains() {
+        let mut content = webp_bytes();
+        content.truncate(content.len() / 2);
+        let path = write_temp("corrupt.webp", &content);
+        match show_image(&path, AREA).expect("no hard error") {
+            ImageOutcome::Failed(text) => {
+                let rendered = text
+                    .lines
+                    .iter()
+                    .map(|l| l.to_string())
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                assert!(rendered.contains("can't display this image"), "{rendered}");
+            }
+            _ => panic!("expected a failure message"),
+        }
+    }
+
+    /// a non-image still falls through to the hex view
+    #[test]
+    fn other_binary_falls_through() {
+        let path = write_temp("binary.png", &[0u8, 1, 2, 3, 255, 254, 253]);
+        assert!(matches!(
+            show_image(&path, AREA).expect("no hard error"),
+            ImageOutcome::NotAnImage
+        ));
+    }
 }
